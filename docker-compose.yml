@@ -1,0 +1,98 @@
+# docker-compose.yml
+
+version: "3.8"
+
+services:
+  # -------------------------------------------------------------
+  #  Redis: Message Broker for Celery and WebSocket push updates
+  # -------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: meeting_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  #  API Server: Handles HTTP and WebSocket connections
+  #  - Fast, responsive, non-blocking.
+  #  - Does NOT use the GPU.
+  # -------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_api_server
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app  # For live code reloading during development
+      - shared_audio_files:/app/shared_audio # Shared volume for audio files
+    env_file: .env
+    depends_on:
+      - redis
+    restart: unless-stopped
+    # NO GPU allocation for the API server.
+
+  # -------------------------------------------------------------
+  #  GPU Worker: Executes heavy AI tasks (Transcription & Diarization)
+  #  - Consumes tasks from a dedicated 'gpu_tasks' queue.
+  #  - Has exclusive access to the GPU.
+  # -------------------------------------------------------------
+  worker-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_gpu_worker
+    # Override the default command to start a Celery worker instead of Uvicorn
+    command: >
+      celery -A app.worker.celery_app worker -l info 
+      --pool=solo 
+      -Q gpu_tasks 
+      --concurrency=1
+    volumes:
+      - ./app:/app
+      - shared_audio_files:/app/shared_audio # Mounts the same volume
+    env_file: .env
+    depends_on:
+      - api
+      - redis
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # -------------------------------------------------------------
+  #  CPU Worker (Optional but Recommended)
+  #  - Executes lightweight tasks (e.g., final DB writes, notifications).
+  #  - Does NOT use the GPU.
+  # -------------------------------------------------------------
+  worker-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_cpu_worker
+    command: >
+      celery -A app.worker.celery_app worker -l info 
+      -Q cpu_tasks 
+      --concurrency=4
+    volumes:
+      - ./app:/app
+    env_file: .env
+    depends_on:
+      - api
+      - redis
+    restart: unless-stopped
+    # NO GPU allocation for the CPU worker.
+
+# -------------------------------------------------------------
+#  Named volume for sharing files between the API and Worker
+# -------------------------------------------------------------
+volumes:
+  shared_audio_files:
+    driver: local
