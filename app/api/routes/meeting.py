@@ -24,6 +24,7 @@ from app.schemas.meeting import (
 )
 from app.services.websocket_manager import websocket_manager
 from app.worker.tasks import run_transcription_task, run_diarization_task
+from app.schemas.meeting import PlainTranscriptUpdateRequest
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -347,24 +348,86 @@ async def change_meeting_language(
     return MeetingJobResponseWrapper(message=f"Language changed to '{new_language}'.", data=updated_status)
 
 
-@router.put("/{request_id}/transcript", status_code=status.HTTP_200_OK, summary="Update plain transcript")
+@router.put(
+    "/{request_id}/transcript/plain",
+    response_model=MeetingJobResponseWrapper,
+    summary="Update the plain (non-diarized) transcript"
+)
 async def update_plain_transcript(
-    # A new dependency will be needed to get the specific transcription object
-    # For now, let's put logic here.
-    # TODO: Refactor into a dependency
-    request_id: str = Path(...),
-    # ...
+    update_request: PlainTranscriptUpdateRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
 ):
     """
-    Allows a user to submit their edits to the plain (non-diarized) transcript.
-    (Implementation placeholder - requires a dedicated dependency and schema).
+    Overwrites the current plain transcript with user-provided edits.
+
+    **IMPORTANT**: This is a destructive action. Submitting a new transcript
+    will PERMANENTLY DELETE any existing speaker-separated (diarized) transcript
+    and all previously generated summaries for this meeting, as they will be
+    based on outdated information. The job status will revert to
+    'transcription_complete', requiring diarization to be run again.
     """
-    # 1. Get the job and verify ownership.
-    # 2. Find the correct Transcription record based on job.language.
-    # 3. Update the `transcript_data` with the user's submitted segments.
-    # 4. Set `is_edited = True`.
-    # 5. Commit changes and broadcast the update.
-    raise HTTPException(status_code=501, detail="Endpoint not yet implemented.")
+    logger.info(f"Received request to update plain transcript for job '{job.request_id}'.")
+
+    # Step 1: Find the specific Transcription record to update
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+
+    if not transcription_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active transcript found for language '{job.language}'. Cannot update."
+        )
+
+    # Step 2: Invalidate and delete all downstream data that depends on this transcript
+    logger.warning(f"Invalidating downstream data for job '{job.request_id}' due to transcript edit.")
+
+    # Delete the diarized transcript if it exists
+    if job.diarized_transcript:
+        logger.info(f"Deleting stale diarized transcript for job '{job.request_id}'.")
+        db.delete(job.diarized_transcript)
+        # Revert status since the diarization is no longer valid
+        job.status = "transcription_complete"
+
+    # Delete all associated summaries
+    if job.summaries:
+        logger.info(f"Deleting {len(job.summaries)} stale summaries for job '{job.request_id}'.")
+        for summary in job.summaries:
+            db.delete(summary)
+    
+    # Optional: Delete chat history as it may refer to old text. This is the safest approach.
+    if job.chat_history:
+        logger.info(f"Deleting {len(job.chat_history)} stale chat history entries for job '{job.request_id}'.")
+        for chat_entry in job.chat_history:
+            db.delete(chat_entry)
+
+    # Step 3: Update the Transcription record with the new data
+    new_transcript_data = [seg.model_dump() for seg in update_request.segments]
+    transcription_entry.transcript_data = new_transcript_data
+    transcription_entry.is_edited = True # Mark this transcript as user-modified
+
+    db.add(transcription_entry)
+    db.add(job) # Add the job to save status changes
+
+    # Step 4: Commit all changes to the database
+    db.commit()
+
+    # Step 5: Refresh the job object to reflect the deletions in the response
+    db.refresh(job)
+
+    # Step 6: Broadcast the new state to all connected clients and return the response
+    logger.info(f"Successfully updated transcript for job '{job.request_id}'.")
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(
+        message="Transcript updated successfully. All dependent data like diarization and summaries have been cleared.",
+        data=updated_status
+    )
 
 
 @router.delete("/{request_id}/cancel", status_code=status.HTTP_200_OK, summary="Cancel an ongoing meeting")
