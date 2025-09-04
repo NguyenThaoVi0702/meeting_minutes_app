@@ -20,7 +20,7 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app
-      - shared_audio_files:/app/shared_audio
+      - ./shared_audio:/app/shared_audio
     env_file: .env
     # 'depends_on: - redis' has been REMOVED.
     restart: unless-stopped
@@ -40,7 +40,8 @@ services:
       --concurrency=1
     volumes:
       - ./app:/app
-      - shared_audio_files:/app/shared_audio
+      - ./shared_audio:/app/shared_audio
+      - /usr/local/cuda/lib64:/usr/local/cuda/lib64
     env_file: .env
     # 'depends_on: - api' and '- redis' have been REMOVED for simplicity.
     # The worker will automatically try to connect to Redis when it starts.
@@ -67,6 +68,7 @@ services:
       --concurrency=4
     volumes:
       - ./app:/app
+      - ./shared_audio:/app/shared_audio
     env_file: .env
     # 'depends_on: - api' and '- redis' have been REMOVED.
     restart: unless-stopped
