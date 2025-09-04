@@ -137,7 +137,7 @@ def get_job_with_completed_diarization(
     Verifies ownership and ensures the job has a final, speaker-separated transcript.
     This gates features like 'summarize by speaker'.
     """
-    if job.status != "completed" or not job.diarized_transcript:
+    if not job.diarized_transcript:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This feature requires a completed speaker-separated transcript. Please run diarization first."
