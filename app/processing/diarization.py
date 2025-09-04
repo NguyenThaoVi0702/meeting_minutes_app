@@ -46,11 +46,15 @@ class SpeakerDiarization:
 
         # Load the VAD model for identifying speech segments
         self.vad_model = None
-        try:
-            self.vad_model = load_silero_vad()
-            logger.info("Silero VAD model loaded successfully for diarization.")
-        except Exception as e:
-            logger.error(f"Error loading Silero VAD model: {e}. VAD will be disabled.", exc_info=True)
+        if self.enable_vad:
+            try:
+                self.vad_model = load_silero_vad()
+                logger.info("Silero VAD model loaded successfully for diarization.")
+            except Exception as e:
+                logger.error(f"Error loading Silero VAD model: {e}. VAD will be disabled.", exc_info=True)
+                self.enable_vad = False # Force disable if model fails to load
+        else:
+            logger.warning("Voice Activity Detection (VAD) is DISABLED by configuration.")
 
         logger.info("SpeakerDiarization service initialized.")
 
