@@ -188,7 +188,13 @@ def run_diarization_task(self, job_id: int, audio_path: str):
             job = session.get(MeetingJob, job_id)
             # You would create a new `DiarizedTranscript` model here and save `diarized_transcript` data
             # For now, let's assume we save it back to the job for simplicity
-            job.final_transcript = diarized_transcript # This should go into the DiarizedTranscript table
+            new_diarized_entry = DiarizedTranscript(
+                meeting_job_id=job.id,
+                transcript_data=diarized_transcript,
+                is_edited=False # It's fresh from the AI, so not edited yet
+            )
+            session.add(new_diarized_entry)
+            
             job.status = "completed"
             job.error_message = None
             session.add(job)
