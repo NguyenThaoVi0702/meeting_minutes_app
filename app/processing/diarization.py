@@ -37,6 +37,7 @@ class SpeakerDiarization:
         self.hac_distance_threshold = settings.DIAR_HAC_THRESH
         self.merge_max_pause_s = settings.DIAR_MERGE_PAUSE
         self.vad_threshold = settings.DIAR_VAD_THRESH
+        self.enable_vad = settings.ENABLE_VAD
 
         # Ensure overlap is not too large
         if self.segment_overlap_s >= self.segment_duration_s:
