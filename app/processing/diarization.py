@@ -91,7 +91,12 @@ class SpeakerDiarization:
                 return []
 
             # Step 1: Apply Voice Activity Detection (VAD) to find speech regions
-            speech_timestamps = self._apply_vad(processed_audio_path)
+            speech_timestamps = []
+            if self.enable_vad:
+                logger.info("Applying Voice Activity Detection (VAD) to find speech regions.")
+                speech_timestamps = self._apply_vad(processed_audio_path)
+            else:
+                logger.info("VAD is disabled. The entire audio file will be processed as a single segment.")
 
             # Step 2: Segment the speech regions and generate speaker embeddings for each segment
             all_segments_info = self._segment_and_embed(processed_audio_path, speech_timestamps, embedding_service)
