@@ -92,6 +92,7 @@ class Settings(BaseSettings):
     DIAR_HAC_THRESH: float = 0.45   # Distance threshold for clustering unknown speakers
     DIAR_MERGE_PAUSE: float = 0.7   # Max pause in seconds to merge segments from same speaker
     DIAR_VAD_THRESH: float = 0.3    # Voice Activity Detection threshold
+    ENABLE_VAD=False 
 
 # Instantiate the settings object. This will be imported by other modules.
 settings = Settings()
