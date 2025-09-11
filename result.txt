@@ -1,0 +1,255 @@
+Of course. This is the next logical step in your automation pipeline. Based on the FastAPI code you provided, I can construct the client-side Python script to interact with it.
+
+The process will be a multi-step workflow:
+
+Transcribe: Send each audio chunk one-by-one to the /transcriptions endpoint.
+
+Aggregate: After all chunks are sent, call /get-all-segment to retrieve the complete, concatenated transcript.
+
+Summarize: Send the full transcript to the /summary endpoint.
+
+Download: Call /download-word to get the final .docx file.
+
+Here is the complete Python script to perform these actions. You should save this as a new file, for example process_meeting.py, or overwrite your app.py if you prefer. This script will run inside the same Docker container.
+
+Step 1: The Python Script (process_meeting.py)
+
+This script is designed to be placed in the same folder as your Meeting1... and Meeting2... folders (which is the /app directory inside the container).
+
+code
+Python
+download
+content_copy
+expand_less
+
+import os
+import re
+import requests
+import uuid
+from datetime import datetime
+import time
+
+# --- Configuration ---
+# This is the internal Docker network IP and port for your API service.
+# If this script runs in a different container than the API, use the service name.
+# If running on the same machine (but different container), this IP should be correct.
+API_BASE_URL = "http://10.43.128.107:8086"
+
+# Define the user_id and the folder to process.
+# You can change this to process Meeting2 later.
+USER_ID = "batch_processor_user"
+MEETING_FOLDER_NAME = "Meeting1_TO_11092025_0930_1105" # Change this for other meetings
+OUTPUT_FOLDER_PATH = "/app" # This is the script's location inside the container
+
+# --- Helper function to extract chunk ID ---
+def get_chunk_id(filename):
+    """Extracts the numerical chunk ID from the filename."""
+    match = re.search(r'_(\d+)\.wav$', filename)
+    if match:
+        return int(match.group(1))
+    return -1 # Return -1 if no ID is found, to sort it last
+
+def process_meeting_folder():
+    """
+    Finds chunks in a folder, sends them to the API for processing,
+    and downloads the final summary document.
+    """
+    # 1. Generate a unique session ID for this entire meeting run.
+    # This ID links all the chunks together on the server.
+    session_id = f"meeting_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    print(f"--- Starting processing for new session: {session_id} ---")
+
+    # 2. Find and sort all audio chunks in the specified folder by their chunk ID.
+    meeting_folder_path = os.path.join(OUTPUT_FOLDER_PATH, MEETING_FOLDER_NAME)
+    if not os.path.isdir(meeting_folder_path):
+        print(f"Error: Folder not found at '{meeting_folder_path}'")
+        return
+
+    all_files = [f for f in os.listdir(meeting_folder_path) if f.endswith(".wav")]
+    all_files.sort(key=get_chunk_id)
+
+    if not all_files:
+        print(f"No .wav files found in '{meeting_folder_path}'")
+        return
+
+    print(f"Found {len(all_files)} chunks. Sorted and ready for transcription.")
+
+    # 3. Step 1: Transcribe each chunk sequentially.
+    print("\n--- Step 1: Transcribing all audio chunks ---")
+    transcription_url = f"{API_BASE_URL}/transcriptions"
+    for i, filename in enumerate(all_files):
+        filepath = os.path.join(meeting_folder_path, filename)
+        print(f"  ({i+1}/{len(all_files)}) Sending {filename} for transcription...")
+        
+        try:
+            with open(filepath, 'rb') as audio_file:
+                files = {'file': (filename, audio_file, 'audio/wav')}
+                data = {'session_id': session_id, 'user_id': USER_ID}
+                
+                response = requests.post(transcription_url, files=files, data=data, timeout=120) # 2 min timeout
+                
+                if response.status_code == 200:
+                    print(f"    -> Success. Transcript chunk saved on server.")
+                else:
+                    print(f"    -> Error! Status: {response.status_code}, Response: {response.text}")
+                    # Decide if you want to stop or continue on error
+                    # continue
+        except requests.exceptions.RequestException as e:
+            print(f"    -> Network Error processing {filename}: {e}")
+            # continue
+        time.sleep(1) # Small delay to avoid overwhelming the server
+
+    # 4. Step 2: Get the full aggregated transcript.
+    print("\n--- Step 2: Retrieving full transcript ---")
+    get_all_segment_url = f"{API_BASE_URL}/get-all-segment"
+    full_text = ""
+    try:
+        data = {'session_id': session_id, 'user_id': USER_ID}
+        response = requests.post(get_all_segment_url, data=data, timeout=60)
+        
+        if response.status_code == 200:
+            full_text = response.json().get("full_text", "")
+            if full_text:
+                print("  -> Successfully retrieved full transcript.")
+                # print(f"  Transcript preview: '{full_text[:200]}...'")
+            else:
+                print("  -> Warning: Full transcript is empty.")
+        else:
+            print(f"  -> Error getting full transcript! Status: {response.status_code}, Response: {response.text}")
+            return # Cannot continue without the full text
+    except requests.exceptions.RequestException as e:
+        print(f"  -> Network Error retrieving full transcript: {e}")
+        return
+
+    if not full_text:
+        print("Aborting process because full transcript could not be retrieved.")
+        return
+
+    # 5. Step 3: Send the full transcript for summarization.
+    print("\n--- Step 3: Sending transcript for summarization ---")
+    summary_url = f"{API_BASE_URL}/summary"
+    try:
+        # The API expects a file, so we simulate one in memory.
+        files = {'file': ('full_transcript.txt', full_text.encode('utf-8'), 'text/plain')}
+        data = {'session_id': session_id, 'user_id': USER_ID}
+        
+        response = requests.post(summary_url, files=files, data=data, timeout=180) # 3 min timeout
+        
+        if response.status_code == 200:
+            print("  -> Successfully submitted for summarization.")
+        else:
+            print(f"  -> Error submitting for summary! Status: {response.status_code}, Response: {response.text}")
+            return # Cannot continue without a summary
+    except requests.exceptions.RequestException as e:
+        print(f"  -> Network Error during summarization: {e}")
+        return
+
+    # 6. Step 4: Download the final Word document.
+    print("\n--- Step 4: Downloading the final .docx report ---")
+    download_url = f"{API_BASE_URL}/download-word"
+    output_docx_filename = f"BienBanHop_{MEETING_FOLDER_NAME}.docx"
+    output_docx_path = os.path.join(OUTPUT_FOLDER_PATH, output_docx_filename)
+    try:
+        data = {'session_id': session_id, 'user_id': USER_ID}
+        response = requests.post(download_url, data=data, timeout=60, stream=True)
+        
+        if response.status_code == 200:
+            with open(output_docx_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print(f"  -> Success! Document saved to: {output_docx_path}")
+        else:
+            print(f"  -> Error downloading document! Status: {response.status_code}, Response: {response.text}")
+    except requests.exceptions.RequestException as e:
+        print(f"  -> Network Error downloading document: {e}")
+
+    print("\n--- Processing complete. ---")
+
+
+if __name__ == "__main__":
+    process_meeting_folder()
+Step 2: Update Your Dockerfile
+
+You need to add the requests library to your Docker image.
+
+code
+Dockerfile
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim-buster
+
+# Install ffmpeg
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy the Python script into the container at /app
+# Make sure your new script is named process_meeting.py or change it here
+COPY process_meeting.py .
+
+# Install Python libraries (pydub is no longer needed if this is a separate script)
+# We need 'requests' for making API calls.
+RUN pip install --no-cache-dir requests # --extra-index-url https://your-nexus-repo/...
+
+# Command to run the application
+CMD ["python", "process_meeting.py"]
+
+Note: I removed pydub from the install list as this new script doesn't directly analyze audio, but it doesn't hurt to leave it if you combine the scripts. requests is the crucial addition.
+
+Step 3: Build and Run
+
+Re-build the Image: Navigate to your project folder and re-build the image to include the new script and the requests library.
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker build -t audio-processor-image .
+
+Run the Container: The docker run command is almost the same. We no longer need to mount the separate audio data folder, because the previous script has already copied the necessary files into our main project folder. We just need to mount the project folder itself.
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# This command assumes the "Meeting1_..." folder is inside "/path/to/my_audio_processor"
+docker run --rm \
+  -v /path/to/my_audio_processor:/app \
+  audio-processor-image
+
+Replace /path/to/my_audio_processor with the absolute path to your project folder on your host machine. This folder should now contain process_meeting.py, Dockerfile, and the Meeting1_... folder.
+
+How to Process the Second Meeting
+
+After the first run is complete, simply:
+
+Open process_meeting.py.
+
+Change the MEETING_FOLDER_NAME variable:
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# From:
+MEETING_FOLDER_NAME = "Meeting1_TO_11092025_0930_1105"
+# To:
+MEETING_FOLDER_NAME = "Meeting2_TO_11092025_1105_1508"
+
+Save the file.
+
+Run the exact same docker run command again. It will now process the chunks from the Meeting2 folder and create a new document named BienBanHop_Meeting2_TO_...docx.
