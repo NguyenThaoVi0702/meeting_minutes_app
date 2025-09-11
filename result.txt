@@ -1,3 +1,59 @@
+You have made an excellent and critical observation. You are absolutely right, and this is the key to making your script much faster and more reliable.
+
+Based on the server code, the /transcriptions endpoint does not just accept the file; it processes it and returns the transcribed text for that single chunk in its response.
+
+Let's look at the server code again:
+
+code
+Python
+download
+content_copy
+expand_less
+
+# This is from your FastAPI server's /transcriptions endpoint
+@app.post("/transcriptions")
+async def transcribe_audio(...):
+    # ... lots of processing ...
+    text = json_data.get('text', '') # It gets the text from the transcription service
+    # ... updates the database ...
+    
+    # THIS IS THE CRUCIAL PART:
+    return {
+            "status_code": status_code,
+            "text": text  # <--- IT RETURNS THE TEXT INSTANTLY!
+            }
+
+The old script was inefficiently throwing away this valuable, instantly-available text and then trying to re-assemble it later by polling the /get-all-segment endpoint.
+
+Your experience of waiting for 50 turns with nothing returned proves that the /get-all-segment endpoint is either slow, unreliable, or has a subtle bug (perhaps related to how session_id or user_id is queried).
+
+The Solution: We Don't Need /get-all-segment at All
+
+We can completely remove that step. The new, much better workflow is:
+
+Create an empty list in your client script to hold the transcript pieces.
+
+Loop through each audio chunk and send it to /transcriptions.
+
+When you get a successful 200 response, take the text from the JSON response and add it to your list.
+
+After the loop finishes, join all the pieces in your list into one big string.
+
+Proceed directly to the summarization step with the text you assembled yourself.
+
+This is faster, simpler, and far more reliable because it doesn't depend on a second, failing API call.
+
+The Completely Rewritten process_meeting.py
+
+Here is the new script that implements this superior logic. Replace the entire content of your process_meeting.py with this.
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
 import os
 import re
 import requests
@@ -11,12 +67,6 @@ USER_ID = "batch_processor_user"
 MEETING_FOLDER_NAME = "Meeting1_TO_11092025_0930_1105" # Change for other meetings
 OUTPUT_FOLDER_PATH = "/app"
 
-# --- NEW: Configuration for retrying ---
-# How many times to try fetching the transcript before giving up
-TRANSCRIPT_RETRY_ATTEMPTS = 10 
-# How many seconds to wait between each attempt
-TRANSCRIPT_RETRY_DELAY_SECONDS = 15 
-
 def get_chunk_id(filename):
     """Extracts the numerical chunk ID from the filename."""
     match = re.search(r'_(\d+)\.wav$', filename)
@@ -26,8 +76,8 @@ def get_chunk_id(filename):
 
 def process_meeting_folder():
     """
-    Finds chunks, sends them for processing, and downloads the final summary.
-    Includes retry logic for waiting on server-side processing.
+    Sends chunks for transcription, collects the results directly,
+    summarizes, and downloads the final document.
     """
     session_id = f"meeting_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
     print(f"--- Starting processing for new session: {session_id} ---")
@@ -44,14 +94,18 @@ def process_meeting_folder():
         print(f"No .wav files found in '{meeting_folder_path}'")
         return
 
-    print(f"Found {len(all_files)} chunks. Sorted and ready for transcription.")
+    print(f"Found {len(all_files)} chunks. Sorted and ready for processing.")
 
-    print("\n--- Step 1: Transcribing all audio chunks ---")
+    # --- Step 1 & 2 Combined: Transcribe chunks and collect text immediately ---
+    print("\n--- Step 1: Transcribing chunks and collecting text ---")
+    
+    # THIS IS THE NEW LIST TO HOLD OUR TRANSCRIPT PIECES
+    full_transcript_parts = []
+    
     transcription_url = f"{API_BASE_URL}/transcriptions"
-    successful_transcriptions = 0
     for i, filename in enumerate(all_files):
         filepath = os.path.join(meeting_folder_path, filename)
-        print(f"  ({i+1}/{len(all_files)}) Sending {filename} for transcription...")
+        print(f"  ({i+1}/{len(all_files)}) Processing {filename}...")
         
         try:
             with open(filepath, 'rb') as audio_file:
@@ -60,52 +114,32 @@ def process_meeting_folder():
                 response = requests.post(transcription_url, files=files, data=data, timeout=120)
                 
                 if response.status_code == 200:
-                    print(f"    -> Success. Server has accepted the chunk.")
-                    successful_transcriptions += 1
+                    response_data = response.json()
+                    chunk_text = response_data.get("text", "")
+                    if chunk_text:
+                        print(f"    -> Success. Received transcript chunk.")
+                        full_transcript_parts.append(chunk_text.strip())
+                    else:
+                        print(f"    -> Warning: Server returned success but text was empty.")
                 else:
                     print(f"    -> Error! Status: {response.status_code}, Response: {response.text}")
+
         except requests.exceptions.RequestException as e:
             print(f"    -> Network Error processing {filename}: {e}")
-        time.sleep(0.5)
+        
+    # --- Assemble the full transcript from the collected parts ---
+    full_text = " ".join(full_transcript_parts)
 
-    if successful_transcriptions == 0:
-        print("\nNo chunks were successfully sent for transcription. Aborting.")
+    if not full_text:
+        print("\nNo text was transcribed from any of the chunks. Aborting process.")
         return
+        
+    print(f"\nSuccessfully assembled full transcript.")
+    # Optional: print a preview
+    # print(f"  Transcript Preview: '{full_text[:300]}...'")
 
-    print(f"\n--- Step 2: Retrieving full transcript (with retries) ---")
-    get_all_segment_url = f"{API_BASE_URL}/get-all-segment"
-    full_text = ""
-    
-    # THIS IS THE NEW RETRY LOGIC
-    for attempt in range(TRANSCRIPT_RETRY_ATTEMPTS):
-        print(f"  Attempt {attempt + 1}/{TRANSCRIPT_RETRY_ATTEMPTS}: Querying for full transcript...")
-        try:
-            data = {'session_id': session_id, 'user_id': USER_ID}
-            response = requests.post(get_all_segment_url, data=data, timeout=60)
-            
-            if response.status_code == 200:
-                response_data = response.json()
-                full_text = response_data.get("full_text", "")
-                if full_text and full_text.strip(): # Check if text is not empty or just whitespace
-                    print("  -> Success! Full transcript has been retrieved.")
-                    break # Exit the retry loop
-                else:
-                    print(f"  -> Transcript not ready yet. Waiting {TRANSCRIPT_RETRY_DELAY_SECONDS} seconds...")
-                    time.sleep(TRANSCRIPT_RETRY_DELAY_SECONDS)
-            else:
-                print(f"  -> API returned an error! Status: {response.status_code}. Retrying...")
-                time.sleep(TRANSCRIPT_RETRY_DELAY_SECONDS)
-        except requests.exceptions.RequestException as e:
-            print(f"  -> Network Error during retrieval: {e}. Retrying...")
-            time.sleep(TRANSCRIPT_RETRY_DELAY_SECONDS)
-
-    if not full_text or not full_text.strip():
-        print("\nFailed to retrieve the full transcript after all attempts. Aborting process.")
-        return
-
-    # --- Steps 3 and 4 remain the same, as they depend on the successful completion of Step 2 ---
-
-    print("\n--- Step 3: Sending transcript for summarization ---")
+    # --- Step 3: Send the full transcript for summarization ---
+    print("\n--- Step 2: Sending transcript for summarization ---")
     summary_url = f"{API_BASE_URL}/summary"
     try:
         files = {'file': ('full_transcript.txt', full_text.encode('utf-8'), 'text/plain')}
@@ -121,11 +155,16 @@ def process_meeting_folder():
         print(f"  -> Network Error during summarization: {e}")
         return
 
-    print("\n--- Step 4: Downloading the final .docx report ---")
+    # --- Step 4: Download the final Word document ---
+    print("\n--- Step 3: Downloading the final .docx report ---")
     download_url = f"{API_BASE_URL}/download-word"
     output_docx_filename = f"BienBanHop_{MEETING_FOLDER_NAME}.docx"
     output_docx_path = os.path.join(OUTPUT_FOLDER_PATH, output_docx_filename)
     try:
+        # We need to give the server a moment to finish the summary task before downloading
+        print("  Waiting 10 seconds for summary to be generated on the server...")
+        time.sleep(10)
+
         data = {'session_id': session_id, 'user_id': USER_ID}
         response = requests.post(download_url, data=data, timeout=60, stream=True)
         
@@ -144,3 +183,12 @@ def process_meeting_folder():
 
 if __name__ == "__main__":
     process_meeting_folder()
+Your New Workflow
+
+Replace your process_meeting.py with the code above.
+
+Re-build your Docker image (docker build -t audio-processor-image .).
+
+Run the container as before.
+
+The process will now be much faster and should no longer get stuck waiting for the non-responsive /get-all-segment endpoint.
