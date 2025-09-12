@@ -1,40 +1,60 @@
-That's a fantastic and crucial question. You've hit on the most important detail of using document templating libraries.
+That is a fantastic question. You've pinpointed the most subtle but important detail of using docxtpl with rich text.
 
-The short answer is: No, the RichText object does not automatically adopt the styling of the placeholder it replaces.
+The direct answer is: No, a RichText object does not automatically inherit the styling of the {{r placeholder}} it replaces.
 
-Let me explain why this happens and then provide the best-practice solution to get the exact result you want.
+Let me explain why, and then provide the robust and correct solution.
 
-The "Why": Content vs. Presentation
+The "Why": Understanding How docxtpl Works
 
-When docxtpl processes your template, it handles two types of placeholders differently:
+Simple Placeholder ({{ my_text }}): When you use a simple placeholder, docxtpl finds that text and replaces it. The new text inherits the styling (font, size, color, etc.) of the first character of the placeholder text. It's a simple text replacement within a single XML "run" in the document.
 
-Simple Placeholder ({{placeholder}}): When you render a simple string, docxtpl finds the placeholder text and replaces just the text content within its existing "run". A "run" is a contiguous piece of text with the same styling in Word. This means the new text inherits the styling (font, size, color, bold, etc.) of the placeholder you typed in the template.
+Rich Text Placeholder ({{r my_richtext }}): When you use a rich text placeholder, you are telling docxtpl: "Delete the entire paragraph that contains this placeholder and, in its place, insert this brand new block of content that I have constructed in my RichText object."
 
-RichText Placeholder ({{r placeholder}}): When you use a RichText object, you are not just replacing text. You are telling docxtpl: "Remove this placeholder entirely and in its place, insert this brand new block of programmatically generated content, which may contain multiple paragraphs, runs, and styles."
+Because the RichText object is a completely new element, it does not know what the style of the old placeholder was. By default, it will be inserted with the document's "Normal" style, or whatever explicit styling (like bolding) you defined when creating it in your Python code.
 
-Because the RichText object is creating new paragraphs from scratch, these new paragraphs don't know anything about the style of the placeholder they replaced. By default, they will use the document's default "Normal" style.
+The Solution: Using Named Styles
 
-The Solution: Use Named Styles in Word
+The professional and correct way to solve this is to decouple the content from the presentation by using named styles in your Word template. You define the style once in Word, and then tell your Python code to apply that specific style by name.
 
-The most robust and maintainable way to solve this is to define the styles you need in your Word template and then apply them by name in your Python code. This separates presentation (the look, managed in Word) from content (the text, managed by the application).
+This is a two-step process:
 
-Here's the step-by-step guide:
+Step 1: Create Custom Styles in Your Word Template
 
-Step 1: Create and Name Styles in Your .docx Template
+This is a one-time setup in your .docx template files.
 
-Open bbh_hdqt_template.docx in Microsoft Word.
+Open bbh_hdqt_template.docx (and nghi_quyet_template.docx).
 
-Open the "Styles" pane (You can usually find this on the Home tab).
+Go to the Home tab in Word. Find the Styles pane (you may need to click the small arrow in the corner of the Styles gallery).
 
-Find the style you want for your bullet points (e.g., "List Bullet"). If it's not perfect, you can right-click it and choose "Modify" to change its indentation, font, etc. Remember the exact name of this style.
+Click the "Create a Style" or "New Style" button.
 
-Do the same for any other styles you need. For example, you might create a style called "ConclusionHeading" for the main headers within your conclusion section.
+Create a new style for your main content body.
 
-Save the template file. Your styles are now saved within the document.
+Name: BodyContent (use this exact name, no spaces).
 
-Step 2: Update the add_markdown_to_doc Utility
+Style type: Paragraph.
 
-Now, we'll modify our utility in app/utils.py to apply these named styles when it creates the paragraphs.
+Formatting: Set the font, size (e.g., Calibri, 11pt), spacing, indentation, etc., that you want for your main paragraphs.
+
+Click OK.
+
+Create another new style for your bullet points.
+
+Name: ListContent
+
+Style type: Paragraph.
+
+Formatting: Set the same font/size, but also click Format -> Numbering and choose the bullet point style you want.
+
+Click OK.
+
+Now your template has two custom styles that your code can refer to. You don't even need to apply them to the placeholders; they just need to exist in the document.
+
+Step 2: Modify the Python Code to Apply These Styles
+
+We will enhance the add_markdown_to_doc utility to accept style names as arguments. This makes it incredibly powerful and reusable.
+
+Here is the updated code for app/utils.py.
 
 code
 Python
@@ -46,66 +66,66 @@ expand_less
 import re
 from docxtpl import RichText
 
-def add_markdown_to_doc(markdown_text: str) -> RichText:
+# No changes needed here
+def add_markdown_to_doc(doc, markdown_text: str, default_style='Normal', bullet_style='List Bullet') -> RichText:
     """
-    Converts a Markdown string into a RichText object for docxtpl.
-    Applies named styles from the Word template for formatting.
+    Converts a Markdown string into a RichText object for docxtpl,
+    applying specific named styles from the Word document.
 
     Args:
-        markdown_text (str): The Markdown string from the LLM.
+        doc: The DocxTemplate object (needed for style context).
+        markdown_text: The string containing Markdown.
+        default_style (str): The name of the style for regular paragraphs.
+        bullet_style (str): The name of the style for list items.
 
     Returns:
-        RichText: An object that docxtpl can render into formatted content.
+        RichText: The formatted object ready for rendering.
     """
     rt = RichText()
-    lines = markdown_text.split('\n')
-
+    lines = markdown_text.strip().split('\n')
+    
     for line in lines:
-        stripped_line = line.strip()
-        if not stripped_line:
+        line_strip = line.strip()
+        if not line_strip:
             continue
 
-        # --- THIS IS THE KEY LOGIC ---
-        # We create a new paragraph for each line first.
-        # This gives us a paragraph object to apply styles to.
-        p = rt.add_paragraph()
-
-        # Check for bullet points
-        if stripped_line.startswith(('* ', '- ')):
-            # Apply the named style from your Word template
-            p.style = 'List Bullet'
-            # Remove the markdown characters
-            content = stripped_line[2:]
+        # Check if the line is a list item
+        is_bullet = False
+        if line_strip.startswith(('* ', '- ')):
+            is_bullet = True
+            # Remove the markdown for the bullet
+            content = line_strip[2:]
         else:
-            # For regular lines, it will use the default 'Normal' style
-            content = stripped_line
-        
-        # Now, process the content of the line for bolding
-        # Split by bold tags, keeping the tags themselves
-        parts = re.split(r'(\*\*.*?\*\*)', content)
-        for part in parts:
-            if part.startswith('**') and part.endswith('**'):
-                # Add a run with the bold property set to True
-                p.add_run(part[2:-2], bold=True)
-            elif part:
-                # Add a regular run
-                p.add_run(part)
+            content = line_strip
 
+        # Split by bold tags to handle bolding within the line
+        parts = re.split(r'(\*\*.*?\*\*)', content)
+        
+        # We need to add the content first to create a paragraph, then apply the style
+        # Add a temporary flag to apply style after adding content
+        paragraph_added = False
+        
+        for part in parts:
+            if not part: continue
+            paragraph_added = True
+            if part.startswith('**') and part.endswith('**'):
+                rt.add(part[2:-2], bold=True)
+            else:
+                rt.add(part)
+        
+        # Add the paragraph break and apply the correct style
+        if paragraph_added:
+            rt.add('\n')
+            if is_bullet:
+                rt.paragraphs[-1].style = bullet_style
+            else:
+                rt.paragraphs[-1].style = default_style
+            
     return rt
 
-What changed:
+Now, update the service that calls this function to pass in the new style names.
 
-Instead of building up the RichText object with strings and \n, we now explicitly create a new paragraph for each line using rt.add_paragraph().
-
-This gives us a paragraph object (p) that has a .style property.
-
-We check if the line is a bullet point, and if so, we set p.style = 'List Bullet'.
-
-We then add the text content (with bolding) to that specific paragraph using p.add_run().
-
-Step 3: Update document_generator.py (Crucial Change)
-
-The docxtpl library needs to be initialized in a way that allows it to properly handle the paragraph styles we are setting. You need to pass autoescape=True to the DocxTemplate constructor.
+Here is the updated code for app/services/document_generator.py:
 
 code
 Python
@@ -115,45 +135,47 @@ expand_less
 IGNORE_WHEN_COPYING_START
 IGNORE_WHEN_COPYING_END
 # in app/services/document_generator.py
+# ... (imports) ...
+from app.utils import add_markdown_to_doc
 
-import json
-# ... other imports
-from docxtpl import DocxTemplate
-
+# ... (inside generate_templated_document function) ...
 def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
-    # ... (code to get template_path) ...
+    # ... (code to load template and JSON context) ...
 
     try:
-        # --- KEY CHANGE IS HERE ---
-        # Initialize with autoescape=True. This is necessary for the style
-        # properties of the RichText object to be correctly interpreted.
         doc = DocxTemplate(template_path)
-        # --- END OF CHANGE ---
-
         context = json.loads(llm_json_output)
 
         # Process fields that contain Markdown into RichText objects
-        # The key in the context must now match the {{r placeholder}} in the template
-        rich_text_keys = ["main_progress", "member_discussions", "conclusion", "general_directives", "specific_directives"]
-        for key in rich_text_keys:
-            if key in context:
-                markdown_content = str(context[key]).replace("[Markdown]", "").strip()
-                # Our updated utility function returns a fully styled RichText object
-                context[key] = add_markdown_to_doc(markdown_content)
+        for key, value in context.items():
+            if isinstance(value, str) and value.startswith("[Markdown]"):
+                markdown_content = value.replace("[Markdown]", "").strip()
+                
+                # --- CHANGE IS HERE ---
+                # Pass the custom style names to our utility function.
+                # Now the generated text will have the exact style you defined in Word.
+                context[key] = add_markdown_to_doc(
+                    doc,
+                    markdown_content,
+                    default_style='BodyContent', # Your custom style for paragraphs
+                    bullet_style='ListContent'   # Your custom style for bullets
+                )
+                # --- END OF CHANGE ---
 
-        doc.render(context, autoescape=True) # Also pass autoescape here
+        doc.render(context)
         
         buffer = BytesIO()
         doc.save(buffer)
         buffer.seek(0)
         return buffer
-    
-    # ... (rest of the function with error handling) ...
 
-Now, your system is perfectly set up:
+    # ... (exception handling) ...
+Summary of the Benefit
 
-Styling is managed in Word, where it's easiest for non-developers.
+By following this approach:
 
-Your code is clean, simply applying styles by name.
+Your styling is controlled entirely within the Word template. If you want to change the font for all generated content, you just edit the BodyContent style in the .docx file. You don't need to change any Python code.
 
-The final document will have the exact formatting you designed in the template, with the LLM's Markdown content correctly rendered into styled paragraphs and lists.
+Your code is clean and maintainable. The logic is simple: "For this placeholder, generate the content and apply the 'BodyContent' style."
+
+You get perfect consistency. All generated paragraphs and lists will look exactly as you designed them in Word, creating a highly professional final document.
