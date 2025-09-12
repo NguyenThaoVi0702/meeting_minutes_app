@@ -1,241 +1,374 @@
-Of course. Here is the complete, newly enhanced code for the summary and chat endpoints. These are the "analysis" features that build on top of your completed transcripts.
+Of course. This is the final and most crucial step: verifying that everything works together as expected. A dedicated testing client is the perfect way to do this.
 
-The code is designed to be state-aware, persistent, and efficient. It correctly checks if the required data (like a diarized transcript) exists before running, and it saves the results to the database to avoid costly re-generation.
+Here is a complete solution to test your API from a separate Docker container, including the Python script, the Dockerfile, and instructions on how to set it up and run it.
 
-Full Code for Summary and Chat Endpoints
+1. File Structure for Your Testing Environment
 
-This code should be placed in the second half of your app/api/routes/meeting.py file, replacing the previous placeholders.
+Create a new folder completely separate from your main project directory. For example:
+
+code
+Code
+download
+content_copy
+expand_less
+
+/my_projects/
+├── my_api_project/       <-- Your main application code is here
+│   ├── docker-compose.yml
+│   ├── app/
+│   └── ...
+└── api_tester/           <-- Create this new folder
+    ├── speaker_samples/  <-- Place your speaker's .wav files here
+    │   ├── sample1.wav
+    │   └── sample2.wav
+    ├── meeting_chunks/   <-- Place your meeting chunk files here
+    │   ├── meeting_xyz_0.wav
+    │   ├── meeting_xyz_1.wav
+    │   └── meeting_xyz_2.wav
+    ├── Dockerfile.tester
+    ├── requirements.txt
+    └── test_api.py
+2. The Testing Files
+
+Place the following files inside your new api_tester directory.
+
+requirements.txt
+
+This file lists the Python libraries needed for the test script.
+
+code
+Txt
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+requests
+websocket-client
+Dockerfile.tester
+
+This Dockerfile creates the isolated environment for your test script.
+
+code
+Dockerfile
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# Dockerfile.tester
+
+FROM python:3.9-slim
+
+WORKDIR /tester
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the test script and the data folders into the container
+COPY test_api.py .
+COPY ./speaker_samples ./speaker_samples
+COPY ./meeting_chunks ./meeting_chunks
+
+# The command to run the test script when the container starts
+CMD ["python", "test_api.py"]
+test_api.py
+
+This is the main testing script. Read the comments in the CONFIG section at the top carefully and modify the values to match your setup.
 
 code
 Python
 download
 content_copy
 expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+import os
+import time
+import json
+import uuid
+import threading
+from typing import List, Dict
+from pathlib import Path
 
-# in app/api/routes/meeting.py
-
-# --- Add these to your imports at the top of the file ---
-from app.schemas.meeting import (
-    SummaryRequest, SummaryResponse, ChatRequest, ChatResponse
-)
-from app.api.deps import get_job_with_any_transcript, get_job_with_completed_diarization
-from app.services.ai_service import ai_service
-from app.db.models import Summary, ChatHistory
+import requests
+import websocket
 
 # ===================================================================
-#   Analysis, Chat, and Download Endpoints
+#   CONFIGURATION - MODIFY THESE VALUES
 # ===================================================================
 
-@router.post(
-    "/{request_id}/summary",
-    response_model=SummaryResponse,
-    summary="Generate a meeting summary"
-)
-async def generate_summary(
-    summary_request: SummaryRequest,
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path) # Base ownership check
-):
-    """
-    Generates a summary for the meeting based on the requested type.
-    - 'topic', 'action_items', 'decision_log' require a completed transcript.
-    - 'speaker' requires a completed, speaker-separated transcript.
+# The base URL of your running API.
+# If your tester container is on the same Docker network, you can use the service name.
+# If you run the script locally or from a different network, use 'http://localhost:8000'
+API_BASE_URL = os.getenv("API_URL", "http://host.docker.internal:8000") # 'host.docker.internal' works on Docker Desktop
 
-    If a summary of the same type already exists, it will be overwritten.
-    """
-    summary_type = summary_request.summary_type
-    logger.info(f"Received request to generate '{summary_type}' summary for job '{job.request_id}'.")
+# Details for the new speaker to enroll
+SPEAKER_USER_AD = "testuser001"
+SPEAKER_DISPLAY_NAME = "Test User"
+SPEAKER_SAMPLES_DIR = Path("./speaker_samples")
 
-    # --- State Validation ---
-    if summary_type == "speaker":
-        # Stricter check for speaker-based summaries
-        if not job.diarized_transcript:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A 'speaker' summary requires a completed speaker-separated transcript. Please run diarization first."
-            )
-        # Use the richer diarized transcript as the source
-        transcript_source = job.diarized_transcript.transcript_data
-        # Format for LLM: "Speaker Name: text..."
-        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
-    else:
-        # Standard check for all other summary types
-        transcription_entry = db.exec(
-            select(Transcription).where(
-                Transcription.meeting_job_id == job.id,
-                Transcription.language == job.language
-            )
-        ).first()
-        if not transcription_entry or not transcription_entry.transcript_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A summary requires a completed transcript. Please ensure transcription is complete."
-            )
-        # Use the plain transcript as the source
-        transcript_source = transcription_entry.transcript_data
-        source_text = "\n".join([seg['text'] for seg in transcript_source])
+# Details for the meeting to upload
+# The script will find all files in this folder and sort them by the number at the end.
+MEETING_CHUNKS_DIR = Path("./meeting_chunks")
+MEETING_FILENAME = "test_meeting.wav"
+MEETING_BBH_NAME = "Quarterly Review"
+MEETING_TYPE = "Board Meeting"
+MEETING_HOST = "CEO"
+MEETING_LANGUAGE = "vi" # Change to 'en' if needed
 
-    # --- LLM Call ---
+# This is the user who "owns" the meeting
+USERNAME = "api_tester"
+
+# ===================================================================
+#   API Call Helper
+# ===================================================================
+
+def api_call(method, endpoint, params=None, data=None, files=None, expect_json=True):
+    """A helper function to make API calls and handle responses."""
+    url = f"{API_BASE_URL}{endpoint}"
+    print(f"-> {method.upper()} {url}")
     try:
-        meeting_info = {
-            "bbh_name": job.bbh_name,
-            "meeting_type": job.meeting_type,
-            "meeting_host": job.meeting_host,
+        response = requests.request(method, url, params=params, data=data, files=files, timeout=60)
+        response.raise_for_status() # Raise an exception for bad status codes (4xx or 5xx)
+        if expect_json:
+            return response.json()
+        return response.content
+    except requests.exceptions.RequestException as e:
+        print(f"!! API Call Failed: {e}")
+        if hasattr(e.response, 'text'):
+            print(f"!! Response Body: {e.response.text}")
+        raise
+
+# ===================================================================
+#   WebSocket Client
+# ===================================================================
+
+class WebSocketListener(threading.Thread):
+    def __init__(self, request_id):
+        super().__init__()
+        self.ws_url = f"{API_BASE_URL.replace('http', 'ws')}/api/v1/meeting/ws/{request_id}"
+        self.ws = None
+        self.daemon = True # Allows main thread to exit even if this one is running
+        self._stop_event = threading.Event()
+
+    def run(self):
+        print(f"--> WebSocket connecting to {self.ws_url}")
+        self.ws = websocket.WebSocketApp(
+            self.ws_url,
+            on_message=lambda ws, msg: self.on_message(ws, msg),
+            on_error=lambda ws, err: self.on_error(ws, err),
+            on_close=lambda ws, code, msg: print("--> WebSocket closed.")
+        )
+        self.ws.run_forever()
+
+    def on_message(self, ws, message):
+        print("\n\n---\nWebSocket UPDATE RECEIVED:\n---")
+        data = json.loads(message)
+        # Pretty print the JSON response
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        if data.get("status") in ["completed", "failed", "cancelled"]:
+            print("--- (Final status received, closing WebSocket) ---\n")
+            self.stop()
+        print("\n---")
+
+
+    def on_error(self, ws, error):
+        print(f"!! WebSocket Error: {error}")
+
+    def stop(self):
+        if self.ws:
+            self.ws.close()
+
+# ===================================================================
+#   Main Test Execution
+# ===================================================================
+
+def main():
+    """Run the full API test suite."""
+    print("--- Starting API Test Suite ---")
+    
+    # Generate a unique ID for this meeting session
+    request_id = f"test-session-{uuid.uuid4().hex[:8]}"
+    print(f"Generated Meeting Request ID: {request_id}")
+
+    try:
+        # 1. Health Check
+        print("\n--- 1. Testing Health Check ---")
+        health = api_call("GET", "/health")
+        print(f"API Status: {health.get('status')}")
+
+        # 2. Speaker Enrollment
+        print(f"\n--- 2. Testing Speaker Enrollment for '{SPEAKER_USER_AD}' ---")
+        speaker_files = [("files", (f.name, open(f, "rb"), "audio/wav")) for f in SPEAKER_SAMPLES_DIR.glob("*.wav")]
+        if not speaker_files:
+            raise FileNotFoundError(f"No speaker sample .wav files found in {SPEAKER_SAMPLES_DIR}")
+        metadata = json.dumps({"display_name": SPEAKER_DISPLAY_NAME, "user_ad": SPEAKER_USER_AD})
+        enroll_response = api_call("POST", "/api/v1/speaker/", data={"metadata": metadata}, files=speaker_files)
+        print(f"Enrollment Response: {enroll_response}")
+
+        # 3. Speaker Management
+        print(f"\n--- 3. Testing Speaker Management ---")
+        search_res = api_call("GET", "/api/v1/speaker/search", params={"query": SPEAKER_USER_AD})
+        print(f"Search found {len(search_res['data'])} result(s).")
+        profile_res = api_call("GET", f"/api/v1/speaker/{SPEAKER_USER_AD}")
+        print(f"Profile Details for '{profile_res['user_ad']}' retrieved.")
+
+        # 4. Meeting Workflow
+        print(f"\n--- 4. Testing Meeting Workflow for Request ID '{request_id}' ---")
+        
+        # Start WebSocket listener in the background
+        ws_listener = WebSocketListener(request_id)
+        ws_listener.start()
+        time.sleep(2) # Give it a moment to connect
+
+        # Start the meeting
+        start_data = {
+            "requestId": request_id, "language": MEETING_LANGUAGE, "filename": MEETING_FILENAME,
+            "bbhName": MEETING_BBH_NAME, "Type": MEETING_TYPE, "Host": MEETING_HOST, "username": USERNAME
         }
-        summary_content = await ai_service.get_response(
-            task=summary_type,
-            user_message=source_text,
-            context={"meeting_info": meeting_info}
+        api_call("POST", "/api/v1/meeting/start-bbh", data=start_data)
+        
+        # Upload chunks
+        chunk_files = sorted(
+            MEETING_CHUNKS_DIR.glob("*.wav"),
+            key=lambda f: int(f.stem.split('_')[-1])
         )
-    except Exception as e:
-        logger.error(f"AI service failed during summary generation for job '{job.request_id}': {e}", exc_info=True)
-        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+        if not chunk_files:
+             raise FileNotFoundError(f"No meeting chunk .wav files found in {MEETING_CHUNKS_DIR}")
+        
+        for i, chunk_path in enumerate(chunk_files):
+            is_last = (i == len(chunk_files) - 1)
+            chunk_data = {"requestId": request_id, "isLastChunk": str(is_last)}
+            chunk_files_payload = {"FileData": (chunk_path.name, open(chunk_path, "rb"), "audio/wav")}
+            api_call("POST", "/api/v1/meeting/upload-file-chunk", data=chunk_data, files=chunk_files_payload)
+            time.sleep(0.5) # Simulate a short delay between chunks
 
-    # --- Persist the Result (Update or Create) ---
-    existing_summary = db.exec(
-        select(Summary).where(
-            Summary.meeting_job_id == job.id,
-            Summary.summary_type == summary_type
-        )
-    ).first()
+        # 5. Wait for Processing & Trigger Diarization
+        print("\n--- 5. Waiting for Transcription to Complete (watch WebSocket updates) ---")
+        time.sleep(45) # Adjust this sleep time based on your audio length and model speed
 
-    if existing_summary:
-        logger.info(f"Updating existing '{summary_type}' summary for job '{job.request_id}'.")
-        existing_summary.summary_content = summary_content
-        summary_to_return = existing_summary
-    else:
-        logger.info(f"Creating new '{summary_type}' summary for job '{job.request_id}'.")
-        new_summary = Summary(
-            meeting_job_id=job.id,
-            summary_type=summary_type,
-            summary_content=summary_content
-        )
-        db.add(new_summary)
-        summary_to_return = new_summary
-    
-    db.commit()
-    db.refresh(summary_to_return)
+        print("\n--- Triggering Diarization ---")
+        api_call("POST", f"/api/v1/meeting/{request_id}/diarize", params={"username": USERNAME})
 
-    return SummaryResponse(
-        request_id=job.request_id,
-        summary_type=summary_to_return.summary_type,
-        summary_content=summary_to_return.summary_content
-    )
+        print("\n--- Waiting for Diarization to Complete (watch WebSocket updates) ---")
+        time.sleep(45) # Adjust this sleep time as well
+
+        # 6. Analysis and Downloads
+        print(f"\n--- 6. Testing Analysis and Downloads for '{request_id}' ---")
+        status_res = api_call("GET", f"/api/v1/meeting/{request_id}/status", params={"username": USERNAME})
+        print("Final status retrieved. Plain transcript has", len(status_res['data']['plain_transcript']), "segments.")
+        print("Diarized transcript has", len(status_res['data']['diarized_transcript']), "segments.")
+
+        # Generate all summaries
+        for summary_type in ["topic", "speaker", "action_items", "decision_log"]:
+            print(f"\n--- Generating '{summary_type}' summary ---")
+            summary_res = api_call("POST", f"/api/v1/meeting/{request_id}/summary", data=json.dumps({"summary_type": summary_type}), params={"username": USERNAME})
+            print(f"Summary content received (length: {len(summary_res['summary_content'])}).")
+
+        # Chat
+        print("\n--- Testing Chat ---")
+        chat_payload = {"requestId": request_id, "username": USERNAME, "message": "What were the main decisions?"}
+        chat_res = api_call("POST", "/api/v1/meeting/chat", data=json.dumps(chat_payload))
+        print(f"Chatbot response: {chat_res['response']}")
+        
+        # Download Audio
+        print("\n--- Testing Audio Download ---")
+        audio_content = api_call("GET", f"/api/v1/meeting/{request_id}/download/audio", params={"username": USERNAME}, expect_json=False)
+        with open("downloaded_meeting.wav", "wb") as f:
+            f.write(audio_content)
+        print("Audio file 'downloaded_meeting.wav' saved.")
+
+        # Download Documents
+        for doc_type in ["bbh_hdqt", "nghi_quyet"]:
+            print(f"\n--- Testing Document Download for '{doc_type}' ---")
+            doc_content = api_call("GET", f"/api/v1/meeting/{request_id}/download/document", params={"username": USERNAME, "template_type": doc_type}, expect_json=False)
+            filename = f"downloaded_{doc_type}.docx"
+            with open(filename, "wb") as f:
+                f.write(doc_content)
+            print(f"Document '{filename}' saved.")
+
+    finally:
+        # 7. Cleanup
+        print(f"\n--- 7. Cleaning Up: Deleting Speaker '{SPEAKER_USER_AD}' ---")
+        try:
+            delete_res = api_call("DELETE", f"/api/v1/speaker/{SPEAKER_USER_AD}")
+            print(f"Cleanup Response: {delete_res}")
+        except Exception as e:
+            print(f"Could not delete speaker (may have failed earlier): {e}")
+
+        if 'ws_listener' in locals() and ws_listener.is_alive():
+            ws_listener.stop()
+        
+        print("\n--- Test Suite Finished ---")
 
 
-@router.post(
-    "/chat",
-    response_model=ChatResponse,
-    summary="Chat about the meeting content"
-)
-async def chat_with_meeting(
-    chat_request: ChatRequest,
-    db: Session = Depends(get_db_session)
-    # Note: We manually fetch the job here because the request_id is in the body
-):
-    """
-    Handles conversational queries about a completed meeting. It uses the
-    transcript, summaries, and recent conversation history as context.
-    """
-    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Meeting job not found.")
-    
-    # --- Gather Context for the LLM ---
-    # 1. Get Transcript
-    transcription_entry = db.exec(
-        select(Transcription).where(
-            Transcription.meeting_job_id == job.id,
-            Transcription.language == job.language
-        )
-    ).first()
-    if not transcription_entry:
-        raise HTTPException(status_code=400, detail="Cannot chat without a completed transcript.")
-    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
+if __name__ == "__main__":
+    main()
+3. How to Run the Test
 
-    # 2. Get Summaries
-    summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
-    summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
+Start Your Main Application: Make sure your main API is running.
 
-    # 3. Get Chat History
-    chat_history_db = db.exec(
-        select(ChatHistory)
-        .where(ChatHistory.meeting_job_id == job.id)
-        .order_by(ChatHistory.created_at.desc())
-        .limit(settings.LIMIT_TURN * 2) # Fetch user and assistant messages
-    ).all()
-    # Reverse to get chronological order
-    chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+cd /path/to/my_api_project
+docker-compose up --build -d
 
-    # --- Format the final prompt ---
-    full_context_for_llm = (
-        f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" +
-        "\n\n".join(summary_texts)
-    )
+Find Your Docker Network Name: The tester container needs to join the same network as your API to communicate. Run this command to list your Docker networks:
 
-    # --- LLM Call ---
-    try:
-        assistant_response = await ai_service.get_response(
-            task="chat",
-            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
-            context={"history": chat_history_formatted}
-        )
-    except Exception as e:
-        logger.error(f"AI service failed during chat for job '{job.request_id}': {e}", exc_info=True)
-        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker network ls
 
-    # --- Persist Conversation ---
-    user_message_entry = ChatHistory(
-        meeting_job_id=job.id,
-        role="user",
-        message=chat_request.message
-    )
-    assistant_message_entry = ChatHistory(
-        meeting_job_id=job.id,
-        role="assistant",
-        message=assistant_response
-    )
-    db.add(user_message_entry)
-    db.add(assistant_message_entry)
-    db.commit()
+Look for a network named something like my_api_project_default. Copy this name.
 
-    return ChatResponse(response=assistant_response)
+Build and Run the Tester Container:
+Navigate to your api_tester directory. Then, run the following command, replacing <your_network_name> with the name you just copied.
 
-# ... (rest of the meeting.py file, like the download endpoint)
-Files That Need to Be Correct (And How We've Accommodated Them)
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# In the api_tester directory
+docker build -t api-tester -f Dockerfile.tester .
 
-To support these two endpoints, several other files must be correctly set up. Based on our previous steps, they should already be in the correct state. This serves as a final checklist.
+docker run --rm --network=<your_network_name> api-tester
 
-app/db/models.py:
+Example:
 
-Requirement: Must have the Summary and ChatHistory tables defined.
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker run --rm --network=my_api_project_default api-tester
 
-Requirement: The MeetingJob model must have the summaries: List["Summary"] and chat_history: List["ChatHistory"] relationships defined with cascade="all, delete".
+Alternative (if host.docker.internal works for you):
+If you are using Docker Desktop (Windows/Mac), you can often connect to services running on your local machine using the special DNS name host.docker.internal. In this case, you can simplify the run command (and leave the API_BASE_URL in the script as is):
 
-Status: We have already defined these models correctly in a previous step.
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker run --rm api-tester
 
-app/schemas/meeting.py:
-
-Requirement: Must have the Pydantic schemas: SummaryRequest, SummaryResponse, ChatRequest, and ChatResponse.
-
-Status: We have already defined these schemas correctly.
-
-app/services/ai_service.py:
-
-Requirement: Must have the system prompts for "chat" and all the summary types ("topic", "speaker", etc.) defined in the _get_system_prompt_for_task method's dictionary.
-
-Status: We have already defined these prompts.
-
-app/core/config.py:
-
-Requirement: Must have the LIMIT_TURN setting for the chat history.
-
-Status: We have already added this setting.
-
-app/api/deps.py:
-
-Requirement: Must have the dependencies for verifying job ownership and state, like get_owned_job_from_path.
-
-Status: We have already defined these dependencies.
-
-By implementing the code above, your meeting.py router is now fully equipped with powerful, state-aware, and persistent summary and chat functionalities that seamlessly integrate with the rest of your application's architecture.
+You will now see the output of the test_api.py script in your terminal as it goes through each step, making calls to your API, printing responses, and showing real-time updates from the WebSocket.
