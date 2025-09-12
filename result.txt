@@ -3,71 +3,33 @@ import shutil
 from pydub import AudioSegment
 from datetime import datetime, timedelta
 
-# --- DYNAMIC MEETING CONFIGURATION ---
-# Define your meeting time slots here.
-# You can add, remove, or modify any entry.
-# 'name':       Used for the output folder name. Best to avoid spaces and special characters.
-# 'start_time': Start time in "HH:MM" format (24-hour clock).
-# 'end_time':   End time in "HH:MM" format (24-hour clock).
-
-MEETING_DEFINITIONS = [
-    {
-        "name": "Meeting1_0930_1105",
-        "start_time": "09:30",
-        "end_time": "11:05"
-    },
-    {
-        "name": "Meeting2_1105_1508",
-        "start_time": "11:05",
-        "end_time": "15:08"
-    },
-    # --- EXAMPLE: Add more meetings as needed ---
-    # {
-    #     "name": "Morning_Briefing_0800_0830",
-    #     "start_time": "08:00",
-    #     "end_time": "08:30"
-    # },
-    # {
-    #     "name": "Afternoon_Debrief_1600_1630",
-    #     "start_time": "16:00",
-    #     "end_time": "16:30"
-    # }
-]
-
-# --- SCRIPT CONFIGURATION (Should not need to change for Docker) ---
-# The target date string to find in audio filenames.
-TARGET_DATE_STR = "11092025"
-
 def sort_audio_chunks_dynamically(input_folder_path, output_folder_path, meeting_defs):
     """
     Analyzes audio chunks and copies them into subfolders based on a dynamic list
-    of meeting time slot definitions.
+    of meeting time slot definitions. This version correctly calculates the chunk's
+    start time based on its modification time and duration.
     """
     
-    # 1. Prepare meeting definitions: create folders and parse time strings
+    # 1. Prepare meeting definitions (This part is correct and remains the same)
     print("--- Preparing meeting definitions and output folders ---")
     for meeting in meeting_defs:
         try:
-            # Create the destination folder for this meeting
             folder_path = os.path.join(output_folder_path, meeting["name"])
             os.makedirs(folder_path, exist_ok=True)
-            meeting["folder_path"] = folder_path # Store the path for later use
-
-            # Convert time strings to timedelta objects for easy comparison
+            meeting["folder_path"] = folder_path
             start_h, start_m = map(int, meeting["start_time"].split(':'))
             end_h, end_m = map(int, meeting["end_time"].split(':'))
             meeting["start_td"] = timedelta(hours=start_h, minutes=start_m)
             meeting["end_td"] = timedelta(hours=end_h, minutes=end_m)
-            
             print(f"  - Prepared output folder: {folder_path} for time slot {meeting['start_time']} to {meeting['end_time']}")
         except Exception as e:
             print(f"Error processing meeting definition '{meeting.get('name', 'N/A')}': {e}. Skipping this definition.")
-            meeting["is_valid"] = False # Mark as invalid to skip later
+            meeting["is_valid"] = False
         else:
             meeting["is_valid"] = True
     
     print("\n--- Scanning and collecting audio chunk data ---")
-    chunk_data = [] # List of (filepath, filename, mtime_datetime, duration_ms)
+    chunk_data = []
     for filename in os.listdir(input_folder_path):
         if filename.endswith(".wav") and f"TO {TARGET_DATE_STR}" in filename:
             filepath = os.path.join(input_folder_path, filename)
@@ -76,7 +38,7 @@ def sort_audio_chunks_dynamically(input_folder_path, output_folder_path, meeting
                 mtime_datetime = datetime.fromtimestamp(mtime_timestamp)
                 duration_ms = len(AudioSegment.from_wav(filepath))
                 chunk_data.append((filepath, filename, mtime_datetime, duration_ms))
-                print(f"  - Found {filename}: mtime={mtime_datetime.strftime('%H:%M:%S')}, duration={duration_ms/1000:.1f}s")
+                print(f"  - Found {filename}: mtime (end time)={mtime_datetime.strftime('%H:%M:%S')}, duration={duration_ms/1000:.1f}s")
             except Exception as e:
                 print(f"Error processing file {filename}: {e}. Skipping.")
 
@@ -84,43 +46,36 @@ def sort_audio_chunks_dynamically(input_folder_path, output_folder_path, meeting
         print(f"\nNo audio files found matching 'TO {TARGET_DATE_STR}' in '{input_folder_path}'")
         return
 
-    # 3. Sort chunks chronologically by their modification timestamp
     chunk_data.sort(key=lambda x: x[2])
     print(f"\nSorted {len(chunk_data)} audio chunks by modification time.")
 
-    # 4. Establish the "start of day" for relative time calculations
     first_chunk_mtime = chunk_data[0][2]
     recording_day_start = datetime(first_chunk_mtime.year, first_chunk_mtime.month, first_chunk_mtime.day)
 
-    # 5. Iterate through chunks and assign/copy them to the correct folder(s)
     print("\n--- Assigning and copying chunks to meeting folders ---")
     for filepath, filename, mtime_datetime, duration_ms in chunk_data:
-        chunk_relative_start_td = mtime_datetime - recording_day_start
-        chunk_relative_end_td = chunk_relative_start_td + timedelta(milliseconds=duration_ms)
+        # --- THE FIX IS HERE ---
+        # The 'mtime' is the END of the recording. Calculate the START.
+        duration_td = timedelta(milliseconds=duration_ms)
+        chunk_start_datetime = mtime_datetime - duration_td
+        
+        # Now calculate the relative start and end times for the chunk
+        chunk_relative_start_td = chunk_start_datetime - recording_day_start
+        chunk_relative_end_td = mtime_datetime - recording_day_start # The end is simply the original mtime
+        
+        # --- END OF FIX ---
 
-        # Now, loop through our prepared meeting definitions to see where this chunk fits
+        # Loop through prepared meeting definitions to see where this chunk fits
         for meeting in meeting_defs:
             if not meeting.get("is_valid", False):
-                continue # Skip invalid definitions
+                continue
                 
-            # Check for overlap: does the chunk's time window intersect with the meeting's time window?
+            # The overlap check logic is correct, but now it uses the right start/end times
             if (chunk_relative_start_td < meeting["end_td"] and
                 chunk_relative_end_td > meeting["start_td"]):
                 
                 dest_path = os.path.join(meeting["folder_path"], filename)
-                print(f"  -> Copying {filename} to {meeting['name']} folder.")
-                shutil.copy2(filepath, dest_path) # copy2 preserves metadata
+                print(f"  -> Copying {filename} (recorded {chunk_start_datetime.strftime('%H:%M:%S')}-{mtime_datetime.strftime('%H:%M:%S')}) to {meeting['name']} folder.")
+                shutil.copy2(filepath, dest_path)
 
     print("\n--- Processing complete. ---")
-
-
-if __name__ == "__main__":
-    # These paths are defined for the Docker environment
-    input_data_container_path = "/app/input_data"
-    output_results_container_path = "/app"
-
-    sort_audio_chunks_dynamically(
-        input_data_container_path,
-        output_results_container_path,
-        MEETING_DEFINITIONS
-    )
