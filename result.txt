@@ -3,6 +3,24 @@ import shutil
 from pydub import AudioSegment
 from datetime import datetime, timedelta
 
+
+# Define meeting time slots here.
+# 'name':       Used for the output folder name. Best to avoid spaces and special characters.
+# 'start_time': Start time in "HH:MM" format (24-hour clock).
+# 'end_time':   End time in "HH:MM" format (24-hour clock).
+
+MEETING_DEFINITIONS = [
+    {
+        "name": "Meeting2_1105_1800",
+        "start_time": "11:00",
+        "end_time": "18:00"
+    }
+    
+]
+
+
+TARGET_DATE_STR = "11092025"
+
 def sort_audio_chunks_dynamically(input_folder_path, output_folder_path, meeting_defs):
     """
     Analyzes audio chunks and copies them into subfolders based on a dynamic list
@@ -79,3 +97,15 @@ def sort_audio_chunks_dynamically(input_folder_path, output_folder_path, meeting
                 shutil.copy2(filepath, dest_path)
 
     print("\n--- Processing complete. ---")
+
+
+if __name__ == "__main__":
+    
+    input_data_container_path = "/app/input_data"
+    output_results_container_path = "/app"
+
+    sort_audio_chunks_dynamically(
+        input_data_container_path,
+        output_results_container_path,
+        MEETING_DEFINITIONS
+    )
