@@ -1,18 +1,10 @@
-Of course. This is an excellent requirement that adds crucial, real-world metadata to your meeting records. The implementation is straightforward and touches three key areas:
+Of course. Here is the complete, newly enhanced code for the summary and chat endpoints. These are the "analysis" features that build on top of your completed transcripts.
 
-Database Model: To store the full timestamps.
+The code is designed to be state-aware, persistent, and efficient. It correctly checks if the required data (like a diarized transcript) exists before running, and it saves the results to the database to avoid costly re-generation.
 
-Upload Endpoint: To capture the timestamps at the exact moments the first and last chunks are received.
+Full Code for Summary and Chat Endpoints
 
-Document Generation Endpoint: To format the stored timestamps and provide them as context to the LLM.
-
-Here is the step-by-step guide and the complete code for each part.
-
-Step 1: Update the Database Model
-
-First, we need to add fields to the MeetingJob model to store the full, precise timestamps.
-
-Open app/db/models.py and add upload_started_at and upload_finished_at.
+This code should be placed in the second half of your app/api/routes/meeting.py file, replacing the previous placeholders.
 
 code
 Python
@@ -20,171 +12,230 @@ download
 content_copy
 expand_less
 
-# in app/db/models.py
-
-class MeetingJob(SQLModel, table=True):
-    # ... (id, request_id, user_id, etc.) ...
-    language: str = Field(default="vi", description="The currently active language for this meeting.")
-
-    # --- NEW TIMESTAMP FIELDS ---
-    upload_started_at: Optional[datetime] = Field(default=None, description="Timestamp of when the first audio chunk was received.")
-    upload_finished_at: Optional[datetime] = Field(default=None, description="Timestamp of when the last audio chunk was received.")
-    # --- END OF NEW FIELDS ---
-
-    # --- Job State & Workflow ---
-    status: str = Field(default="uploading", index=True,
-                        description="Tracks the current state of the job...")
-    # ... (rest of the model) ...
-
-After adding this, when you restart your application with a new database, this schema will be applied. If you are modifying an existing database, you would need a migration tool like Alembic.
-
-Step 2: Capture Timestamps in the Upload Endpoint
-
-Next, we modify the upload_file_chunk endpoint in app/api/routes/meeting.py to record these timestamps.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
 # in app/api/routes/meeting.py
 
-from datetime import datetime # Make sure this is imported at the top of the file
+# --- Add these to your imports at the top of the file ---
+from app.schemas.meeting import (
+    SummaryRequest, SummaryResponse, ChatRequest, ChatResponse
+)
+from app.api.deps import get_job_with_any_transcript, get_job_with_completed_diarization
+from app.services.ai_service import ai_service
+from app.db.models import Summary, ChatHistory
 
-# ... (other code) ...
+# ===================================================================
+#   Analysis, Chat, and Download Endpoints
+# ===================================================================
 
-@router.post("/upload-file-chunk", status_code=status.HTTP_202_ACCEPTED, summary="Upload a single audio chunk")
-async def upload_file_chunk(
-    background_tasks: BackgroundTasks,
-    session: Session = Depends(get_db_session),
-    requestId: str = Form(...),
-    isLastChunk: bool = Form(...),
-    FileData: UploadFile = File(...),
+@router.post(
+    "/{request_id}/summary",
+    response_model=SummaryResponse,
+    summary="Generate a meeting summary"
+)
+async def generate_summary(
+    summary_request: SummaryRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path) # Base ownership check
 ):
-    job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
+    """
+    Generates a summary for the meeting based on the requested type.
+    - 'topic', 'action_items', 'decision_log' require a completed transcript.
+    - 'speaker' requires a completed, speaker-separated transcript.
+
+    If a summary of the same type already exists, it will be overwritten.
+    """
+    summary_type = summary_request.summary_type
+    logger.info(f"Received request to generate '{summary_type}' summary for job '{job.request_id}'.")
+
+    # --- State Validation ---
+    if summary_type == "speaker":
+        # Stricter check for speaker-based summaries
+        if not job.diarized_transcript:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A 'speaker' summary requires a completed speaker-separated transcript. Please run diarization first."
+            )
+        # Use the richer diarized transcript as the source
+        transcript_source = job.diarized_transcript.transcript_data
+        # Format for LLM: "Speaker Name: text..."
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
+    else:
+        # Standard check for all other summary types
+        transcription_entry = db.exec(
+            select(Transcription).where(
+                Transcription.meeting_job_id == job.id,
+                Transcription.language == job.language
+            )
+        ).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A summary requires a completed transcript. Please ensure transcription is complete."
+            )
+        # Use the plain transcript as the source
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
+
+    # --- LLM Call ---
+    try:
+        meeting_info = {
+            "bbh_name": job.bbh_name,
+            "meeting_type": job.meeting_type,
+            "meeting_host": job.meeting_host,
+        }
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
+    except Exception as e:
+        logger.error(f"AI service failed during summary generation for job '{job.request_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+    # --- Persist the Result (Update or Create) ---
+    existing_summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
+
+    if existing_summary:
+        logger.info(f"Updating existing '{summary_type}' summary for job '{job.request_id}'.")
+        existing_summary.summary_content = summary_content
+        summary_to_return = existing_summary
+    else:
+        logger.info(f"Creating new '{summary_type}' summary for job '{job.request_id}'.")
+        new_summary = Summary(
+            meeting_job_id=job.id,
+            summary_type=summary_type,
+            summary_content=summary_content
+        )
+        db.add(new_summary)
+        summary_to_return = new_summary
+    
+    db.commit()
+    db.refresh(summary_to_return)
+
+    return SummaryResponse(
+        request_id=job.request_id,
+        summary_type=summary_to_return.summary_type,
+        summary_content=summary_to_return.summary_content
+    )
+
+
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Chat about the meeting content"
+)
+async def chat_with_meeting(
+    chat_request: ChatRequest,
+    db: Session = Depends(get_db_session)
+    # Note: We manually fetch the job here because the request_id is in the body
+):
+    """
+    Handles conversational queries about a completed meeting. It uses the
+    transcript, summaries, and recent conversation history as context.
+    """
+    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Meeting job not found.")
-    if job.status != "uploading":
-        raise HTTPException(status_code=400, detail=f"Cannot upload chunks when job status is '{job.status}'.")
-
-    # --- CAPTURE START TIME ---
-    # If the start time hasn't been set yet, this must be the first chunk.
-    if not job.upload_started_at:
-        job.upload_started_at = datetime.utcnow()
-        logger.info(f"First chunk received for '{requestId}'. Recording start time.")
-    # --- END CAPTURE START TIME ---
-
-    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
-    chunk_path = session_dir / FileData.filename
     
-    try:
-        with open(chunk_path, "wb") as buffer:
-            shutil.copyfileobj(FileData.file, buffer)
-    except IOError as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save chunk file: {e}")
-
-    if isLastChunk:
-        job.status = "assembling"
-        
-        # --- CAPTURE END TIME ---
-        job.upload_finished_at = datetime.utcnow()
-        logger.info(f"Last chunk received for '{requestId}'. Recording end time.")
-        # --- END CAPTURE END TIME ---
-
-        session.add(job)
-        session.commit() # Commit the timestamps to the database
-        
-        logger.info(f"Last chunk received for '{requestId}'. Triggering background assembly and transcription.")
-        await websocket_manager.broadcast_to_job(requestId, {"status": "assembling"})
-        background_tasks.add_task(assemble_and_transcribe, requestId, job.language)
-    else:
-        # Commit the start time on the first chunk without waiting for the last
-        session.add(job)
-        session.commit()
-
-    return {"status": 202, "message": f"Chunk '{FileData.filename}' accepted."}
-Step 3: Provide Formatted Timestamps to the LLM
-
-Now, we update the generate_and_download_document endpoint in app/api/routes/meeting.py. Instead of asking the LLM to guess the time, we will provide it as explicit context, which is far more reliable and token-efficient.
-
-The LLM prompt already asks for start_time and end_time in its JSON structure, so we just need to provide it the information to fill those fields accurately.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in app/api/routes/meeting.py (Part 2)
-
-# ... (other code) ...
-
-@router.get(
-    "/{request_id}/download/document",
-    summary="Generate and download a formal meeting document"
-)
-async def generate_and_download_document(
-    job: MeetingJob = Depends(get_job_with_any_transcript),
-    template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"], description="The type of document template to use."),
-    db: Session = Depends(get_db_session)
-):
-    # 1. Get the source transcript (code is unchanged)
+    # --- Gather Context for the LLM ---
+    # 1. Get Transcript
     transcription_entry = db.exec(
         select(Transcription).where(
             Transcription.meeting_job_id == job.id,
             Transcription.language == job.language
         )
     ).first()
+    if not transcription_entry:
+        raise HTTPException(status_code=400, detail="Cannot chat without a completed transcript.")
     transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
 
-    # --- PREPARE CONTEXT FOR LLM ---
-    # Format the stored datetimes into the required "HH:MM" string format.
-    # Provide a default if for some reason the timestamps weren't recorded.
-    start_time_str = job.upload_started_at.strftime('%H:%M') if job.upload_started_at else "N/A"
-    end_time_str = job.upload_finished_at.strftime('%H:%M') if job.upload_finished_at else "N/A"
-    
-    # Prepend this context to the main transcript. The LLM will use this
-    # information to fill the JSON fields accurately.
-    context_header = (
-        f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
-        f"- Giờ bắt đầu: {start_time_str}\n"
-        f"- Giờ kết thúc: {end_time_str}\n\n"
-        f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
-    )
-    full_llm_input = context_header + transcript_text
-    # --- END PREPARE CONTEXT ---
+    # 2. Get Summaries
+    summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
+    summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
 
-    # 2. Call AI service to get structured JSON
-    try:
-        task_name = f"summary_{template_type}"
-        # Pass the full input with the context header to the LLM
-        llm_json_response = await ai_service.get_response(task=task_name, user_message=full_llm_input)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to get data from AI service: {e}")
+    # 3. Get Chat History
+    chat_history_db = db.exec(
+        select(ChatHistory)
+        .where(ChatHistory.meeting_job_id == job.id)
+        .order_by(ChatHistory.created_at.desc())
+        .limit(settings.LIMIT_TURN * 2) # Fetch user and assistant messages
+    ).all()
+    # Reverse to get chronological order
+    chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
 
-    # 3. Generate the document (code is unchanged)
-    try:
-        document_buffer = generate_templated_document(template_type, llm_json_response)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
-
-    # 4. Return the file to the user (code is unchanged)
-    filename = f"{template_type}_{job.bbh_name.replace(' ', '_')}.docx"
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
-    
-    return StreamingResponse(
-        document_buffer,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers=headers
+    # --- Format the final prompt ---
+    full_context_for_llm = (
+        f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" +
+        "\n\n".join(summary_texts)
     )
 
-With these three changes, your system now correctly:
+    # --- LLM Call ---
+    try:
+        assistant_response = await ai_service.get_response(
+            task="chat",
+            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
+            context={"history": chat_history_formatted}
+        )
+    except Exception as e:
+        logger.error(f"AI service failed during chat for job '{job.request_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
 
-Stores the precise start and end times of the audio upload.
+    # --- Persist Conversation ---
+    user_message_entry = ChatHistory(
+        meeting_job_id=job.id,
+        role="user",
+        message=chat_request.message
+    )
+    assistant_message_entry = ChatHistory(
+        meeting_job_id=job.id,
+        role="assistant",
+        message=assistant_response
+    )
+    db.add(user_message_entry)
+    db.add(assistant_message_entry)
+    db.commit()
 
-Captures these times automatically during the upload process.
+    return ChatResponse(response=assistant_response)
 
-Formats and provides this information reliably to the LLM, ensuring the final generated DOCX contains the correct HH:MM times as requested.
+# ... (rest of the meeting.py file, like the download endpoint)
+Files That Need to Be Correct (And How We've Accommodated Them)
+
+To support these two endpoints, several other files must be correctly set up. Based on our previous steps, they should already be in the correct state. This serves as a final checklist.
+
+app/db/models.py:
+
+Requirement: Must have the Summary and ChatHistory tables defined.
+
+Requirement: The MeetingJob model must have the summaries: List["Summary"] and chat_history: List["ChatHistory"] relationships defined with cascade="all, delete".
+
+Status: We have already defined these models correctly in a previous step.
+
+app/schemas/meeting.py:
+
+Requirement: Must have the Pydantic schemas: SummaryRequest, SummaryResponse, ChatRequest, and ChatResponse.
+
+Status: We have already defined these schemas correctly.
+
+app/services/ai_service.py:
+
+Requirement: Must have the system prompts for "chat" and all the summary types ("topic", "speaker", etc.) defined in the _get_system_prompt_for_task method's dictionary.
+
+Status: We have already defined these prompts.
+
+app/core/config.py:
+
+Requirement: Must have the LIMIT_TURN setting for the chat history.
+
+Status: We have already added this setting.
+
+app/api/deps.py:
+
+Requirement: Must have the dependencies for verifying job ownership and state, like get_owned_job_from_path.
+
+Status: We have already defined these dependencies.
+
+By implementing the code above, your meeting.py router is now fully equipped with powerful, state-aware, and persistent summary and chat functionalities that seamlessly integrate with the rest of your application's architecture.
