@@ -1,143 +1,126 @@
 import os
-import re
-import requests
-import uuid
-from datetime import datetime
-import time
+import shutil
+from pydub import AudioSegment
+from datetime import datetime, timedelta
 
-# --- Configuration ---
-API_BASE_URL = "http://10.43.128.107:8086"
-USER_ID = "batch_processor_user"
-MEETING_FOLDER_NAME = "Meeting1_TO_11092025_0930_1105" # Change for other meetings
-OUTPUT_FOLDER_PATH = "/app" # The script's working directory inside the container
+# --- DYNAMIC MEETING CONFIGURATION ---
+# Define your meeting time slots here.
+# You can add, remove, or modify any entry.
+# 'name':       Used for the output folder name. Best to avoid spaces and special characters.
+# 'start_time': Start time in "HH:MM" format (24-hour clock).
+# 'end_time':   End time in "HH:MM" format (24-hour clock).
 
-def get_chunk_id(filename):
-    """Extracts the numerical chunk ID from the filename."""
-    match = re.search(r'_(\d+)\.wav$', filename)
-    if match:
-        return int(match.group(1))
-    return -1
+MEETING_DEFINITIONS = [
+    {
+        "name": "Meeting1_0930_1105",
+        "start_time": "09:30",
+        "end_time": "11:05"
+    },
+    {
+        "name": "Meeting2_1105_1508",
+        "start_time": "11:05",
+        "end_time": "15:08"
+    },
+    # --- EXAMPLE: Add more meetings as needed ---
+    # {
+    #     "name": "Morning_Briefing_0800_0830",
+    #     "start_time": "08:00",
+    #     "end_time": "08:30"
+    # },
+    # {
+    #     "name": "Afternoon_Debrief_1600_1630",
+    #     "start_time": "16:00",
+    #     "end_time": "16:30"
+    # }
+]
 
-def process_meeting_folder():
+# --- SCRIPT CONFIGURATION (Should not need to change for Docker) ---
+# The target date string to find in audio filenames.
+TARGET_DATE_STR = "11092025"
+
+def sort_audio_chunks_dynamically(input_folder_path, output_folder_path, meeting_defs):
     """
-    Checks for a pre-existing transcript file. If found, uses it.
-    Otherwise, transcribes audio chunks, then summarizes and downloads the final document.
+    Analyzes audio chunks and copies them into subfolders based on a dynamic list
+    of meeting time slot definitions.
     """
-    session_id = f"meeting_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    print(f"--- Starting processing for session: {session_id} ---")
     
-    full_text = ""
-    
-    # Define the expected name of the pre-transcribed text file
-    transcript_filename = f"{MEETING_FOLDER_NAME}.txt"
-    transcript_filepath = os.path.join(OUTPUT_FOLDER_PATH, transcript_filename)
-
-    # --- NEW LOGIC: Check if the transcript file already exists ---
-    if os.path.exists(transcript_filepath):
-        print(f"\n--- Found existing transcript file: '{transcript_filename}' ---")
-        print("--- Skipping audio transcription step and reading from file. ---")
+    # 1. Prepare meeting definitions: create folders and parse time strings
+    print("--- Preparing meeting definitions and output folders ---")
+    for meeting in meeting_defs:
         try:
-            with open(transcript_filepath, 'r', encoding='utf-8') as f:
-                full_text = f.read()
-            print("Successfully read content from the transcript file.")
+            # Create the destination folder for this meeting
+            folder_path = os.path.join(output_folder_path, meeting["name"])
+            os.makedirs(folder_path, exist_ok=True)
+            meeting["folder_path"] = folder_path # Store the path for later use
+
+            # Convert time strings to timedelta objects for easy comparison
+            start_h, start_m = map(int, meeting["start_time"].split(':'))
+            end_h, end_m = map(int, meeting["end_time"].split(':'))
+            meeting["start_td"] = timedelta(hours=start_h, minutes=start_m)
+            meeting["end_td"] = timedelta(hours=end_h, minutes=end_m)
+            
+            print(f"  - Prepared output folder: {folder_path} for time slot {meeting['start_time']} to {meeting['end_time']}")
         except Exception as e:
-            print(f"Error reading transcript file: {e}. Aborting.")
-            return
-    else:
-        # --- ORIGINAL LOGIC: If file doesn't exist, transcribe audio chunks ---
-        print(f"\n--- Transcript file not found. Proceeding with audio transcription. ---")
-        
-        meeting_folder_path = os.path.join(OUTPUT_FOLDER_PATH, MEETING_FOLDER_NAME)
-        if not os.path.isdir(meeting_folder_path):
-            print(f"Error: Audio folder not found at '{meeting_folder_path}'")
-            return
-
-        all_files = [f for f in os.listdir(meeting_folder_path) if f.endswith(".wav")]
-        all_files.sort(key=get_chunk_id)
-
-        if not all_files:
-            print(f"No .wav files found in '{meeting_folder_path}'")
-            return
-
-        print(f"Found {len(all_files)} chunks. Sorted and ready for processing.")
-
-        print("\n--- Step 1: Transcribing chunks and collecting text ---")
-        full_transcript_parts = []
-        transcription_url = f"{API_BASE_URL}/transcriptions"
-        
-        for i, filename in enumerate(all_files):
-            filepath = os.path.join(meeting_folder_path, filename)
-            print(f"  ({i+1}/{len(all_files)}) Processing {filename}...")
-            try:
-                with open(filepath, 'rb') as audio_file:
-                    files = {'file': (filename, audio_file, 'audio/wav')}
-                    data = {'session_id': session_id, 'user_id': USER_ID}
-                    response = requests.post(transcription_url, files=files, data=data, timeout=120)
-                    
-                    if response.status_code == 200:
-                        response_data = response.json()
-                        chunk_text = response_data.get("text", "")
-                        if chunk_text:
-                            print(f"    -> Success. Received transcript chunk.")
-                            full_transcript_parts.append(chunk_text.strip())
-                        else:
-                            print(f"    -> Warning: Server returned success but text was empty.")
-                    else:
-                        print(f"    -> Error! Status: {response.status_code}, Response: {response.text}")
-            except requests.exceptions.RequestException as e:
-                print(f"    -> Network Error processing {filename}: {e}")
-        
-        full_text = " ".join(full_transcript_parts)
+            print(f"Error processing meeting definition '{meeting.get('name', 'N/A')}': {e}. Skipping this definition.")
+            meeting["is_valid"] = False # Mark as invalid to skip later
+        else:
+            meeting["is_valid"] = True
     
-    # --- The rest of the script continues from here, with full_text populated either way ---
-    if not full_text.strip():
-        print("\nTranscript is empty. Aborting process.")
-        return
-        
-    print(f"\nSuccessfully prepared full transcript for summarization.")
+    print("\n--- Scanning and collecting audio chunk data ---")
+    chunk_data = [] # List of (filepath, filename, mtime_datetime, duration_ms)
+    for filename in os.listdir(input_folder_path):
+        if filename.endswith(".wav") and f"TO {TARGET_DATE_STR}" in filename:
+            filepath = os.path.join(input_folder_path, filename)
+            try:
+                mtime_timestamp = os.path.getmtime(filepath)
+                mtime_datetime = datetime.fromtimestamp(mtime_timestamp)
+                duration_ms = len(AudioSegment.from_wav(filepath))
+                chunk_data.append((filepath, filename, mtime_datetime, duration_ms))
+                print(f"  - Found {filename}: mtime={mtime_datetime.strftime('%H:%M:%S')}, duration={duration_ms/1000:.1f}s")
+            except Exception as e:
+                print(f"Error processing file {filename}: {e}. Skipping.")
 
-    # --- Step 2: Send the full transcript for summarization ---
-    print("\n--- Step 2: Sending transcript for summarization ---")
-    # (The rest of the code is identical to the previous version)
-    summary_url = f"{API_BASE_URL}/summary"
-    try:
-        files = {'file': ('full_transcript.txt', full_text.encode('utf-8'), 'text/plain')}
-        data = {'session_id': session_id, 'user_id': USER_ID}
-        response = requests.post(summary_url, files=files, data=data, timeout=180)
-        
-        if response.status_code == 200:
-            print("  -> Successfully submitted for summarization.")
-        else:
-            print(f"  -> Error submitting for summary! Status: {response.status_code}, Response: {response.text}")
-            return
-    except requests.exceptions.RequestException as e:
-        print(f"  -> Network Error during summarization: {e}")
+    if not chunk_data:
+        print(f"\nNo audio files found matching 'TO {TARGET_DATE_STR}' in '{input_folder_path}'")
         return
 
-    # --- Step 3: Download the final Word document ---
-    print("\n--- Step 3: Downloading the final .docx report ---")
-    download_url = f"{API_BASE_URL}/download-word"
-    output_docx_filename = f"BienBanHop_{MEETING_FOLDER_NAME}.docx"
-    output_docx_path = os.path.join(OUTPUT_FOLDER_PATH, output_docx_filename)
-    try:
-        print("  Waiting 10 seconds for summary to be generated on the server...")
-        time.sleep(10)
+    # 3. Sort chunks chronologically by their modification timestamp
+    chunk_data.sort(key=lambda x: x[2])
+    print(f"\nSorted {len(chunk_data)} audio chunks by modification time.")
 
-        data = {'session_id': session_id, 'user_id': USER_ID}
-        response = requests.post(download_url, data=data, timeout=60, stream=True)
-        
-        if response.status_code == 200:
-            with open(output_docx_path, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print(f"  -> Success! Document saved to: {output_docx_path}")
-        else:
-            print(f"  -> Error downloading document! Status: {response.status_code}, Response: {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"  -> Network Error downloading document: {e}")
+    # 4. Establish the "start of day" for relative time calculations
+    first_chunk_mtime = chunk_data[0][2]
+    recording_day_start = datetime(first_chunk_mtime.year, first_chunk_mtime.month, first_chunk_mtime.day)
+
+    # 5. Iterate through chunks and assign/copy them to the correct folder(s)
+    print("\n--- Assigning and copying chunks to meeting folders ---")
+    for filepath, filename, mtime_datetime, duration_ms in chunk_data:
+        chunk_relative_start_td = mtime_datetime - recording_day_start
+        chunk_relative_end_td = chunk_relative_start_td + timedelta(milliseconds=duration_ms)
+
+        # Now, loop through our prepared meeting definitions to see where this chunk fits
+        for meeting in meeting_defs:
+            if not meeting.get("is_valid", False):
+                continue # Skip invalid definitions
+                
+            # Check for overlap: does the chunk's time window intersect with the meeting's time window?
+            if (chunk_relative_start_td < meeting["end_td"] and
+                chunk_relative_end_td > meeting["start_td"]):
+                
+                dest_path = os.path.join(meeting["folder_path"], filename)
+                print(f"  -> Copying {filename} to {meeting['name']} folder.")
+                shutil.copy2(filepath, dest_path) # copy2 preserves metadata
 
     print("\n--- Processing complete. ---")
 
 
 if __name__ == "__main__":
-    process_meeting_folder()
+    # These paths are defined for the Docker environment
+    input_data_container_path = "/app/input_data"
+    output_results_container_path = "/app"
+
+    sort_audio_chunks_dynamically(
+        input_data_container_path,
+        output_results_container_path,
+        MEETING_DEFINITIONS
+    )
