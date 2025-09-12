@@ -1,341 +1,50 @@
-This is an advanced and powerful feature. Your plan is excellent and on the right track. The key to making it efficient and token-saving is to ask the LLM to return structured data (JSON), not to mimic the document's visual style. We will use a dedicated DOCX templating library (docxtpl) to handle the styling, separating content from presentation.
+# in app/utils.py
+import re
+from docxtpl import RichText
 
-Here is a complete, step-by-step guide on how to implement this efficiently.
-
-High-Level Strategy: The "Smart Template" Approach
-
-Templates (.docx): You will create two master .docx files. These files contain all the static text, headers, footers, numbering, and styles. The dynamic content is represented by Jinja2-style placeholders (e.g., {{start_time}}). This is the "View".
-
-LLM (The Brain): The LLM's job is not to create a document. Its job is to act as an expert data extractor. We will give it the meeting transcript and a highly specific prompt asking it to fill a JSON object. The keys of the JSON will match the placeholders in your templates. This is the "Controller".
-
-Application Code (The Assembler): Your Python code will take the JSON output from the LLM and use the docxtpl library to programmatically "render" the final DOCX file by filling in the placeholders. This is the "Model/Logic".
-
-This approach is extremely token-efficient because we never send bulky formatting instructions or examples to the LLM. We only send the transcript and ask for structured data in return.
-
-Step 1: Prepare Your DOCX Templates
-
-This is a one-time setup step.
-
-Create a new folder at the root of your project called templates.
-
-Inside templates, place your two DOCX files:
-
-bbh_hdqt_template.docx
-
-nghi_quyet_template.docx
-
-Open each file and replace the dynamic content with placeholders. Use {{placeholder_name}}.
-
-Example bbh_hdqt_template.docx:
-
-BIÊN BẢN HỌP HỘI ĐỒNG QUẢN TRỊ
-
-Thời gian: Bắt đầu lúc {{start_time}}, kết thúc lúc {{end_time}}, ngày {{meeting_date}}.
-
-I. THÀNH PHẦN THAM DỰ
-
-Thành viên Hội đồng quản trị:
-{{board_members}}
-
-Thành viên Ban Kiểm soát:
-{{supervisory_members}}
-
-Vắng mặt:
-{{absent_members}}
-
-Thư ký cuộc họp:
-{{secretary}}
-
-II. DIỄN BIẾN CHÍNH CUỘC HỌP
-{{r main_progress}}
-
-III. Ý KIẾN TRAO ĐỔI
-{{r member_discussions}}
-
-IV. KẾT LUẬN
-{{r conclusion}}
-
-Important Note: For the long sections that will contain Markdown, use {{r placeholder_name}}. The r tells docxtpl that this is a "Rich Text" element that we will handle specially.
-
-Step 2: Update Your Project
-
-Add a new dependency to your requirements.txt file:
-
-code
-Txt
-download
-content_copy
-expand_less
-
-# requirements.txt
-# ... (other libraries)
-docxtpl
-
-Then, reinstall your dependencies.
-
-Create a new utility function in app/utils.py to handle inserting Markdown into the DOCX file.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# In app/utils.py
-
-from docxtpl import DocxTemplate, RichText
-
-def add_markdown_to_doc(doc, markdown_text: str) -> RichText:
+def add_markdown_to_doc(markdown_text: str) -> RichText:
     """
     Converts a Markdown string into a RichText object for docxtpl.
-    Handles basic bolding (**) and lists (* or -).
+    Applies named styles from the Word template for formatting.
+
+    Args:
+        markdown_text (str): The Markdown string from the LLM.
+
+    Returns:
+        RichText: An object that docxtpl can render into formatted content.
     """
     rt = RichText()
     lines = markdown_text.split('\n')
+
     for line in lines:
-        line = line.strip()
-        if not line:
+        stripped_line = line.strip()
+        if not stripped_line:
             continue
 
-        # Handle bullet points
-        is_bullet = False
-        if line.startswith(('* ', '- ')):
-            is_bullet = True
-            line = line[2:]
+        # --- THIS IS THE KEY LOGIC ---
+        # We create a new paragraph for each line first.
+        # This gives us a paragraph object to apply styles to.
+        p = rt.add_paragraph()
 
-        parts = re.split(r'(\*\*.*?\*\*)', line) # Split by bold tags
+        # Check for bullet points
+        if stripped_line.startswith(('* ', '- ')):
+            # Apply the named style from your Word template
+            p.style = 'List Bullet'
+            # Remove the markdown characters
+            content = stripped_line[2:]
+        else:
+            # For regular lines, it will use the default 'Normal' style
+            content = stripped_line
+        
+        # Now, process the content of the line for bolding
+        # Split by bold tags, keeping the tags themselves
+        parts = re.split(r'(\*\*.*?\*\*)', content)
         for part in parts:
             if part.startswith('**') and part.endswith('**'):
-                rt.add(part[2:-2], bold=True)
+                # Add a run with the bold property set to True
+                p.add_run(part[2:-2], bold=True)
             elif part:
-                rt.add(part)
-        
-        # Add the paragraph break and set style if it was a bullet
-        rt.add('\n')
-        if is_bullet:
-            # Assumes you have a style named 'List Bullet' in your Word template
-            rt.paragraphs[-1].style = 'List Bullet'
-            
+                # Add a regular run
+                p.add_run(part)
+
     return rt
-Step 3: Design the Token-Efficient LLM Prompts
-
-Add these new prompts to app/services/ai_service.py. Notice how they demand a JSON output, which is the key to this entire process.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# In app/services/ai_service.py
-
-SUMMARY_BBH_HDQT_PROMPT = """Bạn là một trợ lý AI chuyên nghiệp, có nhiệm vụ trích xuất thông tin chi tiết từ bản ghi cuộc họp của Hội đồng Quản trị và trả về dưới dạng một đối tượng JSON.
-
-## YÊU CẦU
-Phân tích kỹ lưỡng bản ghi cuộc họp được cung cấp và điền vào cấu trúc JSON sau. TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
-
-- Với các trường văn bản dài (đánh dấu `Markdown`), hãy định dạng nội dung bằng Markdown: dùng `*` cho gạch đầu dòng và `**text**` để in đậm các điểm quan trọng.
-- Nếu không tìm thấy thông tin, hãy để giá trị là một chuỗi rỗng "".
-
-## Cấu trúc JSON đầu ra:
-```json
-{
-  "start_time": "HH:mm",
-  "end_time": "HH:mm",
-  "meeting_date": "dd/mm/yyyy",
-  "board_members": "Liệt kê tên các thành viên HĐQT có mặt, mỗi người một dòng.",
-  "supervisory_members": "Liệt kê tên các thành viên BKS có mặt, mỗi người một dòng.",
-  "absent_members": "Liệt kê tên và lý do vắng mặt (nếu có), mỗi người một dòng.",
-  "secretary": "Tên thư ký cuộc họp.",
-  "main_progress": "[Markdown] Tóm tắt chi tiết diễn biến chính của cuộc họp. Chia thành các luận điểm rõ ràng.",
-  "member_discussions": "[Markdown] Tóm tắt các ý kiến trao đổi, tranh luận chính của các thành viên.",
-  "conclusion": "[Markdown] Tóm tắt chi tiết kết luận cuối cùng, bao gồm cả các chỉ đạo chung và các chỉ đạo cụ thể được phân công."
-}
-
-"""
-
-SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của bạn là chắt lọc các CHỈ ĐẠO và QUYẾT NGHỊ cuối cùng từ bản ghi cuộc họp của Hội đồng Quản trị và trả về dưới dạng một đối tượng JSON.
-
-YÊU CẦU
-
-Chỉ tập trung vào các kết luận, chỉ đạo đã được chốt. Bỏ qua phần diễn biến và thảo luận. Trả về kết quả theo cấu trúc JSON sau. TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
-
-Định dạng nội dung bằng Markdown: dùng * cho gạch đầu dòng và **text** để in đậm các điểm quan trọng.
-
-Nếu không tìm thấy thông tin, hãy để giá trị là một chuỗi rỗng "".
-
-Cấu trúc JSON đầu ra:
-code
-JSON
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-{
-  "meeting_date": "dd/mm/yyyy",
-  "general_directives": "[Markdown] Tóm tắt các chỉ đạo chung, mang tính định hướng, chiến lược.",
-  "specific_directives": "[Markdown] Liệt kê chi tiết các chỉ đạo cụ thể, bao gồm: công việc, người/đơn vị phụ trách, và thời hạn (nếu có)."
-}
-
-"""
-
-code
-Code
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-#### Then, update `ai_service.py` to recognize these new tasks:
-
-```python
-# In app/services/ai_service.py -> _get_system_prompt_for_task()
-
-    def _get_system_prompt_for_task(self, task: str) -> str:
-        prompts = {
-            # ... (other summary types) ...
-            "summary_bbh_hdqt": SUMMARY_BBH_HDQT_PROMPT,
-            "summary_nghi_quyet": SUMMARY_NGHI_QUYET_PROMPT,
-            "chat": CHAT_SYSTEM_PROMPT,
-        }
-        # ... (rest of the function)
-Step 4: Implement the Generation Logic
-
-Create a new service file: app/services/document_generator.py.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# app/services/document_generator.py
-
-import json
-import logging
-from io import BytesIO
-from pathlib import Path
-
-from docxtpl import DocxTemplate
-
-from app.utils import add_markdown_to_doc
-
-logger = logging.getLogger(__name__)
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
-
-def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
-    """
-    Generates a DOCX file from a template and JSON data from an LLM.
-
-    Args:
-        template_type (str): The type of document, e.g., 'bbh_hdqt' or 'nghi_quyet'.
-        llm_json_output (str): The JSON string response from the AI service.
-
-    Returns:
-        BytesIO: An in-memory buffer containing the generated DOCX file.
-    """
-    template_map = {
-        "bbh_hdqt": "bbh_hdqt_template.docx",
-        "nghi_quyet": "nghi_quyet_template.docx",
-    }
-    template_filename = template_map.get(template_type)
-    if not template_filename:
-        raise ValueError(f"Invalid template type: {template_type}")
-
-    template_path = TEMPLATES_DIR / template_filename
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template file not found at: {template_path}")
-
-    try:
-        doc = DocxTemplate(template_path)
-        context = json.loads(llm_json_output)
-
-        # Process fields that contain Markdown into RichText objects
-        for key, value in context.items():
-            if isinstance(value, str) and value.startswith("[Markdown]"):
-                markdown_content = value.replace("[Markdown]", "").strip()
-                context[key] = add_markdown_to_doc(doc, markdown_content)
-
-        doc.render(context)
-        
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-
-    except json.JSONDecodeError:
-        logger.error(f"Failed to decode LLM JSON output: {llm_json_output}")
-        raise ValueError("AI service returned invalid JSON. Cannot generate document.")
-    except Exception as e:
-        logger.error(f"Failed to generate document for template '{template_type}': {e}", exc_info=True)
-        raise RuntimeError("An unexpected error occurred during document generation.")
-Step 5: Create the API Endpoint
-
-Finally, create the endpoint in app/api/routes/meeting.py that ties everything together.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# In app/api/routes/meeting.py (Part 2)
-
-from fastapi.responses import StreamingResponse
-from app.services.ai_service import ai_service
-from app.services.document_generator import generate_templated_document
-from app.api.deps import get_job_with_any_transcript # Use this dependency
-
-@router.get(
-    "/{request_id}/download/document",
-    summary="Generate and download a formal meeting document"
-)
-async def generate_and_download_document(
-    job: MeetingJob = Depends(get_job_with_any_transcript),
-    template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"], description="The type of document template to use."),
-    db: Session = Depends(get_db_session)
-):
-    """
-    Generates a formal DOCX document based on a selected template
-    (Biên bản HĐQT or Nghị quyết). This process involves calling an LLM
-    to extract and format data, which is then inserted into a pre-styled
-    .docx template file.
-    """
-    # 1. Get the source transcript
-    transcription_entry = db.exec(
-        select(Transcription).where(
-            Transcription.meeting_job_id == job.id,
-            Transcription.language == job.language
-        )
-    ).first()
-    
-    # Assuming the transcript_data is a list of PlainSegment-like dicts
-    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
-
-    # 2. Call AI service to get structured JSON
-    try:
-        task_name = f"summary_{template_type}"
-        llm_json_response = await ai_service.get_response(task=task_name, user_message=transcript_text)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to get data from AI service: {e}")
-
-    # 3. Generate the document from the template and JSON
-    try:
-        document_buffer = generate_templated_document(template_type, llm_json_response)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
-
-    # 4. Return the file to the user
-    filename = f"{template_type}_{job.bbh_name.replace(' ', '_')}.docx"
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
-    
-    return StreamingResponse(
-        document_buffer,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers=headers
-    )
