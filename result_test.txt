@@ -1,17 +1,25 @@
 
-service "test-client" refers to undefined network meeting_network: invalid compose project
-services:
-  test-client:
-    build: .
-    container_name: meeting_api_test_client
-    volumes:
-      - ./speaker_audio:/test_client/speaker_audio
-      - ./meeting_to:/test_client/meeting_to
-      - ./speaker_metadata.csv:/test_client/speaker_metadata.csv
-    networks:
-      - meeting_network
-
-networks:
-  meeting_work:
-    name: meeting_minutes_app_default
-    external: true
+ubuntu@dr-bigdata-aiml-03:/u01/user-data/vint1/diarization_api_test/test_client$ docker compose up --build -d
+[+] Building 4.1s (12/12) FINISHED                                                                                                                    docker:default
+ => [test-client internal] load build definition from Dockerfile                                                                                                0.0s
+ => => transferring dockerfile: 376B                                                                                                                            0.0s
+ => [test-client internal] load metadata for docker.io/library/python:3.9-slim                                                                                  0.0s
+ => [test-client internal] load .dockerignore                                                                                                                   0.0s
+ => => transferring context: 2B                                                                                                                                 0.0s
+ => [test-client 1/7] FROM docker.io/library/python:3.9-slim                                                                                                    0.0s
+ => [test-client internal] load build context                                                                                                                   0.0s
+ => => transferring context: 28.76kB                                                                                                                            0.0s
+ => CACHED [test-client 2/7] RUN pip config set global.index-url https://dso-nexus.vietinbank.vn/repository/itd_pypi/simple                                     0.0s
+ => CACHED [test-client 3/7] RUN pip config set global.trusted-host dso-nexus.vietinbank.vn                                                                     0.0s
+ => CACHED [test-client 4/7] WORKDIR /test_client                                                                                                               0.0s
+ => CACHED [test-client 5/7] COPY requirements.txt .                                                                                                            0.0s
+ => CACHED [test-client 6/7] RUN pip install --no-cache-dir -r requirements.txt                                                                                 0.0s
+ => [test-client 7/7] COPY . .                                                                                                                                  1.2s
+ => [test-client] exporting to image                                                                                                                            2.8s
+ => => exporting layers                                                                                                                                         2.8s
+ => => writing image sha256:652e8a4fa0dc3949e8ca4139fe4c6745ac17e4ea4b652bb8166ca4c0e8eb80cb                                                                    0.0s
+ => => naming to docker.io/library/test_client-test-client                                                                                                      0.0s
+[+] Running 1/1
+ ✔ Container meeting_api_test_client  Started                                                                                                                   0.4s
+ubuntu@dr-bigdata-aiml-03:/u01/user-data/vint1/diarization_api_test/test_client$ docker compose ps
+NAME      IMAGE     COMMAND   SERVICE   CREATED   STATUS    PORTS
