@@ -1,5 +1,17 @@
 
- => => naming to docker.io/library/test_client-test-client                                                                                                      0.0s
-[+] Running 1/0
- ✘ Network test_client_default  Error                                                                                                                           0.0s
-failed to create network test_client_default: Error response from daemon: could not find an available, non-overlapping IPv4 address pool among the defaults to assign to the network
+service "test-client" refers to undefined network meeting_network: invalid compose project
+services:
+  test-client:
+    build: .
+    container_name: meeting_api_test_client
+    volumes:
+      - ./speaker_audio:/test_client/speaker_audio
+      - ./meeting_to:/test_client/meeting_to
+      - ./speaker_metadata.csv:/test_client/speaker_metadata.csv
+    networks:
+      - meeting_network
+
+networks:
+  meeting_work:
+    name: meeting_minutes_app_default
+    external: true
