@@ -1,11 +1,4 @@
 
-meeting_api_server  |     config.load()
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/config.py", line 435, in load
-meeting_api_server  |     self.loaded_app = import_from_string(self.app)
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 19, in import_from_string
-meeting_api_server  |     module = importlib.import_module(module_str)
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 meeting_api_server  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
 meeting_api_server  |     return _bootstrap._gcd_import(name[level:], package, level)
 meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -17,7 +10,7 @@ meeting_api_server  |   File "<frozen importlib._bootstrap_external>", line 999,
 meeting_api_server  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
 meeting_api_server  |   File "/code/app/main.py", line 12, in <module>
 meeting_api_server  |     from app.api.routes import meeting, speaker
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 655, in <module>
-meeting_api_server  |     template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"], description="The type of document template to use."),
-meeting_api_server  |                          ^^^^^
-meeting_api_server  | NameError: name 'Query' is not defined
+meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 160, in <module>
+meeting_api_server  |     response_model=SpeakerProfileResponse,
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  | NameError: name 'SpeakerProfileResponse' is not defined. Did you mean: 'SpeakerProfileInfo'?
