@@ -1,1 +1,33 @@
-from typing import Optional, List, Dict, Any, Tuple
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 70, in serve
+meeting_api_server  |     await self._serve(sockets)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 77, in _serve
+meeting_api_server  |     config.load()
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/config.py", line 435, in load
+meeting_api_server  |     self.loaded_app = import_from_string(self.app)
+meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 22, in import_from_string
+meeting_api_server  |     raise exc from None
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 19, in import_from_string
+meeting_api_server  |     module = importlib.import_module(module_str)
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+meeting_api_server  |     return _bootstrap._gcd_import(name[level:], package, level)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+meeting_api_server  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+meeting_api_server  |   File "/code/app/main.py", line 12, in <module>
+meeting_api_server  |     from app.api.routes import meeting, speaker
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 27, in <module>
+meeting_api_server  |     from app.services.websocket_manager import websocket_manager
+meeting_api_server  | ModuleNotFoundError: No module named 'app.services.websocket_manager'
+
+=====================================
+
+
+
