@@ -1,0 +1,401 @@
+Of course. This is the final and most exciting step: seeing the entire system work together. I will provide a complete guide to set up and run a client that tests every part of your API, exactly as you've requested.
+
+This guide is broken down into four parts:
+
+Part 1: Prerequisite - Creating the Qdrant Collection.
+
+Part 2: Setting up the Test Client Folder.
+
+Part 3: The Full Python Test Script.
+
+Part 4: Running the Test Client Container.
+
+Part 1: Prerequisite - Create the Qdrant Collection
+
+Before running the main test, you need to create the collection in Qdrant where speaker embeddings will be stored.
+
+Create a temporary file on your local machine called create_collection.py.
+
+Make sure you have the Qdrant client library installed on your local machine (pip install qdrant-client).
+
+Place the following code into the file. It uses the information you provided to connect to your Qdrant container on port 7333.
+
+create_collection.py
+code
+Python
+download
+content_copy
+expand_less
+
+from qdrant_client import QdrantClient, models
+
+# --- Configuration ---
+QDRANT_HOST = "localhost"  # Use localhost since the port is exposed to your host machine
+QDRANT_PORT = 7333         # The host port you've mapped
+COLLECTION_NAME = "meeting_speakers_v2" # MUST MATCH the name in your .env file
+VECTOR_SIZE = 512          # From titanet-large model, MUST MATCH enrollment.py
+DISTANCE_METRIC = models.Distance.COSINE
+
+# --- Main Script ---
+if __name__ == "__main__":
+    print(f"Connecting to Qdrant at {QDRANT_HOST}:{QDRANT_PORT}...")
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+    print("Connection successful.")
+
+    try:
+        print(f"Attempting to create collection '{COLLECTION_NAME}'...")
+        client.recreate_collection(
+            collection_name=COLLECTION_NAME,
+            vectors_config=models.VectorParams(
+                size=VECTOR_SIZE,
+                distance=DISTANCE_METRIC
+            ),
+        )
+        # Create a payload index for faster searching
+        client.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name="search_terms",
+            field_schema=models.PayloadSchemaType.KEYWORD,
+            wait=True
+        )
+        print(f"Collection '{COLLECTION_NAME}' and keyword index created successfully!")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        print(f"It's possible the collection '{COLLECTION_NAME}' already exists, which is okay.")
+
+Run the script from your terminal:
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+python create_collection.py
+
+This will connect to your running Qdrant container and create the necessary collection. You only need to do this once.
+
+Part 2: Setting up the Test Client Folder
+
+Now, let's create the separate folder for your test client.
+
+Outside of your main project directory, create a new folder. Let's call it test_client.
+
+Inside test_client, create your data folders as you described:
+
+test_client/speaker_audio/: Place your speaker subfolders here (e.g., linhpt, anv), each containing their .wav files.
+
+test_client/meeting_to/: Place all your meeting chunk files here.
+
+Inside test_client, create the files described below.
+
+test_client/Dockerfile
+code
+Dockerfile
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# Use a standard Python image
+FROM python:3.9-slim
+
+# Set the working directory inside the container
+WORKDIR /test_client
+
+# Copy the requirements file and install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the test script and the data folders into the container
+COPY test_api.py .
+COPY speaker_audio ./speaker_audio
+COPY meeting_to ./meeting_to
+
+# The command to run when the container starts
+CMD ["python", "test_api.py"]
+test_client/requirements.txt
+code
+Txt
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+requests
+tqdm
+test_client/docker-compose.yml
+
+This file will define and run your test client container.
+
+code
+Yaml
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+version: "3.8"
+
+services:
+  api-tester:
+    build: .
+    container_name: api_tester
+    # This is the key part. It tells this container that the hostname 'api'
+    # should resolve to the special address for the Docker host machine.
+    # This allows it to connect to your API server running on localhost:8000.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+Part 3: The Full Python Test Script
+
+This is the main script that will call all your endpoints in a logical sequence.
+
+test_client/test_api.py
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+import os
+import time
+import uuid
+from collections import defaultdict
+from pathlib import Path
+
+import requests
+from tqdm import tqdm
+
+# --- Configuration ---
+# Use host.docker.internal to connect from this container to the host machine where the API is exposed.
+API_BASE_URL = "http://host.docker.internal:8000/api/v1"
+SPEAKER_AUDIO_DIR = Path("./speaker_audio")
+MEETING_AUDIO_DIR = Path("./meeting_to")
+OUTPUT_DIR = Path("./test_outputs")
+
+# Create a directory to save downloaded files
+OUTPUT_DIR.mkdir(exist_ok=True)
+
+def enroll_speakers():
+    """Finds speaker folders and enrolls them via the API."""
+    print("--- 1. ENROLLING SPEAKERS ---")
+    speaker_folders = [f for f in SPEAKER_AUDIO_DIR.iterdir() if f.is_dir()]
+    for speaker_dir in speaker_folders:
+        user_ad = speaker_dir.name
+        display_name = user_ad.upper()  # Or any display name you want
+        audio_files = list(speaker_dir.glob("*.wav"))
+
+        if not audio_files:
+            print(f"Skipping '{user_ad}': No audio files found.")
+            continue
+
+        print(f"\nEnrolling speaker '{user_ad}' with {len(audio_files)} samples...")
+        
+        # Prepare the multipart/form-data payload
+        files_to_upload = [
+            ('files', (f.name, open(f, 'rb'), 'audio/wav')) for f in audio_files
+        ]
+        metadata_json = f'{{"display_name": "{display_name}", "user_ad": "{user_ad}"}}'
+        payload = {'metadata': metadata_json}
+
+        try:
+            response = requests.post(
+                f"{API_BASE_URL}/speaker/",
+                files=files_to_upload,
+                data=payload
+            )
+            response.raise_for_status()  # Raise an exception for bad status codes
+            print(f"✅ SUCCESS: Speaker '{user_ad}' enrolled.")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ ERROR enrolling '{user_ad}': {e.response.text if e.response else e}")
+        finally:
+            # Important: Close the opened files
+            for _, file_tuple in files_to_upload:
+                file_tuple[1].close()
+
+def upload_and_process_meetings():
+    """Finds meeting chunks, uploads them, and tests the full pipeline."""
+    print("\n--- 2. UPLOADING & PROCESSING MEETINGS ---")
+    
+    # Group chunks by meeting name
+    meetings = defaultdict(list)
+    for chunk_file in MEETING_AUDIO_DIR.glob("*.wav"):
+        meeting_name = chunk_file.stem.rsplit('_', 1)[0]
+        meetings[meeting_name].append(chunk_file)
+
+    for meeting_name, chunks in meetings.items():
+        # Sort chunks by their ID number
+        chunks.sort(key=lambda f: int(f.stem.rsplit('_', 1)[1]))
+        
+        request_id = str(uuid.uuid4())
+        username = "test_user"
+        print(f"\nProcessing meeting '{meeting_name}' with Request ID: {request_id}")
+
+        # --- Step 2.1: Start BBH ---
+        try:
+            print("Starting meeting...")
+            response = requests.post(
+                f"{API_BASE_URL}/meeting/start-bbh",
+                data={
+                    "requestId": request_id,
+                    "username": username,
+                    "language": "vi",
+                    "filename": f"{meeting_name}.wav",
+                    "bbhName": meeting_name.replace("_", " "),
+                    "Type": "Test Meeting",
+                    "Host": "API Tester"
+                }
+            )
+            response.raise_for_status()
+            print("✅ SUCCESS: Meeting initialized.")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ ERROR starting meeting: {e.response.text}")
+            continue # Skip to the next meeting
+
+        # --- Step 2.2: Upload Chunks ---
+        print("Uploading audio chunks...")
+        try:
+            for i, chunk_path in enumerate(tqdm(chunks, desc="Uploading")):
+                is_last_chunk = (i == len(chunks) - 1)
+                with open(chunk_path, 'rb') as f:
+                    files = {'FileData': (chunk_path.name, f, 'audio/wav')}
+                    data = {'requestId': request_id, 'isLastChunk': str(is_last_chunk)}
+                    response = requests.post(
+                        f"{API_BASE_URL}/meeting/upload-file-chunk",
+                        files=files,
+                        data=data
+                    )
+                    response.raise_for_status()
+            print("✅ SUCCESS: All chunks uploaded.")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ ERROR uploading chunks: {e.response.text}")
+            continue
+
+        # --- Step 2.3: Poll for Transcription ---
+        poll_status(request_id, username, "transcription_complete")
+
+        # --- Step 2.4: Trigger Diarization ---
+        try:
+            print("Triggering diarization...")
+            response = requests.post(f"{API_BASE_URL}/meeting/{request_id}/diarize?username={username}")
+            response.raise_for_status()
+            print("✅ SUCCESS: Diarization started.")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ ERROR starting diarization: {e.response.text}")
+            continue
+
+        # --- Step 2.5: Poll for Completion ---
+        poll_status(request_id, username, "completed")
+
+        # --- Step 2.6: Test Analysis & Download Endpoints ---
+        print("Testing analysis and download endpoints...")
+        test_analysis_endpoints(request_id, username, meeting_name)
+
+def poll_status(request_id, username, target_status, timeout=300):
+    """Polls the status endpoint until a target status is reached."""
+    print(f"Polling for status '{target_status}'...")
+    start_time = time.time()
+    with tqdm(total=None, desc=f"Waiting for {target_status}") as pbar:
+        while time.time() - start_time < timeout:
+            try:
+                response = requests.get(f"{API_BASE_URL}/meeting/{request_id}/status?username={username}")
+                response.raise_for_status()
+                data = response.json()['data']
+                current_status = data['status']
+                pbar.set_postfix_str(f"Current: {current_status}")
+                
+                if current_status == target_status:
+                    print(f"\n✅ SUCCESS: Reached status '{target_status}'.")
+                    if data.get('plain_transcript'):
+                        print("  -> Plain transcript is available.")
+                    if data.get('diarized_transcript'):
+                        print("  -> Diarized transcript is available.")
+                    return True
+                if current_status == "failed":
+                    print(f"\n❌ ERROR: Job failed with message: {data.get('error_message')}")
+                    return False
+                
+                time.sleep(5)
+            except requests.exceptions.RequestException as e:
+                print(f"\n❌ ERROR polling status: {e.response.text}")
+                return False
+    print("\n❌ ERROR: Polling timed out.")
+    return False
+
+def test_analysis_endpoints(request_id, username, meeting_name):
+    """Tests document generation, chat, and audio download."""
+    # Test Document Generation
+    for template in ["bbh_hdqt", "nghi_quyet"]:
+        try:
+            print(f"Generating document with template '{template}'...")
+            response = requests.get(
+                f"{API_BASE_URL}/meeting/{request_id}/download/document?username={username}&template_type={template}",
+                stream=True
+            )
+            response.raise_for_status()
+            output_path = OUTPUT_DIR / f"{meeting_name}_{template}.docx"
+            with open(output_path, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print(f"  -> ✅ SUCCESS: Saved document to '{output_path}'")
+        except requests.exceptions.RequestException as e:
+            print(f"  -> ❌ ERROR generating document '{template}': {e.response.text}")
+
+    # Test Chat
+    try:
+        print("Testing chat...")
+        response = requests.post(
+            f"{API_BASE_URL}/meeting/chat",
+            json={
+                "requestId": request_id,
+                "username": username,
+                "message": "Tóm tắt lại các quyết định chính trong cuộc họp?"
+            }
+        )
+        response.raise_for_status()
+        chat_response = response.json()['response']
+        print(f"  -> ✅ SUCCESS: Chat response received: '{chat_response[:80]}...'")
+    except requests.exceptions.RequestException as e:
+        print(f"  -> ❌ ERROR during chat: {e.response.text}")
+
+    # Test Audio Download
+    try:
+        print("Testing audio download...")
+        response = requests.get(f"{API_BASE_URL}/meeting/{request_id}/download/audio?username={username}", stream=True)
+        response.raise_for_status()
+        output_path = OUTPUT_DIR / f"{meeting_name}_downloaded_audio.wav"
+        with open(output_path, 'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        print(f"  -> ✅ SUCCESS: Saved audio to '{output_path}'")
+    except requests.exceptions.RequestException as e:
+        print(f"  -> ❌ ERROR downloading audio: {e.response.text}")
+
+
+if __name__ == "__main__":
+    enroll_speakers()
+    upload_and_process_meetings()
+    print("\n--- TESTING COMPLETE ---")
+    print(f"Check the '{OUTPUT_DIR}' folder for downloaded files.")
+Part 4: Running the Test Client
+
+You are now ready to run the test.
+
+Make sure your main application is running (docker-compose up -d in your main project folder).
+
+Navigate to your test_client folder in the terminal.
+
+Run the following command:
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker-compose up --build
+
+You will see the output in your terminal as the script enrolls speakers, uploads meeting chunks, polls for status, and finally downloads the generated documents and audio files into the test_client/test_outputs folder. This provides a complete, end-to-end test of your entire merged application.
