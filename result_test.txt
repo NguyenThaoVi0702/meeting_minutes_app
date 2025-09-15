@@ -1,8 +1,4 @@
 
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 19, in import_from_string
-meeting_api_server  |     module = importlib.import_module(module_str)
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 meeting_api_server  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
 meeting_api_server  |     return _bootstrap._gcd_import(name[level:], package, level)
 meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -21,3 +17,4 @@ meeting_api_server  |   File "/usr/lib/python3.12/pathlib.py", line 1162, in __i
 meeting_api_server  |     super().__init__(*args)
 meeting_api_server  |   File "/usr/lib/python3.12/pathlib.py", line 373, in __init__
 meeting_api_server  |     raise TypeError(
+meeting_api_server  | TypeError: argument should be a str or an os.PathLike object where __fspath__ returns a str, not 'ellipsis'
