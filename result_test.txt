@@ -1,74 +1,41 @@
-ubuntu@dr-bigdata-aiml-03:/u01/user-data/vint1/meeting_minutes_app$ docker compose logs -f
-meeting_cpu_worker  | Usage: celery [OPTIONS] COMMAND [ARGS]...
-meeting_cpu_worker  | Try 'celery --help' for help.
-meeting_cpu_worker  |
-meeting_cpu_worker  | Error:
-meeting_gpu_worker  | Usage: celery [OPTIONS] COMMAND [ARGS]...
-meeting_gpu_worker  | Try 'celery --help' for help.
-meeting_gpu_worker  |
-meeting_gpu_worker  | Error:
-meeting_gpu_worker  | Unable to load celery application.
-meeting_gpu_worker  | While trying to load the module app.worker.celery_app the following error occurred:
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/bin/celery.py", line 141, in celery
-meeting_gpu_worker  |     app = find_app(app)
-meeting_cpu_worker  | Unable to load celery application.
-meeting_cpu_worker  | While trying to load the module app.worker.celery_app the following error occurred:
-meeting_cpu_worker  | Traceback (most recent call last):
-meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/bin/celery.py", line 141, in celery
-meeting_cpu_worker  |     app = find_app(app)
-meeting_cpu_worker  |           ^^^^^^^^^^^^^
-meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/utils.py", line 383, in find_app
-meeting_cpu_worker  |     sym = symbol_by_name(app, imp=imp)
-meeting_cpu_worker  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |           ^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/utils.py", line 383, in find_app
-meeting_gpu_worker  |     sym = symbol_by_name(app, imp=imp)
-meeting_gpu_worker  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/kombu/utils/imports.py", line 59, in symbol_by_name
-meeting_cpu_worker  |     module = imp(module_name, package=package, **kwargs)
-meeting_cpu_worker  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/utils/imports.py", line 109, in import_from_cwd
-meeting_cpu_worker  |     return imp(module, package=package)
-meeting_cpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_cpu_worker  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
-meeting_cpu_worker  |     return _bootstrap._gcd_import(name[level:], package, level)
-meeting_cpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/kombu/utils/imports.py", line 59, in symbol_by_name
-meeting_gpu_worker  |     module = imp(module_name, package=package, **kwargs)
-meeting_gpu_worker  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/bin/worker.py", line 348, in worker
+meeting_gpu_worker  |     worker = app.Worker(
+meeting_gpu_worker  |              ^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/worker/worker.py", line 94, in __init__
+meeting_gpu_worker  |     self.app.loader.init_worker()
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 110, in init_worker
+meeting_gpu_worker  |     self.import_default_modules()
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 105, in import_default_modules
+meeting_gpu_worker  |     return [self.import_task_module(m) for m in self.default_modules]
+meeting_gpu_worker  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 85, in import_task_module
+meeting_gpu_worker  |     return self.import_from_cwd(module)
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 91, in import_from_cwd
+meeting_gpu_worker  |     return import_from_cwd(
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^
 meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/utils/imports.py", line 109, in import_from_cwd
 meeting_gpu_worker  |     return imp(module, package=package)
 meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 88, in import_module
+meeting_gpu_worker  |     return importlib.import_module(module, package=package)
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 meeting_gpu_worker  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
 meeting_gpu_worker  |     return _bootstrap._gcd_import(name[level:], package, level)
 meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
 meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
+meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+meeting_gpu_worker  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
 meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
-meeting_gpu_worker  | ModuleNotFoundError: No module named 'app'
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 1310, in _find_and_load_unlocked
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
-meeting_gpu_worker  |
-meeting_gpu_worker  | Usage: celery [OPTIONS] COMMAND [ARGS]...
-meeting_gpu_worker  | Try 'celery --help' for help.
-meeting_gpu_worker  |
-meeting_gpu_worker  | Error:
-meeting_gpu_worker  | Unable to load celery application.
-meeting_gpu_worker  | While trying to load the module app.worker.celery_app the following error occurred:
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/bin/celery.py", line 141, in celery
-meeting_gpu_worker  |     app = find_app(app)
-meeting_gpu_worker  |           ^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/utils.py", line 383, in find_app
-meeting_gpu_worker  |     sym = symbol_by_name(app, imp=imp)
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_cpu_worker  |   File "<frozen importlib._bootstrap>", line 1324, in _find_and_load_unlocked
-meeting_cpu_worker  | ModuleNotFoundError: No module named 'app'
+meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 12, in <module>
+meeting_gpu_worker  |     from app.processing.diarization import SpeakerDiarization
+meeting_gpu_worker  |   File "/code/app/processing/diarization.py", line 20, in <module>
+meeting_gpu_worker  |     class SpeakerDiarization:
+meeting_gpu_worker  |   File "/code/app/processing/diarization.py", line 187, in SpeakerDiarization
+meeting_gpu_worker  |     def _identify_known_speakers(self, all_segments: List[Dict], enrolled_profiles: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+meeting_gpu_worker  |                                                                                                    ^^^^^
+meeting_gpu_worker  | NameError: name 'Tuple' is not defined. Did you mean: 'tuple'?
