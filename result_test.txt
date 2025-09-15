@@ -1,41 +1,16 @@
-
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/bin/worker.py", line 348, in worker
-meeting_gpu_worker  |     worker = app.Worker(
-meeting_gpu_worker  |              ^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/worker/worker.py", line 94, in __init__
-meeting_gpu_worker  |     self.app.loader.init_worker()
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 110, in init_worker
-meeting_gpu_worker  |     self.import_default_modules()
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 105, in import_default_modules
-meeting_gpu_worker  |     return [self.import_task_module(m) for m in self.default_modules]
-meeting_gpu_worker  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 85, in import_task_module
-meeting_gpu_worker  |     return self.import_from_cwd(module)
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 91, in import_from_cwd
-meeting_gpu_worker  |     return import_from_cwd(
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/utils/imports.py", line 109, in import_from_cwd
-meeting_gpu_worker  |     return imp(module, package=package)
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/loaders/base.py", line 88, in import_module
-meeting_gpu_worker  |     return importlib.import_module(module, package=package)
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
-meeting_gpu_worker  |     return _bootstrap._gcd_import(name[level:], package, level)
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
-meeting_gpu_worker  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
-meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 12, in <module>
-meeting_gpu_worker  |     from app.processing.diarization import SpeakerDiarization
-meeting_gpu_worker  |   File "/code/app/processing/diarization.py", line 20, in <module>
-meeting_gpu_worker  |     class SpeakerDiarization:
-meeting_gpu_worker  |   File "/code/app/processing/diarization.py", line 187, in SpeakerDiarization
-meeting_gpu_worker  |     def _identify_known_speakers(self, all_segments: List[Dict], enrolled_profiles: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
-meeting_gpu_worker  |                                                                                                    ^^^^^
-meeting_gpu_worker  | NameError: name 'Tuple' is not defined. Did you mean: 'tuple'?
+File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+meeting_api_server  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+meeting_api_server  |   File "/code/app/main.py", line 12, in <module>
+meeting_api_server  |     from app.api.routes import meeting, speaker
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 22, in <module>
+meeting_api_server  |     from app.schemas.meeting import (
+meeting_api_server  |   File "/code/app/schemas/meeting.py", line 112, in <module>
+meeting_api_server  |     class DownloadLinkResponse(BaseModel):
+meeting_api_server  |   File "/code/app/schemas/meeting.py", line 118, in DownloadLinkResponse
+meeting_api_server  |     expires_at: datetime
+meeting_api_server  |                 ^^^^^^^^
+meeting_api_server  | NameError: name 'datetime' is not defined. Did you forget to import 'datetime'
