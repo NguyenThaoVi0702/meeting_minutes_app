@@ -1,20 +1,29 @@
+@818b610315f7:/test_client# ^C
+root@818b610315f7:/test_client# python3 test_api.py
+Loaded metadata for 7 speakers.
+Found 2 meetings to process.
+
+--- STEP 1: ENROLLING SPEAKERS ---
+Enrolling speaker 'TAKEOS' with 0 samples...
+  -> Status: 422, Response: {'detail': [{'type': 'missing', 'loc': ['body', 'files'], 'msg': 'Field required', 'input': None}]}
+Enrolling speaker 'BINHTM' with 159 samples...
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.9/site-packages/requests/models.py", line 976, in json
+    return complexjson.loads(self.text, **kwargs)
+  File "/usr/local/lib/python3.9/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/usr/local/lib/python3.9/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/usr/local/lib/python3.9/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 
 During handling of the above exception, another exception occurred:
 
 Traceback (most recent call last):
-  File "/test_client/test_api.py", line 207, in <module>
+  File "/test_client/test_api.py", line 204, in <module>
     run_full_test()
-  File "/test_client/test_api.py", line 101, in run_full_test
-    response = requests.post(f"{API_BASE_URL}/speaker/", data=payload, files=files_to_upload)
-  File "/usr/local/lib/python3.9/site-packages/requests/api.py", line 115, in post
-    return request("post", url, data=data, json=json, **kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/api.py", line 59, in request
-    return session.request(method=method, url=url, **kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/sessions.py", line 589, in request
-    resp = self.send(prep, **send_kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/sessions.py", line 703, in send
-    r = adapter.send(request, **kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/adapters.py", line 677, in send
-    raise ConnectionError(e, request=request)
-requests.exceptions.ConnectionError: HTTPConnectionPool(host='api', port=8072): Max retries exceeded with url: /api/v1/speaker/ (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7faa9654bd60>: Failed to establish a new connection: [Errno 111] Connection refused'))
-root@818b610315f7:/test_client# ^C
+  File "/test_client/test_api.py", line 99, in run_full_test
+    print(f"  -> Status: {response.status_code}, Response: {response.json()}")
+  File "/usr/local/lib/python3.9/site-packages/requests/models.py", line 980, in json
+    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
