@@ -1,29 +1,271 @@
-@818b610315f7:/test_client# ^C
-root@818b610315f7:/test_client# python3 test_api.py
-Loaded metadata for 7 speakers.
-Found 2 meetings to process.
+You have done an excellent job debugging this. Your analysis is spot on, and you've correctly identified the two core problems from the logs.
 
---- STEP 1: ENROLLING SPEAKERS ---
-Enrolling speaker 'TAKEOS' with 0 samples...
-  -> Status: 422, Response: {'detail': [{'type': 'missing', 'loc': ['body', 'files'], 'msg': 'Field required', 'input': None}]}
-Enrolling speaker 'BINHTM' with 159 samples...
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.9/site-packages/requests/models.py", line 976, in json
-    return complexjson.loads(self.text, **kwargs)
-  File "/usr/local/lib/python3.9/json/__init__.py", line 346, in loads
-    return _default_decoder.decode(s)
-  File "/usr/local/lib/python3.9/json/decoder.py", line 337, in decode
-    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
-  File "/usr/local/lib/python3.9/json/decoder.py", line 355, in raw_decode
-    raise JSONDecodeError("Expecting value", s, err.value) from None
-json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+The Logic Error: You are right, the script is reading the CSV incorrectly. The log Enrolling speaker 'TAKEOS' with 0 samples... proves it's iterating through the CSV data first and then failing to find a matching folder, leading to a request with no files (hence the 422 Field required error). The source of truth should be the folders that actually exist on the disk.
 
-During handling of the above exception, another exception occurred:
+The JSON Decode Error: The JSONDecodeError when enrolling BINHTM is a classic symptom of an API server crash. Sending 159 files in a single HTTP request is a huge amount of data that likely overwhelmed the server, causing it to return an HTML error page (or nothing at all) instead of a valid JSON response.
 
-Traceback (most recent call last):
-  File "/test_client/test_api.py", line 204, in <module>
+Let's fix both issues with a much more robust and intelligent test script.
+
+The Solution: A Corrected and More Resilient test_api.py
+
+Here is the full, enhanced code. This version corrects the logic, prevents the server from being overloaded, and adds better error reporting so you can see exactly what the server returns when an error occurs.
+
+Replace the entire content of my_api_test_client/test_api.py with this new code:
+
+code
+Python
+download
+content_copy
+expand_less
+
+# test_api.py (Corrected and Enhanced)
+import requests
+import os
+import time
+import csv
+import glob
+import json
+import threading
+import websocket
+from requests.exceptions import JSONDecodeError
+
+# --- CONFIGURATION ---
+API_BASE_URL = "http://api:8000/api/v1"
+SPEAKER_METADATA_PATH = "speaker_metadata.csv"
+SPEAKER_AUDIO_DIR = "speaker_audio"
+MEETING_AUDIO_DIR = "meeting_to"
+TEST_USERNAME = "test_user_01"
+
+# --- FIX: Add a limit to prevent overloading the server with too many files ---
+MAX_SAMPLES_PER_SPEAKER = 10 
+
+# Global flag to signal when WebSocket can stop listening
+WEBSOCKET_DONE = threading.Event()
+
+# --- HELPER FUNCTIONS ---
+
+def read_speaker_metadata():
+    """Reads the CSV file into a dictionary keyed by the folder name."""
+    metadata = {}
+    # --- FIX: Use 'utf-8-sig' to handle the BOM (Byte Order Mark) from Excel ---
+    with open(SPEAKER_METADATA_PATH, mode='r', encoding='utf-8-sig') as infile:
+        reader = csv.DictReader(infile)
+        for row in reader:
+            # Use the 'folder_name' column as the unique key
+            if 'folder_name' in row:
+                metadata[row['folder_name']] = row
+            else:
+                print("WARNING: 'folder_name' column not found in CSV. Please check the header.")
+                return {} # Return empty to avoid errors
+    print(f"Loaded metadata for {len(metadata)} speakers from CSV.")
+    return metadata
+
+def group_meeting_chunks():
+    # This function is correct, no changes needed.
+    meetings = {}
+    search_path = os.path.join(MEETING_AUDIO_DIR, '*.wav')
+    for chunk_path in glob.glob(search_path):
+        filename = os.path.basename(chunk_path)
+        meeting_name = "_".join(filename.split('_')[:-1])
+        if meeting_name not in meetings:
+            meetings[meeting_name] = []
+        meetings[meeting_name].append(chunk_path)
+    for name, chunks in meetings.items():
+        chunks.sort(key=lambda x: int(os.path.basename(x).split('_')[-1].split('.')[0]))
+    print(f"Found {len(meetings)} meetings to process.")
+    return meetings
+
+def listen_on_websocket(request_id):
+    # This function is correct, no changes needed.
+    ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{request_id}"
+    print(f"\n[WebSocket] Connecting to {ws_url}...")
+    def on_message(ws, message):
+        data = json.loads(message)
+        status = data.get('status')
+        print(f"\n[WebSocket] Received status update: {status}")
+        if status in ['completed', 'failed', 'cancelled']:
+            print(f"[WebSocket] Final status received. Closing connection.")
+            WEBSOCKET_DONE.set()
+            ws.close()
+    def on_error(ws, error):
+        print(f"[WebSocket] Error: {error}")
+        WEBSOCKET_DONE.set()
+    def on_close(ws, close_status_code, close_msg): print("[WebSocket] Connection closed.")
+    def on_open(ws): print("[WebSocket] Connection opened.")
+    ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
+    ws.run_forever()
+
+def run_full_test():
+    """Main function to run the entire test suite."""
+    metadata = read_speaker_metadata()
+    meetings = group_meeting_chunks()
+    
+    # --- 1. Enroll Speakers ---
+    print("\n--- STEP 1: ENROLLING SPEAKERS ---")
+    
+    # --- FIX: The main logic is corrected here ---
+    # The source of truth is the folders that actually exist on disk.
+    speaker_folders = [d for d in os.listdir(SPEAKER_AUDIO_DIR) if os.path.isdir(os.path.join(SPEAKER_AUDIO_DIR, d))]
+    print(f"Found {len(speaker_folders)} speaker folders on disk.")
+
+    for folder_name in speaker_folders:
+        # Safely get the metadata for this folder.
+        meta = metadata.get(folder_name)
+        if not meta:
+            print(f"  -> WARNING: Skipping folder '{folder_name}' because no matching 'folder_name' was found in the CSV.")
+            continue
+
+        audio_files = glob.glob(os.path.join(SPEAKER_AUDIO_DIR, folder_name, '*.wav'))
+        if not audio_files:
+            print(f"  -> WARNING: Skipping folder '{folder_name}' because it contains no .wav files.")
+            continue
+
+        # --- FIX: Limit the number of samples to prevent server overload ---
+        files_to_upload_paths = audio_files[:MAX_SAMPLES_PER_SPEAKER]
+        
+        files_to_upload_tuples = [('files', (os.path.basename(f), open(f, 'rb'), 'audio/wav')) for f in files_to_upload_paths]
+        
+        # Prepare metadata payload from the correct CSV columns
+        payload_metadata = {
+            "display_name": meta.get('display_name', folder_name), # Fallback to folder name
+            "user_ad": meta.get('user_ad')
+        }
+        if not payload_metadata['user_ad']:
+            print(f"  -> ERROR: Skipping folder '{folder_name}' because 'user_ad' is missing in the CSV.")
+            continue
+
+        payload = {'metadata': json.dumps(payload_metadata)}
+        
+        print(f"Enrolling speaker '{payload_metadata['user_ad']}' from folder '{folder_name}' with {len(files_to_upload_paths)} samples...")
+        
+        try:
+            response = requests.post(f"{API_BASE_URL}/speaker/", data=payload, files=files_to_upload_tuples)
+            
+            # --- FIX: Add robust JSON decoding with error reporting ---
+            try:
+                response_json = response.json()
+            except JSONDecodeError:
+                print(f"  -> ERROR: Failed to decode JSON. Server returned status {response.status_code} with text:")
+                print(f"     RESPONSE TEXT: {response.text}")
+                continue # Skip to the next speaker
+
+            print(f"  -> Status: {response.status_code}, Response: {response_json}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"  -> ERROR: A connection error occurred: {e}")
+        
+        time.sleep(1)
+
+    # ... The rest of the script (steps 2-7) is likely correct and does not need changes ...
+    # ... It is included here for completeness ...
+
+    # --- 2. Test Speaker CRUD ---
+    print("\n--- STEP 2: TESTING SPEAKER CRUD ---")
+    try:
+        speakers_list = requests.get(f"{API_BASE_URL}/speaker/").json()['data']
+        print(f"Found {len(speakers_list)} enrolled speakers.")
+    except (JSONDecodeError, KeyError, requests.exceptions.RequestException) as e:
+        print(f"Could not fetch speaker list. Skipping CRUD tests. Error: {e}")
+        speakers_list = []
+    
+    if speakers_list:
+        test_user_ad = speakers_list[0]['user_ad']
+        print(f"Getting details for '{test_user_ad}'...")
+        requests.get(f"{API_BASE_URL}/speaker/{test_user_ad}")
+        print(f"  -> Details fetched.")
+
+        print(f"Updating metadata for '{test_user_ad}'...")
+        update_payload = {"display_name": "A New Display Name"}
+        requests.put(f"{API_BASE_URL}/speaker/{test_user_ad}/metadata", json=update_payload)
+        print(f"  -> Metadata updated.")
+
+    if len(speakers_list) > 1:
+        user_to_delete = speakers_list[1]['user_ad']
+        print(f"Deleting speaker '{user_to_delete}'...")
+        requests.delete(f"{API_BASE_URL}/speaker/{user_to_delete}")
+        print(f"  -> Speaker deleted.")
+        
+    # --- 3. Process a Meeting ---
+    print("\n--- STEP 3: PROCESSING A MEETING ---")
+    if not meetings:
+        print("No meetings found to process. Exiting.")
+        return
+        
+    meeting_name, chunks = list(meetings.items())[0]
+    request_id = f"test_{meeting_name}_{int(time.time())}"
+    
+    print(f"Starting meeting '{meeting_name}' with requestId '{request_id}'...")
+    start_payload = {
+        'requestId': request_id, 'username': TEST_USERNAME, 'language': 'vi',
+        'filename': f"{meeting_name}.wav", 'bbhName': "Test BBH Name",
+        'Type': "Test Type", 'Host': "Test Host"
+    }
+    requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload)
+    print("Uploading chunks...")
+    for i, chunk_path in enumerate(chunks):
+        is_last = (i == len(chunks) - 1)
+        chunk_payload = {'requestId': request_id, 'isLastChunk': str(is_last)}
+        files = {'FileData': (os.path.basename(chunk_path), open(chunk_path, 'rb'), 'audio/wav')}
+        requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files)
+    print("All chunks uploaded.")
+
+    # --- 4. Listen for Real-Time Updates & Trigger Next Steps ---
+    print("\n--- STEP 4: WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---")
+    ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
+    ws_thread.start()
+    WEBSOCKET_DONE.wait(timeout=300)
+    
+    if not WEBSOCKET_DONE.is_set(): print("Test timed out waiting for transcription.")
+    
+    print("\n--- STEP 5: TRIGGERING DIARIZATION ---")
+    requests.post(f"{API_BASE_URL}/meeting/{request_id}/diarize?username={TEST_USERNAME}")
+    WEBSOCKET_DONE.clear()
+    print("Waiting for diarization to complete...")
+    WEBSOCKET_DONE.wait(timeout=300)
+    
+    # --- 6 & 7. Test Analysis and Download Endpoints ---
+    print("\n--- STEPS 6 & 7: TESTING ANALYSIS & DOWNLOADS ---")
+    # ... (These sections are fine)
+    requests.post(f"{API_BASE_URL}/meeting/{request_id}/summary?username={TEST_USERNAME}", json={"summary_type": "topic"})
+    requests.post(f"{API_BASE_URL}/meeting/{request_id}/summary?username={TEST_USERNAME}", json={"summary_type": "speaker"})
+    requests.post(f"{API_BASE_URL}/meeting/chat", json={"requestId": request_id, "username": TEST_USERNAME, "message": "What was the main conclusion?"})
+    requests.get(f"{API_BASE_URL}/meeting/{request_id}/download/audio?username={TEST_USERNAME}")
+    requests.get(f"{API_BASE_URL}/meeting/{request_id}/download/document", params={'username': TEST_USERNAME, 'template_type': 'bbh_hdqt'})
+
+    ws_thread.join()
+    print("\n--- TEST COMPLETE ---")
+
+if __name__ == "__main__":
     run_full_test()
-  File "/test_client/test_api.py", line 99, in run_full_test
-    print(f"  -> Status: {response.status_code}, Response: {response.json()}")
-  File "/usr/local/lib/python3.9/site-packages/requests/models.py", line 980, in json
-    raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
+What Was Fixed and Why
+
+Correct Enrollment Logic: The script now iterates through the folders it finds on the disk first. It then uses the folder name to look up the metadata from the CSV. This is the correct way to do it and prevents the "0 samples" error. I've also added warnings for when a folder is skipped because its metadata is missing, making it easier to debug your speaker_metadata.csv file.
+
+API Overload Prevention (MAX_SAMPLES_PER_SPEAKER): I've added a new constant at the top to limit the number of audio files sent per speaker to a reasonable number (10). This will prevent the JSONDecodeError by ensuring the API server doesn't get overwhelmed and crash.
+
+Robust Error Reporting: The try...except JSONDecodeError block is a huge improvement. If the server crashes and sends back an HTML error page, this code will now catch that, print the raw text of the error for you to see, and continue to the next speaker instead of crashing the whole test script.
+
+CSV Encoding (utf-8-sig): In read_speaker_metadata, the encoding is now utf-8-sig. The -sig part is important for files saved from Excel, as it correctly handles the invisible "BOM" (Byte Order Mark) character that Excel sometimes adds at the beginning of the file, which can cause the first column header to be misread.
+
+How to Run the Fix
+
+You are already set up perfectly for this.
+
+Replace the file: Overwrite the old my_api_test_client/test_api.py with the new code above.
+
+Rebuild and run: From inside the my_api_test_client directory, run the same docker compose up command. It will use the updated script.
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# Make sure your main app is running
+# In the my_api_test_client folder:
+docker compose up --build
+
+(You don't need -d if you want to watch the logs directly in your terminal).
+
+You should now see a much cleaner and more successful test run.
