@@ -1,33 +1,21 @@
-# in app/processing/enrollment.py
 
-# ... (inside the SpeakerEnrollment class) ...
-
-    def get_all_enrolled_profiles_for_diarization(self) -> List[Dict]:
-        # ... (this method stays the same) ...
-
-    # --- ADD THE NEW METHOD HERE ---
-    def get_all_speaker_profiles(self) -> List[Dict]:
-        """
-        Retrieves the metadata payloads for all enrolled speakers.
-        Excludes the heavy vector data for efficiency.
-        """
-        try:
-            # Scroll through all points, but only fetch the payload.
-            all_points, _ = self.qdrant_client.scroll(
-                collection_name=self.qdrant_collection_name,
-                limit=10000, # A high limit to get all profiles
-                with_payload=True,
-                with_vectors=False # This is the key to efficiency
-            )
-            # Return just the payload for each point found
-            profiles = [point.payload for point in all_points if point.payload]
-            logger.info(f"Fetched metadata for {len(profiles)} speaker profiles.")
-            return profiles
-        except Exception as e:
-            logger.error(f"Error fetching all speaker profiles from Qdrant: {e}", exc_info=True)
-            return []
-    # --- END OF NEW METHOD ---
-
-
-    def search_profiles(self, query: str, limit: int = 10) -> List[Dict]:
-        # ... (this method stays the same) ...
+meeting_cpu_worker  | [2025-09-16 17:01:40,624: ERROR/ForkPoolWorker-2] [Task] Enrollment failed for 'binhtm': Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.
+meeting_cpu_worker  | Traceback (most recent call last):
+meeting_cpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
+meeting_cpu_worker  |     enrollment_svc.enroll_new_speaker(
+meeting_cpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
+meeting_cpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
+meeting_cpu_worker  | ValueError: Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.
+meeting_cpu_worker  | [2025-09-16 17:01:40,635: ERROR/ForkPoolWorker-2] Task enroll_speaker_task[a5382bef-cbe1-46b7-a588-d24faa6b7c83] raised unexpected: ValueError("Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.")
+meeting_cpu_worker  | Traceback (most recent call last):
+meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 453, in trace_task
+meeting_cpu_worker  |     R = retval = fun(*args, **kwargs)
+meeting_cpu_worker  |                  ^^^^^^^^^^^^^^^^^^^^
+meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+meeting_cpu_worker  |     return self.run(*args, **kwargs)
+meeting_cpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_cpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
+meeting_cpu_worker  |     enrollment_svc.enroll_new_speaker(
+meeting_cpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
+meeting_cpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
+meeting_cpu_worker  | ValueError: Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.
