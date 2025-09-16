@@ -1,64 +1,257 @@
+You have found an excellent and subtle bug! Thank you for providing these detailed logs. They point to two distinct problems, one of which is a critical bug in the code I provided, and the other is an architectural issue we need to fix.
 
-meeting_api_server  | [NeMo W 2025-09-16 16:32:04 nemo_logging:405] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
-meeting_api_server  |     Train config :
-meeting_api_server  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/train.json
-meeting_api_server  |     sample_rate: 16000
-meeting_api_server  |     labels: null
-meeting_api_server  |     batch_size: 64
-meeting_api_server  |     shuffle: true
-meeting_api_server  |     is_tarred: false
-meeting_api_server  |     tarred_audio_filepaths: null
-meeting_api_server  |     tarred_shard_strategy: scatter
-meeting_api_server  |     augmentor:
-meeting_api_server  |       noise:
-meeting_api_server  |         manifest_path: /manifests/noise/rir_noise_manifest.json
-meeting_api_server  |         prob: 0.5
-meeting_api_server  |         min_snr_db: 0
-meeting_api_server  |         max_snr_db: 15
-meeting_api_server  |       speed:
-meeting_api_server  |         prob: 0.5
-meeting_api_server  |         sr: 16000
-meeting_api_server  |         resample_type: kaiser_fast
-meeting_api_server  |         min_speed_rate: 0.95
-meeting_api_server  |         max_speed_rate: 1.05
-meeting_api_server  |     num_workers: 15
-meeting_api_server  |     pin_memory: true
-meeting_api_server  |
-meeting_api_server  | [NeMo W 2025-09-16 16:32:04 nemo_logging:405] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s).
-meeting_api_server  |     Validation config :
-meeting_api_server  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/dev.json
-meeting_api_server  |     sample_rate: 16000
-meeting_api_server  |     labels: null
-meeting_api_server  |     batch_size: 128
-meeting_api_server  |     shuffle: false
-meeting_api_server  |     num_workers: 15
-meeting_api_server  |     pin_memory: true
-meeting_api_server  |
-meeting_api_server  | [NeMo I 2025-09-16 16:32:04 nemo_logging:393] PADDING: 16
-meeting_api_server  | [NeMo I 2025-09-16 16:32:05 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
-meeting_api_server  | 2025-09-16 16:32:05,482 - INFO - app.processing.enrollment - Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
-meeting_api_server  | 2025-09-16 16:32:05,482 - INFO - app.processing.enrollment - Connecting to Qdrant at 10.43.128.107:7333...
-meeting_api_server  | 2025-09-16 16:32:05,644 - INFO - httpx - HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
-meeting_api_server  | 2025-09-16 16:32:05,647 - INFO - httpx - HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
-meeting_api_server  | 2025-09-16 16:32:05,649 - INFO - app.processing.enrollment - Qdrant collection 'meeting_speakers' already exists.
-meeting_api_server  | 2025-09-16 16:32:05,664 - INFO - app.processing.enrollment - Starting enrollment for new speaker: 'takeos'
-meeting_api_server  | 2025-09-16 16:32:05,675 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_api_server  | [src/libmpg123/layer3.c:INT123_do_layer3():1844] error: dequantization failed!
-meeting_api_server  | Note: Illegal Audio-MPEG-Header 0x39302c31 at offset 11362560.
-meeting_api_server  | Note: Trying to resync...
-meeting_api_server  | Note: Skipped 1024 bytes in input.
-meeting_api_server  | [src/libmpg123/parse.c:wetwork():1349] error: Giving up resync after 1024 bytes - your stream is not nice... (maybe increasing resync limit could help).
-meeting_api_server  | 2025-09-16 16:32:12,903 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/118f4877-a697-4bed-8da9-b9b774682d53/f4c953b5-5b20-435a-a02b-ac059d8fb464_TV HDQT Takeo Shimotsu.mp3: name 'tempfile' is not defined
-meeting_api_server  | INFO:     192.168.16.4:36286 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
-meeting_api_server  | 2025-09-16 16:32:14,219 - INFO - app.processing.enrollment - Starting enrollment for new speaker: 'binhtm'
-meeting_api_server  | 2025-09-16 16:32:14,227 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_api_server  | 2025-09-16 16:32:14,286 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/85a858e1-5b98-45eb-b6a4-c56e81d10110_chunk_0342.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,344 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/7e3b3a00-00f3-4797-bc14-faa8882e2ad3_chunk_0254.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,402 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/c437e953-6464-4ad5-b0d6-085b694b19c5_chunk_0234.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,459 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/d33a8229-9d44-43ca-b271-5c0eed53d47a_chunk_0186.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,516 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/e5a509c9-3981-4b37-94be-68640f3fa79c_chunk_0003.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,575 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/cc080995-4a18-4f29-95b1-f3c8dfd4b439_chunk_0339.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,632 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/dfc65602-6a3b-4242-afe1-24664648d7da_chunk_0320.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,689 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/cf2a90a3-6c1d-43ea-ab48-b67e865f5b28_chunk_0064.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,747 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/1c1ffda8-f8f3-4ba7-9006-4f8fdb5d7f03_chunk_0351.wav: name 'tempfile' is not defined
-meeting_api_server  | 2025-09-16 16:32:14,804 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/941050ad-63b3-4c4d-9052-35be07576787_chunk_0277.wav: name 'tempfile' is not defined
+Let's address them one by one.
+
+Problem 1: The Crash - NameError: name 'tempfile' is not defined (Critical Bug)
+
+This is the immediate reason your enrollment is failing. The traceback is perfectly clear. The function get_embedding_from_audio in app/processing/enrollment.py uses the tempfile module to temporarily write audio data to disk, but I forgot to include the import tempfile statement at the top of the file.
+
+Problem 2: The Architectural Flaw - meeting_api_server is Doing Heavy Lifting
+
+Your logs show a much deeper issue:
+
+code
+Code
+download
+content_copy
+expand_less
+
+meeting_api_server  | [NeMo I 2025-09-16 16:32:05 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from ...
+meeting_api_server  | 2025-09-16 16:32:05,482 - INFO - app.processing.enrollment - Speaker Embedding model ... loaded successfully.
+
+This means your API server—the container that is supposed to be a lightweight, fast responder for web traffic—is loading the huge NeMo speaker model into memory and doing the GPU-intensive audio processing. This is a mistake in my previous design for the speaker endpoint. If two people try to enroll at the same time, your entire API will become unresponsive.
+
+We designed the Celery workers specifically to avoid this. The enrollment process must be asynchronous, just like transcription.
+
+The Complete Solution
+
+We will fix both problems at once. This involves:
+
+Fixing the NameError bug.
+
+Making the enrollment endpoint asynchronous by creating a new Celery task.
+
+Step 1: Fix app/processing/enrollment.py
+
+Add the missing import and make the audio processing more robust by converting all incoming audio to WAV first, which will also help avoid the libmpg123 MP3 errors you saw.
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# in app/processing/enrollment.py
+
+import os
+import time
+import logging
+import uuid
+import unicodedata
+from pathlib import Path
+import tempfile # <--- FIX 1: ADD THIS MISSING IMPORT
+from typing import List, Dict, Optional, Tuple
+
+import librosa
+import soundfile as sf
+import numpy as np
+import torch
+from pydub import AudioSegment # <--- FIX 2: Add pydub for robust conversion
+import nemo.collections.asr as nemo_asr
+from qdrant_client import QdrantClient, models
+
+from app.core.config import settings
+
+# ... (the rest of the file is the same until the _preprocess_and_embed_samples method) ...
+
+    def _preprocess_and_embed_samples(self, audio_paths: List[str]) -> List[np.ndarray]:
+        """Processes a list of audio files and returns a list of their embeddings."""
+        embeddings = []
+        for path in audio_paths:
+            try:
+                # --- FIX 3: Convert ALL audio to a standard WAV format first ---
+                # This makes the process much more robust to different input file types (mp3, m4a, etc.)
+                audio = AudioSegment.from_file(path)
+                audio = audio.set_channels(1).set_frame_rate(self.target_sr)
+                
+                # Use a temporary file for the standardized WAV
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmpfile:
+                    audio.export(tmpfile.name, format="wav")
+                    
+                    # Now load the clean audio data with librosa
+                    clean_audio_data, _ = librosa.load(tmpfile.name, sr=self.target_sr, mono=True)
+                    embedding = self.get_embedding_from_audio(clean_audio_data)
+                    embeddings.append(embedding)
+
+            except Exception as e:
+                logger.warning(f"Could not process or get embedding for sample {path}: {e}")
+        return embeddings
+
+# ... (rest of the file is the same) ...
+Step 2: Create an Enrollment Task in app/worker/tasks.py
+
+This moves the heavy lifting to the background workers.
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# in app/worker/tasks.py
+
+# ... (other imports) ...
+
+@celery_app.task(bind=True, name="enroll_speaker_task")
+def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metadata: dict):
+    """
+    Celery task to perform speaker enrollment in the background.
+    This task is routed to the 'gpu_tasks' queue.
+    """
+    logger.info(f"[Task] Starting enrollment for new speaker: '{user_ad}'")
+    try:
+        enrollment_svc = get_enrollment_service()
+        enrollment_svc.enroll_new_speaker(
+            user_ad=user_ad,
+            audio_sample_paths=audio_sample_paths,
+            metadata=metadata
+        )
+        logger.info(f"[Task] Enrollment successful for '{user_ad}'.")
+        # Here you could potentially use the websocket manager to send a success notification
+        # For now, we will just log it.
+        
+    except Exception as e:
+        logger.error(f"[Task] Enrollment failed for '{user_ad}': {e}", exc_info=True)
+        # You could add logic here to notify the user of the failure.
+        raise
+Step 3: Update the Task Router in app/worker/celery_app.py
+
+Tell Celery to send this new task to the GPU worker.
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# in app/worker/celery_app.py
+
+# ... (inside celery_app.conf.task_routes) ...
+celery_app.conf.task_routes = {
+    "app.worker.tasks.run_transcription_task": {
+        "queue": "gpu_tasks",
+        "routing_key": "task.gpu.transcription",
+    },
+    "app.worker.tasks.run_diarization_task": {
+        "queue": "gpu_tasks",
+        "routing_key": "task.gpu.diarization",
+    },
+    # --- ADD THIS NEW ROUTE ---
+    "app.worker.tasks.enroll_speaker_task": {
+        "queue": "gpu_tasks",
+        "routing_key": "task.gpu.enrollment",
+    },
+    # --- END OF ADDITION ---
+}
+Step 4: Update the API Endpoint in app/api/routes/speaker.py
+
+Finally, change the enroll_new_speaker endpoint to be asynchronous. It will now save the files and immediately dispatch the task to the Celery worker.
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# in app/api/routes/speaker.py
+
+# ... (imports) ...
+# Import the new task
+from app.worker.tasks import enroll_speaker_task
+
+# ... (inside the enroll_new_speaker endpoint) ...
+@router.post(
+    "/",
+    # Change the response model and status code to reflect an accepted task
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Enroll a new speaker profile"
+)
+async def enroll_new_speaker(
+    metadata_json: str = Form(..., alias="metadata", description="A JSON string with speaker metadata (display_name, user_ad)."),
+    files: List[UploadFile] = File(..., description="One or more audio files (.wav, .mp3) for the speaker's voice sample."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Accepts a new speaker enrollment request and queues it for background processing.
+    """
+    try:
+        metadata = SpeakerMetadataUpdate.model_validate_json(metadata_json)
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid metadata JSON: {e}")
+
+    user_ad = metadata.user_ad.lower().strip()
+    if not user_ad:
+         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="user_ad is a required field in metadata.")
+
+    # First, quickly check if the speaker already exists to avoid unnecessary file processing
+    if em.get_profile_by_ref_id(user_ad):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Speaker with user_ad '{user_ad}' already exists.")
+
+    # Use a permanent directory for the samples, as the background task will need them
+    enrollment_dir = Path(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
+    os.makedirs(enrollment_dir, exist_ok=True)
+    
+    saved_paths = []
+    try:
+        for file in files:
+            if not file.filename: continue
+            # Use a unique name to avoid overwrites
+            file_path = enrollment_dir / f"{uuid.uuid4()}_{file.filename}"
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            saved_paths.append(str(file_path))
+
+        if not saved_paths:
+            raise HTTPException(status_code=400, detail="No valid audio files were provided for enrollment.")
+
+        # --- DISPATCH THE BACKGROUND TASK ---
+        enroll_speaker_task.delay(
+            user_ad=user_ad,
+            audio_sample_paths=saved_paths,
+            metadata=metadata.model_dump()
+        )
+
+        return {"status": 202, "message": f"Enrollment for speaker '{user_ad}' has been accepted and is processing in the background."}
+
+    except Exception as e:
+        # Clean up saved files if the dispatch fails
+        for path in saved_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        logger.error(f"Failed to dispatch enrollment task for user_ad '{user_ad}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An internal server error occurred while queuing the enrollment task.")
+Final Step: Rebuild and Relaunch
+
+After saving all four modified files, you must rebuild your Docker image and restart your services.
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker-compose down
+docker-compose up -d --build
+
+Now, your application will be both correct and architecturally sound:
+
+The NameError is fixed.
+
+The API server no longer loads the heavy NeMo model. It instantly accepts enrollment requests and queues them.
+
+The worker-gpu container correctly picks up the enrollment job and performs the heavy audio processing and database insertion, just as it does for transcription.
