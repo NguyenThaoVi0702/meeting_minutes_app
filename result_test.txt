@@ -1,148 +1,61 @@
-# test_api.py (Final Version)
-import requests
-import os
-import time
-import csv
-import glob
-import json
-import threading
-import websocket
-# --- FIX: Import the correct exception class ---
-from requests.exceptions import JSONDecodeError, RequestException
 
-# --- CONFIGURATION ---
-API_BASE_URL = "http://api:8000/api/v1"
-SPEAKER_METADATA_PATH = "speaker_metadata.csv"
-SPEAKER_AUDIO_DIR = "speaker_audio"
-MEETING_AUDIO_DIR = "meeting_to"
-TEST_USERNAME = "test_user_01"
-MAX_SAMPLES_PER_SPEAKER = 10 
-# --- FIX: Add a generous timeout for large file uploads ---
-UPLOAD_TIMEOUT_SECONDS = 60
+--- STEP 1: ENROLLING SPEAKERS ---
+Found 7 speaker folders on disk.
+Enrolling speaker 'TAKEOS' from folder 'TV HDQT Takeo Shimotsu' with 1 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
+Enrolling speaker 'BINHTM' from folder 'CT HDQT Tran Minh Binh' with 10 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
+Enrolling speaker 'ANHNV19' from folder 'TV HDQT Nguyen Van Anh' with 1 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
+Enrolling speaker 'IRIGUCHIK' from folder 'TV HDQT Koji Iriguchi' with 1 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
+Enrolling speaker 'HUANNT' from folder 'TV HDQT Nguyen The Huan' with 1 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
+Enrolling speaker 'DUONGCQ' from folder 'TV HDQT Cat Quang Duong' with 1 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
+Enrolling speaker 'DUC.TM' from folder 'CVP HDQT Tran Minh Duc' with 1 samples...
+  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
+     RESPONSE TEXT: Internal Server Error...
 
-# Global flag
-WEBSOCKET_DONE = threading.Event()
+--- STEP 2: TESTING SPEAKER CRUD ---
+Could not fetch speaker list. Skipping CRUD tests. Error: 'data'
 
-# --- HELPER FUNCTIONS ---
-
-def read_speaker_metadata():
-    metadata = {}
-    with open(SPEAKER_METADATA_PATH, mode='r', encoding='utf-8-sig') as infile:
-        reader = csv.DictReader(infile)
-        for row in reader:
-            if 'folder_name' in row:
-                metadata[row['folder_name']] = row
-            else:
-                print("WARNING: 'folder_name' column not found in CSV.")
-                return {}
-    print(f"Loaded metadata for {len(metadata)} speakers from CSV.")
-    return metadata
-
-def group_meeting_chunks():
-    # This function is correct.
-    meetings = {}
-    search_path = os.path.join(MEETING_AUDIO_DIR, '*.wav') # Assuming meeting chunks are always .wav
-    for chunk_path in glob.glob(search_path):
-        filename = os.path.basename(chunk_path)
-        meeting_name = "_".join(filename.split('_')[:-1])
-        if meeting_name not in meetings:
-            meetings[meeting_name] = []
-        meetings[meeting_name].append(chunk_path)
-    for name, chunks in meetings.items():
-        chunks.sort(key=lambda x: int(os.path.basename(x).split('_')[-1].split('.')[0]))
-    print(f"Found {len(meetings)} meetings to process.")
-    return meetings
-
-def listen_on_websocket(request_id):
-    # This function is correct.
-    ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{request_id}"
-    print(f"\n[WebSocket] Connecting to {ws_url}...")
-    def on_message(ws, message):
-        data = json.loads(message)
-        status = data.get('status')
-        print(f"\n[WebSocket] Received status update: {status}")
-        if status in ['completed', 'failed', 'cancelled']:
-            WEBSOCKET_DONE.set()
-            ws.close()
-    def on_error(ws, error):
-        print(f"[WebSocket] Error: {error}")
-        WEBSOCKET_DONE.set()
-    def on_close(ws, c, m): print("[WebSocket] Connection closed.")
-    def on_open(ws): print("[WebSocket] Connection opened.")
-    ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
-    ws.run_forever()
-
-def find_audio_files(directory):
-    """Finds all common audio files in a directory, case-insensitively."""
-    patterns = ['*.wav', '*.mp3', '*.m4a', '*.flac', '*.ogg']
-    files = []
-    for pattern in patterns:
-        files.extend(glob.glob(os.path.join(directory, pattern)))
-    return files
-
-def run_full_test():
-    """Main function to run the entire test suite."""
-    metadata = read_speaker_metadata()
-    meetings = group_meeting_chunks()
-    
-    print("\n--- STEP 1: ENROLLING SPEAKERS ---")
-    speaker_folders = [d for d in os.listdir(SPEAKER_AUDIO_DIR) if os.path.isdir(os.path.join(SPEAKER_AUDIO_DIR, d))]
-    print(f"Found {len(speaker_folders)} speaker folders on disk.")
-
-    for folder_name in speaker_folders:
-        meta = metadata.get(folder_name)
-        if not meta:
-            print(f"  -> WARNING: Skipping folder '{folder_name}' because no matching 'folder_name' was found in the CSV.")
-            continue
-
-        # --- FIX: Use a helper function to find any audio format ---
-        audio_files = find_audio_files(os.path.join(SPEAKER_AUDIO_DIR, folder_name))
-
-        if not audio_files:
-            print(f"  -> WARNING: Skipping folder '{folder_name}' because it contains no supported audio files.")
-            continue
-
-        files_to_upload_paths = audio_files[:MAX_SAMPLES_PER_SPEAKER]
-        files_to_upload_tuples = [('files', (os.path.basename(f), open(f, 'rb'))) for f in files_to_upload_paths]
-        
-        payload_metadata = {"display_name": meta.get('display_name', folder_name), "user_ad": meta.get('user_ad')}
-        if not payload_metadata['user_ad']:
-            print(f"  -> ERROR: Skipping folder '{folder_name}' because 'user_ad' is missing in the CSV.")
-            continue
-
-        payload = {'metadata': json.dumps(payload_metadata)}
-        
-        print(f"Enrolling speaker '{payload_metadata['user_ad']}' from folder '{folder_name}' with {len(files_to_upload_paths)} samples...")
-        
-        try:
-            # --- FIX: Added the 'timeout' parameter ---
-            response = requests.post(
-                f"{API_BASE_URL}/speaker/", 
-                data=payload, 
-                files=files_to_upload_tuples,
-                timeout=UPLOAD_TIMEOUT_SECONDS
-            )
-            
-            try:
-                response_json = response.json()
-                print(f"  -> Status: {response.status_code}, Response: {response_json}")
-            except JSONDecodeError:
-                print(f"  -> ERROR: Failed to decode JSON. Server returned status {response.status_code} with text:")
-                print(f"     RESPONSE TEXT: {response.text[:500]}...") # Print first 500 chars of error
-                continue
-
-        except RequestException as e:
-            print(f"  -> ERROR: A connection error occurred (e.g., timeout): {e}")
-        
-        time.sleep(1)
-
-    # --- The rest of the script (steps 2-7) is unchanged ---
-    # It will be more reliable now because speaker enrollment is more stable.
-    # ...
-    # (The code for steps 2-7 is identical to the previous version)
-    # ...
-
-    print("\n--- TEST COMPLETE ---")
-
-if __name__ == "__main__":
+--- STEP 3: PROCESSING A MEETING ---
+Starting meeting 'Hop TO 11092025' with requestId 'test_Hop TO 11092025_1758013828'...
+Uploading chunks...
+^CTraceback (most recent call last):
+  File "/test_client/test_api.py", line 220, in <module>
     run_full_test()
+  File "/test_client/test_api.py", line 190, in run_full_test
+    requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files)
+  File "/usr/local/lib/python3.9/site-packages/requests/api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+  File "/usr/local/lib/python3.9/site-packages/requests/api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+  File "/usr/local/lib/python3.9/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/usr/local/lib/python3.9/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/usr/local/lib/python3.9/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+  File "/usr/local/lib/python3.9/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+  File "/usr/local/lib/python3.9/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "/usr/local/lib/python3.9/site-packages/urllib3/connection.py", line 565, in getresponse
+    httplib_response = super().getresponse()
+  File "/usr/local/lib/python3.9/http/client.py", line 1377, in getresponse
+    response.begin()
+  File "/usr/local/lib/python3.9/http/client.py", line 320, in begin
+    version, status, reason = self._read_status()
+  File "/usr/local/lib/python3.9/http/client.py", line 281, in _read_status
+    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
+  File "/usr/local/lib/python3.9/socket.py", line 716, in readinto
+    return self._sock.recv_into(b)
+KeyboardInterrupt
