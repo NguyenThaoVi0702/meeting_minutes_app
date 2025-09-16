@@ -1,17 +1,64 @@
 
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 123, in enroll_new_speaker
-meeting_api_server  |     temp_dir = Path(settings.SHARED_AUDIO_PATH) / "temp_enrollment" / str(uuid.uuid4())
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/param_functions.py", line 306, in Path
-meeting_api_server  |     return params.Path(
-meeting_api_server  |            ^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/params.py", line 189, in __init__
-meeting_api_server  |     assert default is ..., "Path parameters cannot have a default value"
-meeting_api_server  |            ^^^^^^^^^^^^^^
-meeting_api_server  | AssertionError: Path parameters cannot have a default value
+meeting_api_server  | [NeMo W 2025-09-16 16:32:04 nemo_logging:405] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
+meeting_api_server  |     Train config :
+meeting_api_server  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/train.json
+meeting_api_server  |     sample_rate: 16000
+meeting_api_server  |     labels: null
+meeting_api_server  |     batch_size: 64
+meeting_api_server  |     shuffle: true
+meeting_api_server  |     is_tarred: false
+meeting_api_server  |     tarred_audio_filepaths: null
+meeting_api_server  |     tarred_shard_strategy: scatter
+meeting_api_server  |     augmentor:
+meeting_api_server  |       noise:
+meeting_api_server  |         manifest_path: /manifests/noise/rir_noise_manifest.json
+meeting_api_server  |         prob: 0.5
+meeting_api_server  |         min_snr_db: 0
+meeting_api_server  |         max_snr_db: 15
+meeting_api_server  |       speed:
+meeting_api_server  |         prob: 0.5
+meeting_api_server  |         sr: 16000
+meeting_api_server  |         resample_type: kaiser_fast
+meeting_api_server  |         min_speed_rate: 0.95
+meeting_api_server  |         max_speed_rate: 1.05
+meeting_api_server  |     num_workers: 15
+meeting_api_server  |     pin_memory: true
+meeting_api_server  |
+meeting_api_server  | [NeMo W 2025-09-16 16:32:04 nemo_logging:405] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s).
+meeting_api_server  |     Validation config :
+meeting_api_server  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/dev.json
+meeting_api_server  |     sample_rate: 16000
+meeting_api_server  |     labels: null
+meeting_api_server  |     batch_size: 128
+meeting_api_server  |     shuffle: false
+meeting_api_server  |     num_workers: 15
+meeting_api_server  |     pin_memory: true
+meeting_api_server  |
+meeting_api_server  | [NeMo I 2025-09-16 16:32:04 nemo_logging:393] PADDING: 16
+meeting_api_server  | [NeMo I 2025-09-16 16:32:05 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
+meeting_api_server  | 2025-09-16 16:32:05,482 - INFO - app.processing.enrollment - Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
+meeting_api_server  | 2025-09-16 16:32:05,482 - INFO - app.processing.enrollment - Connecting to Qdrant at 10.43.128.107:7333...
+meeting_api_server  | 2025-09-16 16:32:05,644 - INFO - httpx - HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-09-16 16:32:05,647 - INFO - httpx - HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-09-16 16:32:05,649 - INFO - app.processing.enrollment - Qdrant collection 'meeting_speakers' already exists.
+meeting_api_server  | 2025-09-16 16:32:05,664 - INFO - app.processing.enrollment - Starting enrollment for new speaker: 'takeos'
+meeting_api_server  | 2025-09-16 16:32:05,675 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
+meeting_api_server  | [src/libmpg123/layer3.c:INT123_do_layer3():1844] error: dequantization failed!
+meeting_api_server  | Note: Illegal Audio-MPEG-Header 0x39302c31 at offset 11362560.
+meeting_api_server  | Note: Trying to resync...
+meeting_api_server  | Note: Skipped 1024 bytes in input.
+meeting_api_server  | [src/libmpg123/parse.c:wetwork():1349] error: Giving up resync after 1024 bytes - your stream is not nice... (maybe increasing resync limit could help).
+meeting_api_server  | 2025-09-16 16:32:12,903 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/118f4877-a697-4bed-8da9-b9b774682d53/f4c953b5-5b20-435a-a02b-ac059d8fb464_TV HDQT Takeo Shimotsu.mp3: name 'tempfile' is not defined
+meeting_api_server  | INFO:     192.168.16.4:36286 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
+meeting_api_server  | 2025-09-16 16:32:14,219 - INFO - app.processing.enrollment - Starting enrollment for new speaker: 'binhtm'
+meeting_api_server  | 2025-09-16 16:32:14,227 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-09-16 16:32:14,286 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/85a858e1-5b98-45eb-b6a4-c56e81d10110_chunk_0342.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,344 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/7e3b3a00-00f3-4797-bc14-faa8882e2ad3_chunk_0254.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,402 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/c437e953-6464-4ad5-b0d6-085b694b19c5_chunk_0234.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,459 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/d33a8229-9d44-43ca-b271-5c0eed53d47a_chunk_0186.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,516 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/e5a509c9-3981-4b37-94be-68640f3fa79c_chunk_0003.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,575 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/cc080995-4a18-4f29-95b1-f3c8dfd4b439_chunk_0339.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,632 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/dfc65602-6a3b-4242-afe1-24664648d7da_chunk_0320.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,689 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/cf2a90a3-6c1d-43ea-ab48-b67e865f5b28_chunk_0064.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,747 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/1c1ffda8-f8f3-4ba7-9006-4f8fdb5d7f03_chunk_0351.wav: name 'tempfile' is not defined
+meeting_api_server  | 2025-09-16 16:32:14,804 - WARNING - app.processing.enrollment - Could not process or get embedding for sample /code/shared_audio/temp_enrollment/7306dbad-6e95-4ed5-b8d3-75da0b57ac9b/941050ad-63b3-4c4d-9052-35be07576787_chunk_0277.wav: name 'tempfile' is not defined
