@@ -1,8 +1,15 @@
 
-meeting_api_server  |     await task()
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/background.py", line 26, in __call__
-meeting_api_server  |     await self.func(*self.args, **self.kwargs)
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 117, in assemble_and_transcribe
-meeting_api_server  |     with Session(engine) as session:
-meeting_api_server  |                  ^^^^^^
-meeting_api_server  | NameError: name 'engine' is not defined
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
+meeting_api_server  |     response = await f(request)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
+meeting_api_server  |     raw_response = await run_endpoint_function(
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
+meeting_api_server  |     return await dependant.call(**values)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 122, in enroll_new_speaker
+meeting_api_server  |     temp_dir = Path(settings.SHARED_AUDIO_PATH) / "temp_enrollment" / str(uuid.uuid4())
+meeting_api_server  |                     ^^^^^^^^
+meeting_api_server  | NameError: name 'settings' is not defined
