@@ -1,20 +1,33 @@
+# in app/processing/enrollment.py
 
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 126, in enroll_new_speaker
-meeting_api_server  |     enrollment_dir = Path(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
-meeting_api_server  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/param_functions.py", line 306, in Path
-meeting_api_server  |     return params.Path(
-meeting_api_server  |            ^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/params.py", line 189, in __init__
-meeting_api_server  |     assert default is ..., "Path parameters cannot have a default value"
-meeting_api_server  |            ^^^^^^^^^^^^^^
-meeting_api_server  | AssertionError: Path parameters cannot have a default value
-meeting_api_server  | 2025-09-16 16:53:18,903 - ERROR - app.api.routes.speaker - Failed to list all speakers: 'SpeakerEnrollment' object has no attribute 'get_all_speaker_profiles'
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 64, in list_all_speakers
-meeting_api_server  |     profiles_data = em.get_all_speaker_profiles()
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  | AttributeError: 'SpeakerEnrollment' object has no attribute 'get_all_speaker_profiles'
+# ... (inside the SpeakerEnrollment class) ...
+
+    def get_all_enrolled_profiles_for_diarization(self) -> List[Dict]:
+        # ... (this method stays the same) ...
+
+    # --- ADD THE NEW METHOD HERE ---
+    def get_all_speaker_profiles(self) -> List[Dict]:
+        """
+        Retrieves the metadata payloads for all enrolled speakers.
+        Excludes the heavy vector data for efficiency.
+        """
+        try:
+            # Scroll through all points, but only fetch the payload.
+            all_points, _ = self.qdrant_client.scroll(
+                collection_name=self.qdrant_collection_name,
+                limit=10000, # A high limit to get all profiles
+                with_payload=True,
+                with_vectors=False # This is the key to efficiency
+            )
+            # Return just the payload for each point found
+            profiles = [point.payload for point in all_points if point.payload]
+            logger.info(f"Fetched metadata for {len(profiles)} speaker profiles.")
+            return profiles
+        except Exception as e:
+            logger.error(f"Error fetching all speaker profiles from Qdrant: {e}", exc_info=True)
+            return []
+    # --- END OF NEW METHOD ---
+
+
+    def search_profiles(self, query: str, limit: int = 10) -> List[Dict]:
+        # ... (this method stays the same) ...
