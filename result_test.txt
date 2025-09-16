@@ -1,61 +1,37 @@
 
---- STEP 1: ENROLLING SPEAKERS ---
-Found 7 speaker folders on disk.
-Enrolling speaker 'TAKEOS' from folder 'TV HDQT Takeo Shimotsu' with 1 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-Enrolling speaker 'BINHTM' from folder 'CT HDQT Tran Minh Binh' with 10 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-Enrolling speaker 'ANHNV19' from folder 'TV HDQT Nguyen Van Anh' with 1 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-Enrolling speaker 'IRIGUCHIK' from folder 'TV HDQT Koji Iriguchi' with 1 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-Enrolling speaker 'HUANNT' from folder 'TV HDQT Nguyen The Huan' with 1 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-Enrolling speaker 'DUONGCQ' from folder 'TV HDQT Cat Quang Duong' with 1 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-Enrolling speaker 'DUC.TM' from folder 'CVP HDQT Tran Minh Duc' with 1 samples...
-  -> ERROR: Failed to decode JSON. Server returned status 500 with text:
-     RESPONSE TEXT: Internal Server Error...
-
 --- STEP 2: TESTING SPEAKER CRUD ---
-Could not fetch speaker list. Skipping CRUD tests. Error: 'data'
+Found 5 enrolled speakers.
+Getting details for 'takeos'...
+  -> Details fetched.
+Updating metadata for 'takeos'...
+  -> Metadata updated.
+Deleting speaker 'huannt'...
+  -> Speaker deleted.
 
 --- STEP 3: PROCESSING A MEETING ---
-Starting meeting 'Hop TO 11092025' with requestId 'test_Hop TO 11092025_1758013828'...
+Starting meeting 'Hop TO 11092025' with requestId 'test_Hop TO 11092025_1758018657'...
 Uploading chunks...
+All chunks uploaded.
+
+--- STEP 4: WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---
+
+[WebSocket] Connecting to ws://api:8072/api/v1/meeting/ws/test_Hop TO 11092025_1758018657...
+Exception in thread Thread-1:
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.9/threading.py", line 980, in _bootstrap_inner
+    self.run()
+  File "/usr/local/lib/python3.9/threading.py", line 917, in run
+    self._target(*self._args, **self._kwargs)
+  File "/test_client/test_api.py", line 72, in listen_on_websocket
+    ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
+AttributeError: module 'websocket' has no attribute 'WebSocketApp'
 ^CTraceback (most recent call last):
   File "/test_client/test_api.py", line 220, in <module>
     run_full_test()
-  File "/test_client/test_api.py", line 190, in run_full_test
-    requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files)
-  File "/usr/local/lib/python3.9/site-packages/requests/api.py", line 115, in post
-    return request("post", url, data=data, json=json, **kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/api.py", line 59, in request
-    return session.request(method=method, url=url, **kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/sessions.py", line 589, in request
-    resp = self.send(prep, **send_kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/sessions.py", line 703, in send
-    r = adapter.send(request, **kwargs)
-  File "/usr/local/lib/python3.9/site-packages/requests/adapters.py", line 644, in send
-    resp = conn.urlopen(
-  File "/usr/local/lib/python3.9/site-packages/urllib3/connectionpool.py", line 787, in urlopen
-    response = self._make_request(
-  File "/usr/local/lib/python3.9/site-packages/urllib3/connectionpool.py", line 534, in _make_request
-    response = conn.getresponse()
-  File "/usr/local/lib/python3.9/site-packages/urllib3/connection.py", line 565, in getresponse
-    httplib_response = super().getresponse()
-  File "/usr/local/lib/python3.9/http/client.py", line 1377, in getresponse
-    response.begin()
-  File "/usr/local/lib/python3.9/http/client.py", line 320, in begin
-    version, status, reason = self._read_status()
-  File "/usr/local/lib/python3.9/http/client.py", line 281, in _read_status
-    line = str(self.fp.readline(_MAXLINE + 1), "iso-8859-1")
-  File "/usr/local/lib/python3.9/socket.py", line 716, in readinto
-    return self._sock.recv_into(b)
+  File "/test_client/test_api.py", line 197, in run_full_test
+    WEBSOCKET_DONE.wait(timeout=300)
+  File "/usr/local/lib/python3.9/threading.py", line 581, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/local/lib/python3.9/threading.py", line 316, in wait
+    gotit = waiter.acquire(True, timeout)
 KeyboardInterrupt
