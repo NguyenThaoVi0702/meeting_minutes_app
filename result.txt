@@ -1,15 +1,17 @@
 
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
 meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
 meeting_api_server  |     raw_response = await run_endpoint_function(
 meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
 meeting_api_server  |     return await dependant.call(**values)
 meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 122, in enroll_new_speaker
+meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 123, in enroll_new_speaker
 meeting_api_server  |     temp_dir = Path(settings.SHARED_AUDIO_PATH) / "temp_enrollment" / str(uuid.uuid4())
-meeting_api_server  |                     ^^^^^^^^
-meeting_api_server  | NameError: name 'settings' is not defined
+meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/param_functions.py", line 306, in Path
+meeting_api_server  |     return params.Path(
+meeting_api_server  |            ^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/params.py", line 189, in __init__
+meeting_api_server  |     assert default is ..., "Path parameters cannot have a default value"
+meeting_api_server  |            ^^^^^^^^^^^^^^
+meeting_api_server  | AssertionError: Path parameters cannot have a default value
