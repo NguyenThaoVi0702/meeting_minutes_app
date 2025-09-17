@@ -1,44 +1,27 @@
+# --- NEW, CORRECTED CODE ---
+from app.db.base import engine # Make sure 'engine' is imported
 
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-17 11:05:52,323 - INFO - sqlalchemy.engine.Engine - [cached since 4.59s ago] {'request_id_1': 'test_Hop TO 11092025_1758081947'}
-meeting_api_server  | 2025-09-17 11:05:52,352 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_api_server  | 2025-09-17 11:05:52,352 INFO sqlalchemy.engine.Engine [generated in 0.00018s] {'status': 'transcribing', 'meetingjob_id': 11}
-meeting_api_server  | 2025-09-17 11:05:52,352 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_api_server  | 2025-09-17 11:05:52,352 - INFO - sqlalchemy.engine.Engine - [generated in 0.00018s] {'status': 'transcribing', 'meetingjob_id': 11}
-meeting_api_server  | 2025-09-17 11:05:52,353 INFO sqlalchemy.engine.Engine COMMIT
-meeting_api_server  | 2025-09-17 11:05:52,353 - INFO - sqlalchemy.engine.Engine - COMMIT
-meeting_api_server  | 2025-09-17 11:05:52,376 - ERROR - app.api.routes.meeting - Failed during background assembly for job 'test_Hop TO 11092025_1758081947': Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 113, in assemble_and_transcribe
-meeting_api_server  |     run_transcription_task.delay(job.id, str(full_audio_path), language)
-meeting_api_server  |                                  ^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 566, in __get__
-meeting_api_server  |     return self.impl.get(state, dict_)  # type: ignore[no-any-return]
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 1086, in get
-meeting_api_server  |     value = self._fire_loader_callables(state, key, passive)
-meeting_api_server  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 1116, in _fire_loader_callables
-meeting_api_server  |     return state._load_expired(state, passive)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/state.py", line 803, in _load_expired
-meeting_api_server  |     self.manager.expired_attribute_loader(self, toload, passive)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/loading.py", line 1603, in load_scalar_attributes
-meeting_api_server  |     raise orm_exc.DetachedInstanceError(
-meeting_api_server  | sqlalchemy.orm.exc.DetachedInstanceError: Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
-meeting_api_server  | 2025-09-17 11:05:52,378 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-17 11:05:52,378 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-17 11:05:52,379 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-17 11:05:52,379 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-17 11:05:52,379 INFO sqlalchemy.engine.Engine [cached since 4.645s ago] {'request_id_1': 'test_Hop TO 11092025_1758081947'}
-meeting_api_server  | 2025-09-17 11:05:52,379 - INFO - sqlalchemy.engine.Engine - [cached since 4.645s ago] {'request_id_1': 'test_Hop TO 11092025_1758081947'}
-meeting_api_server  | 2025-09-17 11:05:52,381 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_api_server  | 2025-09-17 11:05:52,381 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_api_server  | 2025-09-17 11:05:52,381 INFO sqlalchemy.engine.Engine [generated in 0.00013s] {'status': 'failed', 'error_message': 'Audio Assembly Failed: Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)', 'meetingjob_id': 11}
-meeting_api_server  | 2025-09-17 11:05:52,381 - INFO - sqlalchemy.engine.Engine - [generated in 0.00013s] {'status': 'failed', 'error_message': 'Audio Assembly Failed: Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)', 'meetingjob_id': 11}
-meeting_api_server  | 2025-09-17 11:05:52,381 - INFO - sqlalchemy.engine.Engine - COMMIT
-meeting_api_server  | 2025-09-17 11:05:52,381 INFO sqlalchemy.engine.Engine COMMIT
+@router.websocket("/ws/{request_id}")
+async def websocket_endpoint(websocket: WebSocket, request_id: str):
+    """
+    Establishes a WebSocket connection for receiving real-time updates
+    about a meeting job's status.
+    """
+    await websocket_manager.connect(websocket, request_id)
+    
+    # We manually create and manage the session lifecycle for the WebSocket.
+    with Session(engine) as session:
+        try:
+            # Send the current status immediately upon connection
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if job:
+                # Pass the manually created 'session' to the helper function
+                initial_status = _format_job_status(job, session)
+                await websocket.send_json(initial_status)
+            
+            # Keep the connection alive to receive broadcasted updates
+            while True:
+                await websocket.receive_text() # Keep connection open
+        except WebSocketDisconnect:
+            websocket_manager.disconnect(websocket, request_id)
+            # The 'with' block ensures the session is closed automatically here.
