@@ -25,3 +25,27 @@ meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 148, in 
 meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
 meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
 meeting_gpu_worker  | [2025-09-17 16:55:00,363: INFO/MainProcess] missed heartbeat from celery@fe7e2fac3ea3
+
+
+========================================
+
+
+
+
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-17 16:55:07,574 INFO sqlalchemy.engine.Engine [generated in 0.00013s] {'pk_1': 21}
+meeting_api_server  | 2025-09-17 16:55:07,574 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-17 16:55:07,574 - INFO - sqlalchemy.engine.Engine - [generated in 0.00013s] {'pk_1': 21}
+meeting_api_server  | 2025-09-17 16:55:07,575 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-17 16:55:07,575 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-17 16:55:07,599 - INFO - app.api.routes.meeting - Successfully assembled audio and dispatched transcription task for job 'test_Hop TO 11092025_1758102903'.
+meeting_gpu_worker  | [2025-09-17 16:55:07,601: INFO/MainProcess] Task run_transcription_task[3cec0df8-8915-46c6-b3ad-95eddabfbc56] received
+meeting_gpu_worker  | [2025-09-17 16:55:07,601: INFO/MainProcess] [Job ID: 21] Starting transcription for audio '/code/shared_audio/test_Hop TO 11092025_1758102903/Hop TO 11092025_full.wav' in 'vi'.
+meeting_gpu_worker  | [2025-09-17 16:55:07,602: INFO/MainProcess] Initializing Transcriber service for this process...
+meeting_gpu_worker  | [2025-09-17 16:55:07,602: INFO/MainProcess] Loading Faster-Whisper model from: /app/models/merged_model_ct2_dir
+meeting_api_server  | WARNING:  Invalid HTTP request received.
+meeting_api_server  | 2025-09-17 16:55:07,627 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-17 16:55:07,627 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+
