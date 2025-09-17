@@ -1,171 +1,44 @@
-meeting_cpu_worker  | [2025-09-16 17:18:24,347: INFO/MainProcess] Events of group {task} enabled by remote.
-meeting_gpu_worker  | [2025-09-16 17:18:24,348: INFO/MainProcess] Events of group {task} enabled by remote.
-meeting_cpu_worker  | [2025-09-16 17:18:24,549: WARNING/MainProcess] Substantial drift from celery@4ba43c7874ad may mean clocks are out of sync.  Current drift is 25397 seconds.  [orig: 2025-09-16 17:18:24.549407 recv: 2025-09-16 10:15:07.368805]
-meeting_api_server  | 2025-09-16 17:18:50,661 - INFO - app.worker.tasks - Initializing SpeakerEnrollment service for this worker...
-meeting_api_server  | 2025-09-16 17:18:50,663 - INFO - app.processing.enrollment - SpeakerEnrollment service is using device: cpu
-meeting_api_server  | 2025-09-16 17:18:50,663 - INFO - app.processing.enrollment - Loading NeMo Speaker Embedding model from: /project/diarization_service/models/rimecaster.nemo
-meeting_api_server  | [NeMo W 2025-09-16 17:18:50 nemo_logging:405] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
-meeting_api_server  |     Train config :
-meeting_api_server  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/train.json
-meeting_api_server  |     sample_rate: 16000
-meeting_api_server  |     labels: null
-meeting_api_server  |     batch_size: 64
-meeting_api_server  |     shuffle: true
-meeting_api_server  |     is_tarred: false
-meeting_api_server  |     tarred_audio_filepaths: null
-meeting_api_server  |     tarred_shard_strategy: scatter
-meeting_api_server  |     augmentor:
-meeting_api_server  |       noise:
-meeting_api_server  |         manifest_path: /manifests/noise/rir_noise_manifest.json
-meeting_api_server  |         prob: 0.5
-meeting_api_server  |         min_snr_db: 0
-meeting_api_server  |         max_snr_db: 15
-meeting_api_server  |       speed:
-meeting_api_server  |         prob: 0.5
-meeting_api_server  |         sr: 16000
-meeting_api_server  |         resample_type: kaiser_fast
-meeting_api_server  |         min_speed_rate: 0.95
-meeting_api_server  |         max_speed_rate: 1.05
-meeting_api_server  |     num_workers: 15
-meeting_api_server  |     pin_memory: true
-meeting_api_server  |
-meeting_api_server  | [NeMo W 2025-09-16 17:18:50 nemo_logging:405] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s).
-meeting_api_server  |     Validation config :
-meeting_api_server  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/dev.json
-meeting_api_server  |     sample_rate: 16000
-meeting_api_server  |     labels: null
-meeting_api_server  |     batch_size: 128
-meeting_api_server  |     shuffle: false
-meeting_api_server  |     num_workers: 15
-meeting_api_server  |     pin_memory: true
-meeting_api_server  |
-meeting_api_server  | [NeMo I 2025-09-16 17:18:50 nemo_logging:393] PADDING: 16
-meeting_api_server  | [NeMo I 2025-09-16 17:18:52 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
-meeting_api_server  | 2025-09-16 17:18:52,009 - INFO - app.processing.enrollment - Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
-meeting_api_server  | 2025-09-16 17:18:52,010 - INFO - app.processing.enrollment - Connecting to Qdrant at 10.43.128.107:7333...
-meeting_api_server  | 2025-09-16 17:18:52,179 - INFO - httpx - HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
-meeting_api_server  | 2025-09-16 17:18:52,185 - INFO - httpx - HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
-meeting_api_server  | 2025-09-16 17:18:52,188 - INFO - app.processing.enrollment - Qdrant collection 'meeting_speakers' already exists.
-meeting_api_server  | 2025-09-16 17:18:52,199 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:52,281: INFO/MainProcess] Task enroll_speaker_task[df7d363b-6094-4b58-bbbb-2c95f6ffc125] received
-meeting_gpu_worker  | [2025-09-16 17:18:52,281: INFO/MainProcess] [Task] Starting enrollment for new speaker: 'takeos'
-meeting_gpu_worker  | [2025-09-16 17:18:52,281: INFO/MainProcess] Initializing SpeakerEnrollment service for this worker...
-meeting_api_server  | INFO:     192.168.16.4:52628 - "POST /api/v1/speaker/ HTTP/1.1" 202 Accepted
-meeting_gpu_worker  | [2025-09-16 17:18:52,357: INFO/MainProcess] SpeakerEnrollment service is using device: cuda
-meeting_gpu_worker  | [2025-09-16 17:18:52,357: INFO/MainProcess] Loading NeMo Speaker Embedding model from: /project/diarization_service/models/rimecaster.nemo
-meeting_gpu_worker  | [NeMo W 2025-09-16 17:18:52 nemo_logging:405] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
-meeting_gpu_worker  |     Train config :
-meeting_gpu_worker  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/train.json
-meeting_gpu_worker  |     sample_rate: 16000
-meeting_gpu_worker  |     labels: null
-meeting_gpu_worker  |     batch_size: 64
-meeting_gpu_worker  |     shuffle: true
-meeting_gpu_worker  |     is_tarred: false
-meeting_gpu_worker  |     tarred_audio_filepaths: null
-meeting_gpu_worker  |     tarred_shard_strategy: scatter
-meeting_gpu_worker  |     augmentor:
-meeting_gpu_worker  |       noise:
-meeting_gpu_worker  |         manifest_path: /manifests/noise/rir_noise_manifest.json
-meeting_gpu_worker  |         prob: 0.5
-meeting_gpu_worker  |         min_snr_db: 0
-meeting_gpu_worker  |         max_snr_db: 15
-meeting_gpu_worker  |       speed:
-meeting_gpu_worker  |         prob: 0.5
-meeting_gpu_worker  |         sr: 16000
-meeting_gpu_worker  |         resample_type: kaiser_fast
-meeting_gpu_worker  |         min_speed_rate: 0.95
-meeting_gpu_worker  |         max_speed_rate: 1.05
-meeting_gpu_worker  |     num_workers: 15
-meeting_gpu_worker  |     pin_memory: true
-meeting_gpu_worker  |
-meeting_gpu_worker  | [NeMo W 2025-09-16 17:18:52 nemo_logging:405] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s).
-meeting_gpu_worker  |     Validation config :
-meeting_gpu_worker  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/dev.json
-meeting_gpu_worker  |     sample_rate: 16000
-meeting_gpu_worker  |     labels: null
-meeting_gpu_worker  |     batch_size: 128
-meeting_gpu_worker  |     shuffle: false
-meeting_gpu_worker  |     num_workers: 15
-meeting_gpu_worker  |     pin_memory: true
-meeting_gpu_worker  |
-meeting_gpu_worker  | [NeMo I 2025-09-16 17:18:52 nemo_logging:393] PADDING: 16
-meeting_api_server  | 2025-09-16 17:18:53,532 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_api_server  | INFO:     192.168.16.4:52632 - "POST /api/v1/speaker/ HTTP/1.1" 202 Accepted
-meeting_gpu_worker  | [NeMo I 2025-09-16 17:18:53 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
-meeting_gpu_worker  | [2025-09-16 17:18:53,997: INFO/MainProcess] Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
-meeting_gpu_worker  | [2025-09-16 17:18:53,998: INFO/MainProcess] Connecting to Qdrant at 10.43.128.107:7333...
-meeting_gpu_worker  | [2025-09-16 17:18:54,227: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:54,231: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:54,234: INFO/MainProcess] Qdrant collection 'meeting_speakers' already exists.
-meeting_gpu_worker  | [2025-09-16 17:18:54,234: INFO/MainProcess] Starting enrollment for new speaker: 'takeos'
-meeting_gpu_worker  | [2025-09-16 17:18:54,239: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:54,243: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/takeos/9769abaf-4d0e-4789-a1d4-709d6604a4bd_TV HDQT Takeo Shimotsu.mp3: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/takeos/9769abaf-4d0e-4789-a1d4-709d6604a4bd_TV HDQT Takeo Shimotsu.mp3'
-meeting_gpu_worker  | [2025-09-16 17:18:54,243: ERROR/MainProcess] [Task] Enrollment failed for 'takeos': Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
-meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
-meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
-meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | [2025-09-16 17:18:54,252: ERROR/MainProcess] Task enroll_speaker_task[df7d363b-6094-4b58-bbbb-2c95f6ffc125] raised unexpected: ValueError("Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 453, in trace_task
-meeting_gpu_worker  |     R = retval = fun(*args, **kwargs)
-meeting_gpu_worker  |                  ^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 736, in __protected_call__
-meeting_gpu_worker  |     return self.run(*args, **kwargs)
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
-meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
-meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
-meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | [2025-09-16 17:18:54,259: INFO/MainProcess] Task enroll_speaker_task[3c8f2a91-52dc-43ef-ac98-8eec879020e7] received
-meeting_gpu_worker  | [2025-09-16 17:18:54,259: INFO/MainProcess] [Task] Starting enrollment for new speaker: 'binhtm'
-meeting_gpu_worker  | [2025-09-16 17:18:54,259: INFO/MainProcess] Starting enrollment for new speaker: 'binhtm'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/9a4e42c0-9cd7-44f1-98ee-515a8b2a988e_chunk_0342.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/9a4e42c0-9cd7-44f1-98ee-515a8b2a988e_chunk_0342.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/26d5b96c-1390-4318-8ddb-5a578fd04290_chunk_0254.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/26d5b96c-1390-4318-8ddb-5a578fd04290_chunk_0254.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/8ac3f2d0-3d17-4136-a6b6-c6fd83ebf7e3_chunk_0234.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/8ac3f2d0-3d17-4136-a6b6-c6fd83ebf7e3_chunk_0234.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/b6ea11ca-d844-406d-a49e-2c3d60e626b5_chunk_0186.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/b6ea11ca-d844-406d-a49e-2c3d60e626b5_chunk_0186.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/972efc86-e10c-41a1-933a-be6d19f750b7_chunk_0003.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/972efc86-e10c-41a1-933a-be6d19f750b7_chunk_0003.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/7621e373-05c0-46ae-94e2-e99dec72b1d5_chunk_0339.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/7621e373-05c0-46ae-94e2-e99dec72b1d5_chunk_0339.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,263: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/e0055a9f-0178-4414-ac0d-84c7e855f0b1_chunk_0320.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/e0055a9f-0178-4414-ac0d-84c7e855f0b1_chunk_0320.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,264: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/501bdfc9-261e-43f1-b505-8fd93c502d7d_chunk_0064.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/501bdfc9-261e-43f1-b505-8fd93c502d7d_chunk_0064.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,264: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/a7fe65fb-759d-4b22-9ebf-b8f9eb8ec0a3_chunk_0351.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/a7fe65fb-759d-4b22-9ebf-b8f9eb8ec0a3_chunk_0351.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,264: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/binhtm/ca4bc6e4-f638-4cd8-b480-375c28744bbc_chunk_0277.wav: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/binhtm/ca4bc6e4-f638-4cd8-b480-375c28744bbc_chunk_0277.wav'
-meeting_gpu_worker  | [2025-09-16 17:18:54,264: ERROR/MainProcess] [Task] Enrollment failed for 'binhtm': Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
-meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
-meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
-meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | ValueError: Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | [2025-09-16 17:18:54,268: ERROR/MainProcess] Task enroll_speaker_task[3c8f2a91-52dc-43ef-ac98-8eec879020e7] raised unexpected: ValueError("Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 453, in trace_task
-meeting_gpu_worker  |     R = retval = fun(*args, **kwargs)
-meeting_gpu_worker  |                  ^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 736, in __protected_call__
-meeting_gpu_worker  |     return self.run(*args, **kwargs)
-meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
-meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
-meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
-meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | ValueError: Enrollment failed for 'binhtm': No valid embeddings could be extracted from samples.
-meeting_api_server  | 2025-09-16 17:18:54,643 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:54,653: INFO/MainProcess] Task enroll_speaker_task[14062ba0-a38a-4328-94ca-d56655301858] received
-meeting_gpu_worker  | [2025-09-16 17:18:54,653: INFO/MainProcess] [Task] Starting enrollment for new speaker: 'anhnv19'
-meeting_gpu_worker  | [2025-09-16 17:18:54,654: INFO/MainProcess] Starting enrollment for new speaker: 'anhnv19'
-meeting_api_server  | INFO:     192.168.16.4:52636 - "POST /api/v1/speaker/ HTTP/1.1" 202 Accepted
-meeting_gpu_worker  | [2025-09-16 17:18:54,656: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-16 17:18:54,657: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/anhnv19/0a0bd5f5-cb42-4ba0-a963-d8a30a8f6dfc_TV HDQT Nguyen Van Anh.mp3: [Errno 2] No such file or directory: '/code/shared_audio/enrollment_samples/anhnv19/0a0bd5f5-cb42-4ba0-a963-d8a30a8f6dfc_TV HDQT Nguyen Van Anh.mp3'
-meeting_gpu_worker  | [2025-09-16 17:18:54,657: ERROR/MainProcess] [Task] Enrollment failed for 'anhnv19': Enrollment failed for 'anhnv19': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 211, in enroll_speaker_task
-meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
-meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 144, in enroll_new_speaker
-meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
-meeting_gpu_worker  | ValueError: Enrollment failed for 'anhnv19': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | [2025-09-16 17:18:54,661: ERROR/MainProcess] Task enroll_speaker_task[14062ba0-a38a-4328-94ca-d56655301858] raised unexpected: ValueError("Enrollment failed for 'anhnv19':
+
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 11:05:52,323 - INFO - sqlalchemy.engine.Engine - [cached since 4.59s ago] {'request_id_1': 'test_Hop TO 11092025_1758081947'}
+meeting_api_server  | 2025-09-17 11:05:52,352 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-17 11:05:52,352 INFO sqlalchemy.engine.Engine [generated in 0.00018s] {'status': 'transcribing', 'meetingjob_id': 11}
+meeting_api_server  | 2025-09-17 11:05:52,352 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-17 11:05:52,352 - INFO - sqlalchemy.engine.Engine - [generated in 0.00018s] {'status': 'transcribing', 'meetingjob_id': 11}
+meeting_api_server  | 2025-09-17 11:05:52,353 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-17 11:05:52,353 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-17 11:05:52,376 - ERROR - app.api.routes.meeting - Failed during background assembly for job 'test_Hop TO 11092025_1758081947': Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 113, in assemble_and_transcribe
+meeting_api_server  |     run_transcription_task.delay(job.id, str(full_audio_path), language)
+meeting_api_server  |                                  ^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 566, in __get__
+meeting_api_server  |     return self.impl.get(state, dict_)  # type: ignore[no-any-return]
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+meeting_api_server  |     value = self._fire_loader_callables(state, key, passive)
+meeting_api_server  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 1116, in _fire_loader_callables
+meeting_api_server  |     return state._load_expired(state, passive)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/state.py", line 803, in _load_expired
+meeting_api_server  |     self.manager.expired_attribute_loader(self, toload, passive)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/loading.py", line 1603, in load_scalar_attributes
+meeting_api_server  |     raise orm_exc.DetachedInstanceError(
+meeting_api_server  | sqlalchemy.orm.exc.DetachedInstanceError: Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+meeting_api_server  | 2025-09-17 11:05:52,378 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-17 11:05:52,378 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-17 11:05:52,379 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 11:05:52,379 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 11:05:52,379 INFO sqlalchemy.engine.Engine [cached since 4.645s ago] {'request_id_1': 'test_Hop TO 11092025_1758081947'}
+meeting_api_server  | 2025-09-17 11:05:52,379 - INFO - sqlalchemy.engine.Engine - [cached since 4.645s ago] {'request_id_1': 'test_Hop TO 11092025_1758081947'}
+meeting_api_server  | 2025-09-17 11:05:52,381 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-17 11:05:52,381 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-17 11:05:52,381 INFO sqlalchemy.engine.Engine [generated in 0.00013s] {'status': 'failed', 'error_message': 'Audio Assembly Failed: Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)', 'meetingjob_id': 11}
+meeting_api_server  | 2025-09-17 11:05:52,381 - INFO - sqlalchemy.engine.Engine - [generated in 0.00013s] {'status': 'failed', 'error_message': 'Audio Assembly Failed: Instance <MeetingJob at 0x7faea811d7c0> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)', 'meetingjob_id': 11}
+meeting_api_server  | 2025-09-17 11:05:52,381 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-17 11:05:52,381 INFO sqlalchemy.engine.Engine COMMIT
