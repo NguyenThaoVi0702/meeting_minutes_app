@@ -1,43 +1,39 @@
+# in app/api/routes/meeting.py
 
---- STEP 3: PROCESSING A FULL MEETING ---
-
-Testing: POST /meeting/start-bbh for requestId 'test_Hop TO 11092025_1758101489'...
-  -> [Start Meeting] Status: 201
-     Response: {
-  "status": 201,
-  "message": "Meeting initialized. Ready for chunk uploads."
-}
-
-Testing: POST /meeting/upload-file-chunk...
-  -> [Upload Chunks] All chunks sent.
-
---- STEP 4: WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---
-
-[WebSocket] Connecting to ws://api:8072/api/v1/meeting/ws/test_Hop TO 11092025_1758101489...
-[WebSocket] Error: Handshake status 400 Bad Request -+-+- {'date': 'Wed, 17 Sep 2025 09:31:30 GMT', 'server': 'uvicorn', 'content-type': 'text/plain; charset=utf-8', 'content-length': '30', 'connection': 'close'} -+-+- b'Invalid HTTP request received.'
-[WebSocket] Connection closed.
-
-Testing: GET /meeting/test_Hop TO 11092025_1758101489/status (after transcription)
-  -> [Get Status] Status: 200
-     Response: {
-  "status": 200,
-  "message": "Success",
-  "data": {
-    "request_id": "test_Hop TO 11092025_1758101489",
-    "status": "transcribing",
-    "bbh_name": "Test BBH Name",
-    "meeting_type": "Test Type",
-    "meeting_host": "Test Host",
-    "language": "vi",
-    "plain_transcript": null,
-    "diarized_transcript": null,
-    "error_message": null
-  }
-}
-
-Testing: POST /meeting/test_Hop TO 11092025_1758101489/diarize
-  -> [Trigger Diarization] Status: 400
-     Response: {
-  "detail": "Diarization can only be started when job status is 'transcription_complete'. Current status is 'transcribing'."
-}
-
+@router.websocket("/ws/{request_id}")
+async def websocket_endpoint(websocket: WebSocket, request_id: str):
+    """
+    Establishes a WebSocket connection for receiving real-time updates
+    about a meeting job's status.
+    """
+    # Accept the connection first, before doing any database work.
+    # This is the most important change.
+    await websocket.accept()
+    
+    # Now that the connection is accepted, add it to the manager.
+    await websocket_manager.connect(websocket, request_id)
+    
+    try:
+        # Use a proper session to get the initial status.
+        with Session(engine) as session:
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if job:
+                # Send the current status immediately upon connection
+                initial_status = _format_job_status(job, session)
+                await websocket.send_json(initial_status)
+            else:
+                # If the job isn't in the DB yet (very rare race condition), send a waiting message.
+                await websocket.send_json({"status": "waiting", "request_id": request_id})
+        
+        # Keep the connection alive to receive broadcasted updates
+        while True:
+            # You can add a timeout here if you want to close inactive connections
+            await websocket.receive_text()
+            
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for request_id '{request_id}'.")
+    except Exception as e:
+        logger.error(f"Error in WebSocket endpoint for '{request_id}': {e}", exc_info=True)
+    finally:
+        # Ensure the client is always removed from the manager on exit
+        websocket_manager.disconnect(websocket, request_id)
