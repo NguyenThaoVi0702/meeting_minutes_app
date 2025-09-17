@@ -1,35 +1,5 @@
 
-meeting_api_server  | INFO:     192.168.16.4:42448 - "POST /api/v1/speaker/ HTTP/1.1" 202 Accepted
-meeting_gpu_worker  | [2025-09-17 16:31:21,971: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_gpu_worker  | [2025-09-17 16:31:23,281: INFO/MainProcess] Loading NeMo Speaker Embedding model from: /project/diarization_service/models/rimecaster.nemo
-meeting_api_server  | 2025-09-17 16:31:23,392 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_api_server  | INFO:     192.168.16.4:42460 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
-meeting_gpu_worker  | [NeMo W 2025-09-17 16:31:23 nemo_logging:405] If you intend to do training or fine-tuning, please call the ModelPT.setup_training_data() method and provide a valid configuration file to setup the train data loader.
-meeting_gpu_worker  |     Train config :
-meeting_gpu_worker  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/train.json
-meeting_gpu_worker  |     sample_rate: 16000
-meeting_gpu_worker  |     labels: null
-meeting_gpu_worker  |     batch_size: 64
-meeting_gpu_worker  |     shuffle: true
-meeting_gpu_worker  |     is_tarred: false
-meeting_gpu_worker  |     tarred_audio_filepaths: null
-meeting_gpu_worker  |     tarred_shard_strategy: scatter
-meeting_gpu_worker  |     augmentor:
-meeting_gpu_worker  |       noise:
-meeting_gpu_worker  |         manifest_path: /manifests/noise/rir_noise_manifest.json
-meeting_gpu_worker  |         prob: 0.5
-meeting_gpu_worker  |         min_snr_db: 0
-meeting_gpu_worker  |         max_snr_db: 15
-meeting_gpu_worker  |       speed:
-meeting_gpu_worker  |         prob: 0.5
-meeting_gpu_worker  |         sr: 16000
-meeting_gpu_worker  |         resample_type: kaiser_fast
-meeting_gpu_worker  |         min_speed_rate: 0.95
-meeting_gpu_worker  |         max_speed_rate: 1.05
-meeting_gpu_worker  |     num_workers: 15
-meeting_gpu_worker  |     pin_memory: true
-meeting_gpu_worker  |
-meeting_gpu_worker  | [NeMo W 2025-09-17 16:31:23 nemo_logging:405] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s).
+meeting_gpu_worker  | [NeMo W 2025-09-17 16:42:16 nemo_logging:405] If you intend to do validation, please call the ModelPT.setup_validation_data() or ModelPT.setup_multiple_validation_data() method and provide a valid configuration file to setup the validation data loader(s).
 meeting_gpu_worker  |     Validation config :
 meeting_gpu_worker  |     manifest_filepath: /manifests/combined_fisher_swbd_voxceleb12_librispeech/dev.json
 meeting_gpu_worker  |     sample_rate: 16000
@@ -39,25 +9,20 @@ meeting_gpu_worker  |     shuffle: false
 meeting_gpu_worker  |     num_workers: 15
 meeting_gpu_worker  |     pin_memory: true
 meeting_gpu_worker  |
-meeting_gpu_worker  | [NeMo I 2025-09-17 16:31:23 nemo_logging:393] PADDING: 16
-meeting_api_server  | 2025-09-17 16:31:24,462 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_api_server  | INFO:     192.168.16.4:42464 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
-meeting_gpu_worker  | [NeMo I 2025-09-17 16:31:24 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
-meeting_gpu_worker  | [2025-09-17 16:31:24,589: CRITICAL/MainProcess] FATAL: Failed to load NeMo Speaker Embedding model: name 'model_path' is not defined
-meeting_gpu_worker  | Traceback (most recent call last):
-meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 81, in _load_embedding_model
-meeting_gpu_worker  |     logger.info(f"Speaker Embedding model '{settings.RIMECASTER_MODEL_PATH}' loaded successfully.")
-meeting_gpu_worker  |                                             ^^^^^^^^^^
-meeting_gpu_worker  | NameError: name 'model_path' is not defined
-meeting_gpu_worker  | [2025-09-17 16:31:24,595: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/takeos/716f1dbc-91d0-4a25-8f35-38ffbe5af972_TV HDQT Takeo Shimotsu.mp3: name 'model_path' is not defined
-meeting_gpu_worker  | [2025-09-17 16:31:24,595: ERROR/MainProcess] [Task] Enrollment failed for 'takeos': Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
+meeting_gpu_worker  | [NeMo I 2025-09-17 16:42:16 nemo_logging:393] PADDING: 16
+meeting_api_server  | 2025-09-17 16:42:17,514 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
+meeting_api_server  | INFO:     192.168.16.4:40988 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
+meeting_gpu_worker  | [NeMo I 2025-09-17 16:42:17 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
+meeting_gpu_worker  | [2025-09-17 16:42:17,935: INFO/MainProcess] Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
+meeting_gpu_worker  | [2025-09-17 16:42:18,020: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/takeos/9ac2ac58-0da6-4456-aa51-7b71fd87ef5f_TV HDQT Takeo Shimotsu.mp3: 'NoneType' object has no attribute 'get_embedding'
+meeting_gpu_worker  | [2025-09-17 16:42:18,020: ERROR/MainProcess] [Task] Enrollment failed for 'takeos': Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
 meeting_gpu_worker  | Traceback (most recent call last):
 meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 188, in enroll_speaker_task
 meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
 meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 148, in enroll_new_speaker
 meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
 meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
-meeting_gpu_worker  | [2025-09-17 16:31:24,603: ERROR/MainProcess] Task enroll_speaker_task[89592223-e082-4779-8d2f-8f48cc98cd7b] raised unexpected: ValueError("Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.")
+meeting_gpu_worker  | [2025-09-17 16:42:18,029: ERROR/MainProcess] Task enroll_speaker_task[dfe5b1de-7fd1-4d2d-ac10-50294a941da4] raised unexpected: ValueError("Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.")
 meeting_gpu_worker  | Traceback (most recent call last):
 meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 453, in trace_task
 meeting_gpu_worker  |     R = retval = fun(*args, **kwargs)
@@ -69,3 +34,4 @@ meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 188, in enroll_sp
 meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
 meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 148, in enroll_new_speaker
 meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
+meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
