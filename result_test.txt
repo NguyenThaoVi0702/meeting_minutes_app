@@ -1,39 +1,27 @@
-# in app/api/routes/meeting.py
-
-@router.websocket("/ws/{request_id}")
-async def websocket_endpoint(websocket: WebSocket, request_id: str):
-    """
-    Establishes a WebSocket connection for receiving real-time updates
-    about a meeting job's status.
-    """
-    # Accept the connection first, before doing any database work.
-    # This is the most important change.
-    await websocket.accept()
-    
-    # Now that the connection is accepted, add it to the manager.
-    await websocket_manager.connect(websocket, request_id)
-    
-    try:
-        # Use a proper session to get the initial status.
-        with Session(engine) as session:
-            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
-            if job:
-                # Send the current status immediately upon connection
-                initial_status = _format_job_status(job, session)
-                await websocket.send_json(initial_status)
-            else:
-                # If the job isn't in the DB yet (very rare race condition), send a waiting message.
-                await websocket.send_json({"status": "waiting", "request_id": request_id})
-        
-        # Keep the connection alive to receive broadcasted updates
-        while True:
-            # You can add a timeout here if you want to close inactive connections
-            await websocket.receive_text()
-            
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for request_id '{request_id}'.")
-    except Exception as e:
-        logger.error(f"Error in WebSocket endpoint for '{request_id}': {e}", exc_info=True)
-    finally:
-        # Ensure the client is always removed from the manager on exit
-        websocket_manager.disconnect(websocket, request_id)
+meeting_gpu_worker  | [NeMo I 2025-09-17 16:54:59 nemo_logging:393] PADDING: 16
+meeting_api_server  | 2025-09-17 16:54:59,824 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
+meeting_api_server  | INFO:     192.168.16.4:58468 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
+meeting_gpu_worker  | [NeMo I 2025-09-17 16:55:00 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
+meeting_gpu_worker  | [2025-09-17 16:55:00,285: INFO/MainProcess] Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
+meeting_gpu_worker  | [2025-09-17 16:55:00,350: WARNING/MainProcess] Could not process or get embedding for sample /code/shared_audio/enrollment_samples/takeos/7fb579ec-d756-437b-a13f-2cc53e57ce9a_TV HDQT Takeo Shimotsu.mp3: 'NoneType' object has no attribute 'get_embedding'
+meeting_gpu_worker  | [2025-09-17 16:55:00,350: ERROR/MainProcess] [Task] Enrollment failed for 'takeos': Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
+meeting_gpu_worker  | Traceback (most recent call last):
+meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 188, in enroll_speaker_task
+meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
+meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 148, in enroll_new_speaker
+meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
+meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
+meeting_gpu_worker  | [2025-09-17 16:55:00,357: ERROR/MainProcess] Task enroll_speaker_task[a7dd5644-41fb-407e-935b-4ee3781abc5a] raised unexpected: ValueError("Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.")
+meeting_gpu_worker  | Traceback (most recent call last):
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 453, in trace_task
+meeting_gpu_worker  |     R = retval = fun(*args, **kwargs)
+meeting_gpu_worker  |                  ^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+meeting_gpu_worker  |     return self.run(*args, **kwargs)
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 188, in enroll_speaker_task
+meeting_gpu_worker  |     enrollment_svc.enroll_new_speaker(
+meeting_gpu_worker  |   File "/code/app/processing/enrollment.py", line 148, in enroll_new_speaker
+meeting_gpu_worker  |     raise ValueError(f"Enrollment failed for '{user_ad}': No valid embeddings could be extracted from samples.")
+meeting_gpu_worker  | ValueError: Enrollment failed for 'takeos': No valid embeddings could be extracted from samples.
+meeting_gpu_worker  | [2025-09-17 16:55:00,363: INFO/MainProcess] missed heartbeat from celery@fe7e2fac3ea3
