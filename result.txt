@@ -1,27 +1,108 @@
-# --- NEW, CORRECTED CODE ---
-from app.db.base import engine # Make sure 'engine' is imported
 
-@router.websocket("/ws/{request_id}")
-async def websocket_endpoint(websocket: WebSocket, request_id: str):
-    """
-    Establishes a WebSocket connection for receiving real-time updates
-    about a meeting job's status.
-    """
-    await websocket_manager.connect(websocket, request_id)
-    
-    # We manually create and manage the session lifecycle for the WebSocket.
-    with Session(engine) as session:
-        try:
-            # Send the current status immediately upon connection
-            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
-            if job:
-                # Pass the manually created 'session' to the helper function
-                initial_status = _format_job_status(job, session)
-                await websocket.send_json(initial_status)
-            
-            # Keep the connection alive to receive broadcasted updates
-            while True:
-                await websocket.receive_text() # Keep connection open
-        except WebSocketDisconnect:
-            websocket_manager.disconnect(websocket, request_id)
-            # The 'with' block ensures the session is closed automatically here.
+meeting_api_server  | 2025-09-17 16:09:29,796 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-17 16:09:29,825 - INFO - app.api.routes.meeting - Successfully assembled audio and dispatched transcription task for job 'test_Hop TO 11092025_1758100164'.
+meeting_gpu_worker  | [2025-09-17 16:09:29,826: INFO/MainProcess] Task run_transcription_task[1d832580-beeb-46f3-833a-b5761767e421] received
+meeting_gpu_worker  | [2025-09-17 16:09:29,827: INFO/MainProcess] [Job ID: 17] Starting transcription for audio '/code/shared_audio/test_Hop TO 11092025_1758100164/Hop TO 11092025_full.wav' in 'vi'.
+meeting_gpu_worker  | [2025-09-17 16:09:29,827: INFO/MainProcess] Starting transcription for audio file: /code/shared_audio/test_Hop TO 11092025_1758100164/Hop TO 11092025_full.wav in language 'vi'
+meeting_api_server  | WARNING:  Invalid HTTP request received.
+meeting_api_server  | 2025-09-17 16:09:29,853 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-17 16:09:29,853 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-17 16:09:29,853 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-17 16:09:29,853 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-17 16:09:29,853 INFO sqlalchemy.engine.Engine [cached since 5.13s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-17 16:09:29,853 - INFO - sqlalchemy.engine.Engine - [cached since 5.13s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-17 16:09:29,856 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 16:09:29,856 INFO sqlalchemy.engine.Engine [cached since 5.121s ago] {'request_id_1': 'test_Hop TO 11092025_1758100164'}
+meeting_api_server  | 2025-09-17 16:09:29,856 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 16:09:29,856 - INFO - sqlalchemy.engine.Engine - [cached since 5.121s ago] {'request_id_1': 'test_Hop TO 11092025_1758100164'}
+meeting_api_server  | 2025-09-17 16:09:29,858 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-17 16:09:29,858 INFO sqlalchemy.engine.Engine [generated in 0.00016s] {'meeting_job_id_1': 17, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-17 16:09:29,858 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-17 16:09:29,858 - INFO - sqlalchemy.engine.Engine - [generated in 0.00016s] {'meeting_job_id_1': 17, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-17 16:09:29,861 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-17 16:09:29,861 - INFO - sqlalchemy.engine.Engine - [generated in 0.00013s] {'param_1': 17}
+meeting_api_server  | 2025-09-17 16:09:29,861 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-17 16:09:29,861 INFO sqlalchemy.engine.Engine [generated in 0.00013s] {'param_1': 17}
+meeting_api_server  | 2025-09-17 16:09:29,862 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-17 16:09:29,862 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:38624 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758100164/status?username=test_user_01 HTTP/1.1" 200 OK
+meeting_api_server  | 2025-09-17 16:09:29,867 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-17 16:09:29,867 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-17 16:09:29,867 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-17 16:09:29,867 INFO sqlalchemy.engine.Engine [cached since 5.143s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-17 16:09:29,867 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-17 16:09:29,867 - INFO - sqlalchemy.engine.Engine - [cached since 5.143s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-17 16:09:29,868 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 16:09:29,868 INFO sqlalchemy.engine.Engine [cached since 5.134s ago] {'request_id_1': 'test_Hop TO 11092025_1758100164'}
+meeting_api_server  | 2025-09-17 16:09:29,868 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-17 16:09:29,868 - INFO - sqlalchemy.engine.Engine - [cached since 5.134s ago] {'request_id_1': 'test_Hop TO 11092025_1758100164'}
+meeting_api_server  | 2025-09-17 16:09:29,869 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-17 16:09:29,869 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:38636 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1758100164/diarize?username=test_user_01 HTTP/1.1" 400 Bad Request
+meeting_gpu_worker  | [2025-09-17 16:09:30,669: INFO/MainProcess] Processing audio with duration 19:00.500
+meeting_gpu_worker  | [2025-09-17 16:09:34,370: INFO/MainProcess] VAD filter removed 02:04.736 of audio
+meeting_cpu_worker  | [2025-09-17 16:09:36,191: INFO/MainProcess] missed heartbeat from celery@1facc795ea2d
+meeting_gpu_worker  | [2025-09-17 16:10:03,947: INFO/MainProcess] Successfully transcribed /code/shared_audio/test_Hop TO 11092025_1758100164/Hop TO 11092025_full.wav. Found 38 sentences and 4100 words.
+meeting_gpu_worker  | 2025-09-17 16:10:03,949 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_gpu_worker  | [2025-09-17 16:10:03,949: INFO/MainProcess] BEGIN (implicit)
+meeting_gpu_worker  | [2025-09-17 16:10:03,950: INFO/MainProcess] SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_gpu_worker  | FROM meetingjob
+meeting_gpu_worker  | WHERE meetingjob.id = %(pk_1)s
+meeting_gpu_worker  | [2025-09-17 16:10:03,951: INFO/MainProcess] [cached since 1674s ago] {'pk_1': 17}
+meeting_gpu_worker  | 2025-09-17 16:10:03,950 INFO sqlalchemy.engine.Engine SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_gpu_worker  | FROM meetingjob
+meeting_gpu_worker  | WHERE meetingjob.id = %(pk_1)s
+meeting_gpu_worker  | 2025-09-17 16:10:03,951 INFO sqlalchemy.engine.Engine [cached since 1674s ago] {'pk_1': 17}
+meeting_gpu_worker  | 2025-09-17 16:10:03,956 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_gpu_worker  | 2025-09-17 16:10:03,956 INFO sqlalchemy.engine.Engine [cached since 1674s ago] {'status': 'transcription_complete', 'meetingjob_id': 17}
+meeting_gpu_worker  | [2025-09-17 16:10:03,956: INFO/MainProcess] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_gpu_worker  | [2025-09-17 16:10:03,956: INFO/MainProcess] [cached since 1674s ago] {'status': 'transcription_complete', 'meetingjob_id': 17}
+meeting_gpu_worker  | 2025-09-17 16:10:03,964 INFO sqlalchemy.engine.Engine INSERT INTO transcription (meeting_job_id, language, transcript_data, is_edited, created_at, updated_at) VALUES (%(meeting_job_id)s, %(language)s, %(transcript_data)s::JSONB, %(is_edited)s, %(created_at)s, %(updated_at)s) RETURNING transcription.id
+meeting_gpu_worker  | [2025-09-17 16:10:03,964: INFO/MainProcess] INSERT INTO transcription (meeting_job_id, language, transcript_data, is_edited, created_at, updated_at) VALUES (%(meeting_job_id)s, %(language)s, %(transcript_data)s::JSONB, %(is_edited)s, %(created_at)s, %(updated_at)s) RETURNING transcription.id
+meeting_gpu_worker  | 2025-09-17 16:10:03,964 INFO sqlalchemy.engine.Engine [cached since 1674s ago] {'meeting_job_id': 17, 'language': 'vi', 'transcript_data': '[{"word": "b\\u00e1c", "start": 0.0, "end": 0.16}, {"word": "anh", "start": 0.16, "end": 0.28}, {"word": "xin,", "start": 0.28, "end": 0.48}, {"word" ... (223766 characters truncated) ... fn", "start": 1139.2, "end": 1139.6}, {"word": "c\\u00e1c", "start": 1139.6, "end": 1140.2}, {"word": "kh\\u1ed1i", "start": 1140.2, "end": 1140.48}]', 'is_edited': False, 'created_at': datetime.datetime(2025, 9, 17, 9, 10, 3, 954781), 'updated_at': datetime.datetime(2025, 9, 17, 9, 10, 3, 954809)}
+meeting_gpu_worker  | [2025-09-17 16:10:03,964: INFO/MainProcess] [cached since 1674s ago] {'meeting_job_id': 17, 'language': 'vi', 'transcript_data': '[{"word": "b\\u00e1c", "start": 0.0, "end": 0.16}, {"word": "anh", "start": 0.16, "end": 0.28}, {"word": "xin,", "start": 0.28, "end": 0.48}, {"word" ... (223766 characters truncated) ... fn", "start": 1139.2, "end": 1139.6}, {"word": "c\\u00e1c", "start": 1139.6, "end": 1140.2}, {"word": "kh\\u1ed1i", "start": 1140.2, "end": 1140.48}]', 'is_edited': False, 'created_at': datetime.datetime(2025, 9, 17, 9, 10, 3, 954781), 'updated_at': datetime.datetime(2025, 9, 17, 9, 10, 3, 954809)}
+meeting_gpu_worker  | 2025-09-17 16:10:03,988 INFO sqlalchemy.engine.Engine COMMIT
+meeting_gpu_worker  | [2025-09-17 16:10:03,988: INFO/MainProcess] COMMIT
+meeting_gpu_worker  | [2025-09-17 16:10:03,990: ERROR/MainProcess] [Job ID: 17] Transcription failed: Instance <MeetingJob at 0x7f77f25c8730> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
+meeting_gpu_worker  | Traceback (most recent call last):
+meeting_gpu_worker  |   File "/code/app/worker/tasks.py", line 116, in run_transcription_task
+meeting_gpu_worker  |     logger.error(f"[Job ID: {job_id}] Job not found. Aborting diarization.")
+meeting_gpu_worker  |                ^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 566, in __get__
+meeting_gpu_worker  |     return self.impl.get(state, dict_)  # type: ignore[no-any-return]
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 1086, in get
+meeting_gpu_worker  |     value = self._fire_loader_callables(state, key, passive)
+meeting_gpu_worker  |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/attributes.py", line 1116, in _fire_loader_callables
+meeting_gpu_worker  |     return state._load_expired(state, passive)
+meeting_gpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/state.py", line 803, in _load_expired
+meeting_gpu_worker  |     self.manager.expired_attribute_loader(self, toload, passive)
+meeting_gpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/loading.py", line 1603, in load_scalar_attributes
+meeting_gpu_worker  |     raise orm_exc.DetachedInstanceError(
+meeting_gpu_worker  | sqlalchemy.orm.exc.DetachedInstanceError: Instance <MeetingJob at 0x7f77f25c8730> is not bound to a Session; attribute refresh operation cannot proceed (Background on this error at: https://sqlalche.me/e/20/bhk3)
