@@ -1,277 +1,206 @@
-import json
-import logging
 import os
 import shutil
-from datetime import datetime
-from pathlib import Path
+import uuid
+import logging
+from pathlib import Path as FilePath
+from typing import List
 
 from fastapi import (
-    APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status,
-    WebSocket, WebSocketDisconnect
+    APIRouter, HTTPException, status, Query, Form, File, UploadFile, Path
 )
-from fastapi.responses import FileResponse, StreamingResponse
-from pydub import AudioSegment, exceptions as pydub_exceptions
-from sqlmodel import Session, select
+from pydantic import ValidationError
+from qdrant_client import QdrantClient, models
+from qdrant_client.http.models import UpdateStatus
 
-from app.api.deps import (
-    get_cancellable_job, get_db_session, get_job_ready_for_diarization,
-    get_job_with_any_transcript, get_job_with_completed_diararization,
-    get_or_create_user, get_owned_job_from_path
-)
 from app.core.config import settings
-from app.db.base import engine
-from app.db.models import ChatHistory, MeetingJob, Summary, Transcription, User
-from app.schemas.meeting import (
-    ChatRequest, ChatResponse, LanguageChangeRequest, MeetingInfoUpdateRequest,
-    MeetingJobResponseWrapper, MeetingStatusResponse, PlainSegment,
-    PlainTranscriptUpdateRequest, SummaryRequest, SummaryResponse
+from app.schemas.speaker import (
+    AllSpeakersResponse, SpeakerProfileInfo, SpeakerSearchResponse,
+    SpeakerSearchResult, GenericSuccessResponse, SpeakerMetadataUpdate,
+    QdrantPointDetails, SpeakerProfileResponse
 )
-from app.services.ai_service import ai_service
-from app.services.document_generator import generate_templated_document
-from app.services.websocket_manager import websocket_manager
-# --- FIX 1: REMOVE direct task imports, import the app itself ---
+# --- FIX 1: REMOVE all direct imports from worker/processing layers ---
+# from app.processing.enrollment import SpeakerEnrollment
+# from app.worker.tasks import enroll_speaker_task
+# --- FIX 2: ADD the celery_app import for decoupled task dispatching ---
 from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# ===================================================================
-#   Helper Functions & Core Workflow
-# ===================================================================
-
-def _format_job_status(job: MeetingJob, db: Session) -> dict:
-    """Packages a MeetingJob object into the standard API response schema."""
-    plain_transcript_data = None
-    transcription_entry = db.exec(
-        select(Transcription).where(
-            Transcription.meeting_job_id == job.id,
-            Transcription.language == job.language
-        )
-    ).first()
-
-    if transcription_entry and transcription_entry.transcript_data:
-        plain_transcript_data = [PlainSegment(**seg) for seg in transcription_entry.transcript_data]
-
-    response = MeetingStatusResponse(
-        request_id=job.request_id,
-        status=job.status,
-        bbh_name=job.bbh_name,
-        meeting_type=job.meeting_type,
-        meeting_host=job.meeting_host,
-        language=job.language,
-        plain_transcript=plain_transcript_data,
-        diarized_transcript=job.diarized_transcript.transcript_data if job.diarized_transcript else None,
-        error_message=job.error_message
-    )
-    return response.model_dump()
-
-
-@router.post("/start-bbh", status_code=status.HTTP_201_CREATED, summary="Initialize a new meeting session")
-async def start_bbh(
-    session: Session = Depends(get_db_session),
-    current_user: User = Depends(get_or_create_user),
-    requestId: str = Form(...),
-    language: str = Form("vi"),
-    filename: str = Form(...),
-    bbhName: str = Form(...),
-    Type: str = Form(...),
-    Host: str = Form(...),
-):
-    """Initializes a meeting job record in the database."""
-    # ... (This function is already correct and requires no changes) ...
-
-
-@router.post("/upload-file-chunk", status_code=status.HTTP_202_ACCEPTED, summary="Upload a single audio chunk")
-async def upload_file_chunk(
-    session: Session = Depends(get_db_session),
-    requestId: str = Form(...),
-    isLastChunk: bool = Form(...),
-    FileData: UploadFile = File(...),
-):
-    """Saves an audio chunk and, if it's the last one, dispatches a task for assembly."""
-    job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Meeting job not found.")
-    if job.status != "uploading":
-        raise HTTPException(status_code=400, detail=f"Cannot upload chunks when job status is '{job.status}'.")
-
-    if not job.upload_started_at:
-        job.upload_started_at = datetime.utcnow()
-
-    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
-    chunk_path = session_dir / FileData.filename
-    with open(chunk_path, "wb") as buffer:
-        shutil.copyfileobj(FileData.file, buffer)
-
-    if isLastChunk:
-        job.status = "assembling"
-        job.upload_finished_at = datetime.utcnow()
-        session.add(job)
-        session.commit()
-        
-        logger.info(f"Last chunk received for '{requestId}'. Dispatching assembly task to Celery.")
-        
-        # --- FIX 2: Use send_task for decoupled dispatching ---
-        celery_app.send_task("assemble_audio_task", args=[requestId, job.language])
-        
-        await websocket_manager.broadcast_to_job(requestId, {"status": "assembling"})
-    else:
-        session.add(job)
-        session.commit()
-
-    return {"status": 202, "message": f"Chunk '{FileData.filename}' accepted."}
-
-
-@router.post("/{request_id}/diarize", status_code=status.HTTP_202_ACCEPTED, summary="Trigger speaker diarization")
-async def diarize_meeting(
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_job_ready_for_diarization)
-):
-    """Triggers the speaker diarization and mapping process."""
-    db.add(job) # Re-bind object to session
-    audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
-    if not audio_file_path.exists():
-        raise HTTPException(status_code=404, detail="Assembled audio file not found.")
-
-    job.status = "diarizing"
-    db.commit()
-
-    # --- FIX 2: Use send_task for decoupled dispatching ---
-    celery_app.send_task("run_diarization_task", args=[job.id, str(audio_file_path)])
-    
-    await websocket_manager.broadcast_to_job(job.request_id, {"status": "diarizing"})
-    return {"status": 202, "message": "Diarization process started."}
+# This lightweight client is the ONLY way the API server should talk to the vector DB.
+qdrant_client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=10)
 
 # ===================================================================
-#   Real-time Status and Management Endpoints
+#   Speaker Collection Endpoints (List & Search) - NOW LIGHTWEIGHT
 # ===================================================================
 
-@router.get("/{request_id}/status", response_model=MeetingJobResponseWrapper, summary="Get current meeting status")
-async def get_meeting_status(
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path)
-):
-    """Retrieves the complete current status of a meeting job."""
-    db.add(job)
-    formatted_data = _format_job_status(job, db)
-    return MeetingJobResponseWrapper(data=formatted_data)
-
-
-@router.websocket("/ws/{request_id}")
-async def websocket_endpoint(websocket: WebSocket, request_id: str):
-    """Establishes a WebSocket connection for real-time updates."""
-    await websocket.accept()
-    if request_id not in websocket_manager.active_connections:
-        websocket_manager.active_connections[request_id] = []
-    websocket_manager.active_connections[request_id].append(websocket)
-    logger.info(f"WebSocket connected for request_id '{request_id}'.")
+@router.get("/", response_model=AllSpeakersResponse, summary="List all enrolled speaker profiles")
+async def list_all_speakers():
+    """Retrieves a list of all speaker profiles directly from the vector database."""
     try:
-        with Session(engine) as session:
-            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
-            if job:
-                await websocket.send_json(_format_job_status(job, session))
-        while True:
-            await websocket.receive_text()
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for request_id '{request_id}'.")
-    finally:
-        websocket_manager.disconnect(websocket, request_id)
+        all_points, _ = qdrant_client.scroll(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            limit=10000,
+            with_payload=True,
+            with_vectors=False # Crucial for speed
+        )
+        profiles_data = [point.payload for point in all_points if point.payload]
+        formatted_profiles = [SpeakerProfileInfo(**p) for p in profiles_data]
+        return AllSpeakersResponse(data=formatted_profiles)
+    except Exception as e:
+        logger.error(f"Failed to list all speakers from Qdrant: {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="Could not connect to the vector database.")
 
-
-@router.patch("/{request_id}/info", response_model=MeetingJobResponseWrapper, summary="Update meeting metadata")
-async def update_meeting_info(
-    update_data: MeetingInfoUpdateRequest,
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path)
+@router.get("/search", response_model=SpeakerSearchResponse, summary="Search for speaker profiles")
+async def search_speaker_profiles(
+    query: str = Query(..., min_length=1),
+    limit: int = Query(10, ge=1, le=50)
 ):
-    """Updates editable meeting metadata (name, type, host)."""
-    # ... (This function is already correct and requires no changes) ...
+    """Searches for speaker profiles using the vector DB's indexed metadata fields."""
+    try:
+        search_results = qdrant_client.search(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            query_filter=models.Filter(must=[
+                models.FieldCondition(key="search_terms", match=models.MatchValue(value=query.lower().strip()))
+            ]),
+            query_vector=[0.0] * 512, # Dummy vector for filtered search
+            limit=limit,
+            with_vectors=False
+        )
+        formatted_results = [SpeakerSearchResult(**hit.payload) for hit in search_results]
+        return SpeakerSearchResponse(data=formatted_results)
+    except Exception as e:
+        logger.error(f"Failed during speaker search for query '{query}': {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail="An error occurred during search.")
 
+# ===================================================================
+#   Speaker Creation Endpoint - NOW FULLY ASYNC
+# ===================================================================
 
-@router.post("/{request_id}/language", response_model=MeetingJobResponseWrapper, summary="Change meeting language")
-async def change_meeting_language(
-    language_request: LanguageChangeRequest,
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path)
+@router.post("/", status_code=status.HTTP_202_ACCEPTED, response_model=GenericSuccessResponse)
+async def enroll_new_speaker(
+    metadata_json: str = Form(..., alias="metadata"),
+    files: List[UploadFile] = File(...)
 ):
-    """Changes the active language and re-transcribes if necessary."""
-    db.add(job)
-    new_language = language_request.language
-    if job.language == new_language:
-        return MeetingJobResponseWrapper(data=_format_job_status(job, db))
+    """Accepts enrollment data, saves files, and queues the heavy processing to a worker."""
+    try:
+        metadata = SpeakerMetadataUpdate.model_validate_json(metadata_json)
+        user_ad = metadata.user_ad.lower().strip()
+    except (ValidationError, AttributeError) as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid metadata: {e}")
 
-    cached_transcript = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == new_language)).first()
-    job.language = new_language
+    # Lightweight check for duplicates using the qdrant_client
+    try:
+        points, _ = qdrant_client.scroll(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            scroll_filter=models.Filter(must=[models.FieldCondition(key="user_ad", match=models.MatchValue(value=user_ad))]),
+            limit=1
+        )
+        if points:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Speaker '{user_ad}' already exists.")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not verify speaker existence: {e}")
+
+    # Save files to a permanent location for the worker
+    enrollment_dir = FilePath(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
+    os.makedirs(enrollment_dir, exist_ok=True)
     
-    if cached_transcript:
-        if job.diarized_transcript: db.delete(job.diarized_transcript)
-        job.status = "transcription_complete"
-    else:
-        audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
-        if not audio_file_path.exists():
-            raise HTTPException(status_code=404, detail="Assembled audio file not found. Cannot re-transcribe.")
-        job.status = "transcribing"
+    saved_paths = []
+    for file in files:
+        if not file.filename: continue
+        file_path = enrollment_dir / f"{uuid.uuid4()}_{file.filename}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        saved_paths.append(str(file_path))
+
+    if not saved_paths:
+        raise HTTPException(status_code=400, detail="No valid audio files provided.")
+
+    # Dispatch the background task using its registered name
+    celery_app.send_task(
+        "enroll_speaker_task",
+        args=[user_ad, saved_paths, metadata.model_dump()]
+    )
+    return GenericSuccessResponse(message=f"Enrollment for '{user_ad}' has been accepted for processing.")
+
+# ===================================================================
+#   Individual Speaker Resource Endpoints
+# ===================================================================
+
+@router.get("/{user_ad}", response_model=SpeakerProfileResponse, summary="Get a specific speaker's profile")
+async def get_speaker_profile_details(user_ad: str = Path(...)):
+    """Retrieves detailed profile for a single speaker directly from the vector database."""
+    try:
+        points, _ = qdrant_client.scroll(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            scroll_filter=models.Filter(must=[models.FieldCondition(key="user_ad", match=models.MatchValue(value=user_ad))]),
+            limit=1, with_vectors=True
+        )
+        if not points:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Speaker '{user_ad}' not found.")
         
-        # --- FIX 2: Use send_task for decoupled dispatching ---
-        celery_app.send_task("run_transcription_task", args=[job.id, str(audio_file_path), new_language])
+        profile_record = points[0]
+        profile_details = QdrantPointDetails(
+            qdrant_point_id=profile_record.id,
+            payload=profile_record.payload,
+            has_vector=bool(profile_record.vector)
+        )
+        return SpeakerProfileResponse(user_ad=user_ad, profile_details=profile_details)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Could not retrieve speaker profile: {e}")
 
-    db.commit()
-    db.refresh(job)
-    updated_status = _format_job_status(job, db)
-    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
-    return MeetingJobResponseWrapper(message=f"Language changed to '{new_language}'.", data=updated_status)
+@router.put("/{user_ad}/metadata", status_code=status.HTTP_202_ACCEPTED, response_model=GenericSuccessResponse)
+async def update_speaker_metadata(metadata: SpeakerMetadataUpdate, user_ad: str = Path(...)):
+    """Accepts and queues a request to update a speaker's metadata."""
+    celery_app.send_task(
+        "update_metadata_task",
+        args=[user_ad, metadata.model_dump(exclude_unset=True)]
+    )
+    return GenericSuccessResponse(message="Metadata update request has been accepted.")
 
+@router.post("/{user_ad}/samples", status_code=status.HTTP_202_ACCEPTED, response_model=GenericSuccessResponse)
+async def add_voice_samples_to_profile(user_ad: str = Path(...), files: List[UploadFile] = File(...)):
+    """Accepts new voice samples and queues the profile update to a worker."""
+    if not files or all(not f.filename for f in files):
+        raise HTTPException(status_code=400, detail="No valid audio sample files provided.")
 
-@router.put("/{request_id}/transcript/plain", response_model=MeetingJobResponseWrapper, summary="Update the plain transcript")
-async def update_plain_transcript(
-    update_request: PlainTranscriptUpdateRequest,
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path)
-):
-    """Overwrites the plain transcript and clears all downstream analysis data."""
-    # ... (This function is already correct and requires no changes) ...
+    samples_dir = FilePath(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
+    os.makedirs(samples_dir, exist_ok=True)
+    
+    saved_paths = []
+    for file in files:
+        if not file.filename: continue
+        file_path = samples_dir / f"{uuid.uuid4()}_{file.filename}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        saved_paths.append(str(file_path))
 
-@router.delete("/{request_id}/cancel", status_code=status.HTTP_200_OK, summary="Cancel an ongoing meeting")
-async def cancel_meeting(
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_cancellable_job)
-):
-    """Deletes a job record and its associated files."""
-    # ... (This function is already correct and requires no changes) ...
+    if not saved_paths:
+        raise HTTPException(status_code=400, detail="No valid audio files were processed.")
 
-# ===================================================================
-#   Analysis, Chat, and Download Endpoints
-# ===================================================================
+    celery_app.send_task("add_samples_task", args=[user_ad, saved_paths])
+    return GenericSuccessResponse(message=f"Request to add {len(saved_paths)} new sample(s) has been accepted.")
 
-@router.post("/{request_id}/summary", response_model=SummaryResponse, summary="Generate a meeting summary")
-async def generate_summary(
-    summary_request: SummaryRequest,
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path) 
-):
-    """Generates a summary based on the requested type, overwriting if it exists."""
-    # ... (This function is already correct and requires no changes) ...
-
-@router.post("/chat", response_model=ChatResponse, summary="Chat about the meeting content")
-async def chat_with_meeting(
-    chat_request: ChatRequest,
-    db: Session = Depends(get_db_session)
-):
-    """Handles conversational queries about a meeting."""
-    # ... (This function is already correct and requires no changes) ...
-
-@router.get("/{request_id}/download/audio", summary="Download the original audio file")
-async def download_audio_file(
-    job: MeetingJob = Depends(get_owned_job_from_path)
-):
-    """Provides a direct download of the fully assembled meeting audio file."""
-    # ... (This function is already correct and requires no changes) ...
-
-@router.get("/{request_id}/download/document", summary="Generate and download a formal meeting document")
-async def generate_and_download_document(
-    job: MeetingJob = Depends(get_job_with_any_transcript),
-    template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"]),
-    db: Session = Depends(get_db_session)
-):
-    """Generates a DOCX document from a template using LLM-extracted data."""
-    # ... (This function is already correct and requires no changes) ...
+@router.delete("/{user_ad}", response_model=GenericSuccessResponse, summary="Delete a speaker's profile")
+async def delete_speaker_profile(user_ad: str = Path(...)):
+    """Permanently deletes a speaker's profile from the vector database."""
+    try:
+        points, _ = qdrant_client.scroll(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            scroll_filter=models.Filter(must=[models.FieldCondition(key="user_ad", match=models.MatchValue(value=user_ad))]),
+            limit=1
+        )
+        if not points:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Speaker '{user_ad}' not found.")
+        
+        result = qdrant_client.delete(
+            collection_name=settings.QDRANT_COLLECTION_NAME,
+            points_selector=models.PointIdsList(points=[points[0].id]),
+            wait=True
+        )
+        if result.status != UpdateStatus.COMPLETED:
+             raise HTTPException(status_code=500, detail="Failed to delete profile from vector database.")
+        
+        return GenericSuccessResponse(message=f"Profile for '{user_ad}' was successfully deleted.")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"An error occurred while deleting the profile: {e}")
