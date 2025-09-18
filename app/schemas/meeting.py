@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
+from datetime import datetime
 
 # ===================================================================
 #   Core Data Structure Models
@@ -7,10 +8,9 @@ from typing import List, Optional, Dict, Any
 
 class PlainSegment(BaseModel):
     """
-    Represents a single segment of a transcript before speaker separation.
-    This is the direct output from the transcription model (Whisper).
+    The direct output from the transcription model (Whisper).
     """
-    id: Optional[int] = Field(None, description="A unique identifier for the segment, useful for frontend operations.")
+    id: Optional[int] = Field(None, description="A unique identifier for the segment.")
     text: str = Field(..., description="The transcribed text of the segment.")
     start_time: float = Field(..., description="Start time of the segment in seconds.")
     end_time: float = Field(..., description="End time of the segment in seconds.")
@@ -32,7 +32,6 @@ class DiarizedSegment(BaseModel):
 
 class MeetingInfoUpdateRequest(BaseModel):
     """
-
     Schema for updating the metadata of a meeting. All fields are optional
     so the user can update one or more fields at a time.
     """
@@ -77,7 +76,6 @@ class ChatRequest(BaseModel):
 class MeetingStatusResponse(BaseModel):
     """
     A comprehensive model representing the full state of a meeting job.
-    Designed to provide the frontend with all necessary information in a single object.
     """
     request_id: str = Field(..., description="The unique identifier for the meeting job.")
     status: str = Field(..., description="The current processing status of the job (e.g., 'uploading', 'transcribing', 'transcription_complete', 'diarizing', 'completed').")
