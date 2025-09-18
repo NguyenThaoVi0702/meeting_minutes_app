@@ -4,14 +4,17 @@ import logging
 import uuid
 import unicodedata
 from pathlib import Path
+import tempfile
 from typing import List, Dict, Optional, Tuple
 
 import librosa
 import soundfile as sf
 import numpy as np
 import torch
+from pydub import AudioSegment
 import nemo.collections.asr as nemo_asr
 from qdrant_client import QdrantClient, models
+from datetime import datetime
 
 from app.core.config import settings
 
@@ -27,9 +30,7 @@ def get_text_prefixes(text: str) -> List[str]:
 
 def generate_all_search_terms(display_name: str, user_ad: str) -> List[str]:
     """
-    Generates a comprehensive list of search terms for a speaker, including prefixes
-    for both accented and un-accented versions of their name and user_ad.
-    This enables powerful and flexible 'search-as-you-type' functionality.
+    Generates a comprehensive list of search terms for a speaker
     """
     full_text = f"{display_name} {user_ad}"
 
@@ -52,12 +53,8 @@ def generate_all_search_terms(display_name: str, user_ad: str) -> List[str]:
 # ===================================================================
 
 class SpeakerEnrollment:
-    """
-    Manages speaker enrollment, voice embedding, and interaction with the
-    Qdrant vector database. Designed to be instantiated as a long-lived
-    service in a background worker.
-    """
-    QDRANT_VECTOR_SIZE = 512  # Based on the titanet-large model
+
+    QDRANT_VECTOR_SIZE = 768
 
     def __init__(self):
         """
@@ -69,27 +66,29 @@ class SpeakerEnrollment:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         logger.info(f"SpeakerEnrollment service is using device: {self.device}")
 
-        self.embedding_model = self._load_embedding_model(settings.RIMECASTER_MODEL_PATH)
+        logger.info(f"SpeakerEnrollment service is using device: {self.device}")
+        logger.info(f"Loading NeMo Speaker Embedding model from: {settings.RIMECASTER_MODEL_PATH}")
+        
+        try:
+            self.embedding_model = nemo_asr.models.EncDecSpeakerLabelModel.restore_from(
+                settings.RIMECASTER_MODEL_PATH, map_location=self.device
+            )
+            self.embedding_model.eval()
+            logger.info(f"Speaker Embedding model '{settings.RIMECASTER_MODEL_PATH}' loaded successfully.")
+        except Exception as e:
+            logger.critical(f"FATAL: Failed to load NeMo Speaker Embedding model: {e}", exc_info=True)
+            raise 
 
         logger.info(f"Connecting to Qdrant at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}...")
         self.qdrant_client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=20)
         self._ensure_qdrant_collection()
 
-    def _load_embedding_model(self, model_path: str):
-        """Loads the NeMo speaker embedding model from the specified path."""
-        logger.info(f"Loading NeMo Speaker Embedding model from: {model_path}")
-        if not model_path or not os.path.exists(model_path):
-             msg = f"NeMo model path '{model_path}' is invalid or does not exist."
-             logger.critical(msg)
-             raise FileNotFoundError(msg)
-        try:
-            model = nemo_asr.models.EncDecSpeakerLabelModel.restore_from(model_path, map_location=self.device)
-            model.eval()
-            logger.info(f"Speaker Embedding model '{model_path}' loaded successfully.")
-            return model
-        except Exception as e:
-            logger.critical(f"FATAL: Failed to load NeMo Speaker Embedding model: {e}", exc_info=True)
-            raise
+    def get_embedding_from_audio(self, audio_data: np.ndarray) -> np.ndarray:
+            """Extracts a speaker embedding directly from a NumPy audio waveform."""
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmpfile:
+                sf.write(tmpfile.name, audio_data, self.target_sr)
+                embedding = self.embedding_model.get_embedding(tmpfile.name).squeeze().cpu().numpy()
+            return embedding
 
     def _ensure_qdrant_collection(self):
         """Ensures the Qdrant collection exists and has the correct configuration."""
@@ -110,23 +109,22 @@ class SpeakerEnrollment:
             )
             logger.info(f"Qdrant collection '{self.qdrant_collection_name}' and keyword index created.")
 
-    def get_embedding_from_audio(self, audio_data: np.ndarray) -> np.ndarray:
-        """Extracts a speaker embedding directly from a NumPy audio waveform."""
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmpfile:
-            sf.write(tmpfile.name, audio_data, self.target_sr)
-            # The model's get_embedding method expects a file path
-            embedding = self.embedding_model.get_embedding(tmpfile.name).squeeze().cpu().numpy()
-        return embedding
-
     def _preprocess_and_embed_samples(self, audio_paths: List[str]) -> List[np.ndarray]:
         """Processes a list of audio files and returns a list of their embeddings."""
         embeddings = []
         for path in audio_paths:
             try:
-                # Resample to the model's target sample rate
-                audio, _ = librosa.load(path, sr=self.target_sr, mono=True)
-                embedding = self.get_embedding_from_audio(audio)
-                embeddings.append(embedding)
+                audio = AudioSegment.from_file(path)
+                audio = audio.set_channels(1).set_frame_rate(self.target_sr)
+                
+
+                with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmpfile:
+                    audio.export(tmpfile.name, format="wav")
+
+                    clean_audio_data, _ = librosa.load(tmpfile.name, sr=self.target_sr, mono=True)
+                    embedding = self.get_embedding_from_audio(clean_audio_data)
+                    embeddings.append(embedding)
+
             except Exception as e:
                 logger.warning(f"Could not process or get embedding for sample {path}: {e}")
         return embeddings
@@ -260,6 +258,25 @@ class SpeakerEnrollment:
             return profiles
         except Exception as e:
             logger.error(f"Error fetching all profiles from Qdrant: {e}", exc_info=True)
+            return []
+
+    def get_all_speaker_profiles(self) -> List[Dict]:
+        """
+        Retrieves the metadata payloads for all enrolled speakers.
+        Excludes the heavy vector data for efficiency.
+        """
+        try:
+            all_points, _ = self.qdrant_client.scroll(
+                collection_name=self.qdrant_collection_name,
+                limit=10000, 
+                with_payload=True,
+                with_vectors=False 
+            )
+            profiles = [point.payload for point in all_points if point.payload]
+            logger.info(f"Fetched metadata for {len(profiles)} speaker profiles.")
+            return profiles
+        except Exception as e:
+            logger.error(f"Error fetching all speaker profiles from Qdrant: {e}", exc_info=True)
             return []
 
     def search_profiles(self, query: str, limit: int = 10) -> List[Dict]:
