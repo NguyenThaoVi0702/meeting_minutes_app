@@ -1,0 +1,48 @@
+
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-18 17:22:35,065 - INFO - sqlalchemy.engine.Engine - [generated in 0.00019s] {'meeting_job_id_1': 37, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 17:22:35,065 INFO sqlalchemy.engine.Engine [generated in 0.00019s] {'meeting_job_id_1': 37, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 17:22:35,069 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-18 17:22:35,069 INFO sqlalchemy.engine.Engine [generated in 0.00019s] {'param_1': 37}
+meeting_api_server  | 2025-09-18 17:22:35,069 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-18 17:22:35,069 - INFO - sqlalchemy.engine.Engine - [generated in 0.00019s] {'param_1': 37}
+meeting_api_server  | INFO:     connection open
+meeting_api_server  | 2025-09-18 17:22:35,071 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-18 17:22:35,071 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_worker      | 2025-09-18 17:22:39,007 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+meeting_worker      | [2025-09-18 17:22:39,007: INFO/MainProcess] select pg_catalog.version()
+meeting_worker      | [2025-09-18 17:22:39,007: INFO/MainProcess] [raw sql] {}
+meeting_worker      | 2025-09-18 17:22:39,007 INFO sqlalchemy.engine.Engine [raw sql] {}
+meeting_worker      | [2025-09-18 17:22:39,010: INFO/MainProcess] select current_schema()
+meeting_worker      | [2025-09-18 17:22:39,010: INFO/MainProcess] [raw sql] {}
+meeting_worker      | 2025-09-18 17:22:39,010 INFO sqlalchemy.engine.Engine select current_schema()
+meeting_worker      | 2025-09-18 17:22:39,010 INFO sqlalchemy.engine.Engine [raw sql] {}
+meeting_worker      | 2025-09-18 17:22:39,011 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+meeting_worker      | [2025-09-18 17:22:39,011: INFO/MainProcess] show standard_conforming_strings
+meeting_worker      | 2025-09-18 17:22:39,011 INFO sqlalchemy.engine.Engine [raw sql] {}
+meeting_worker      | [2025-09-18 17:22:39,011: INFO/MainProcess] [raw sql] {}
+meeting_worker      | [2025-09-18 17:22:39,012: INFO/MainProcess] BEGIN (implicit)
+meeting_worker      | 2025-09-18 17:22:39,012 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_worker      | 2025-09-18 17:22:39,036 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_worker      | FROM meetingjob
+meeting_worker      | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_worker      | 2025-09-18 17:22:39,036 INFO sqlalchemy.engine.Engine [generated in 0.00032s] {'request_id_1': 'test_Hop TO 11092025_1758190953'}
+meeting_worker      | [2025-09-18 17:22:39,036: INFO/MainProcess] SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_worker      | FROM meetingjob
+meeting_worker      | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_worker      | [2025-09-18 17:22:39,036: INFO/MainProcess] [generated in 0.00032s] {'request_id_1': 'test_Hop TO 11092025_1758190953'}
+meeting_worker      | 2025-09-18 17:22:39,081 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_worker      | 2025-09-18 17:22:39,082 INFO sqlalchemy.engine.Engine [generated in 0.00030s] {'status': 'transcribing', 'meetingjob_id': 37}
+meeting_worker      | [2025-09-18 17:22:39,081: INFO/MainProcess] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_worker      | [2025-09-18 17:22:39,082: INFO/MainProcess] [generated in 0.00030s] {'status': 'transcribing', 'meetingjob_id': 37}
+meeting_worker      | 2025-09-18 17:22:39,084 INFO sqlalchemy.engine.Engine COMMIT
+meeting_worker      | [2025-09-18 17:22:39,084: INFO/MainProcess] COMMIT
+meeting_worker      | [2025-09-18 17:22:39,088: INFO/MainProcess] Published update for job 'test_Hop TO 11092025_1758190953': transcribing
+meeting_api_server  | 2025-09-18 17:22:39,089 - INFO - app.services.websocket_manager - Broadcasting message to 1 client(s) for request_id 'test_Hop TO 11092025_1758190953'.
+meeting_worker      | [2025-09-18 17:22:39,133: INFO/MainProcess] Assembly complete. Dispatched transcription task for job 'test_Hop TO 11092025_1758190953'.
+meeting_worker      | [2025-09-18 17:22:39,148: INFO/MainProcess] Task assemble_audio_task[91080f85-89d6-4c5b-b2cd-b064812a1620] succeeded in 4.092497238889337s: None
+meeting_worker      | [2025-09-18 17:22:39,153: INFO/MainProcess] missed heartbeat from celery@fe7e2fac3ea3
