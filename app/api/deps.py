@@ -9,21 +9,16 @@ from app.db.models import User, MeetingJob, Transcription
 
 logger = logging.getLogger(__name__)
 
-# ===================================================================
-#   DATABASE DEPENDENCY
-# ===================================================================
+
 
 def get_db_session() -> Generator[Session, None, None]:
     """
     FastAPI dependency that creates and yields a new database session for
-    each request, ensuring the session is always closed.
+    each request.
     """
     with Session(engine) as session:
         yield session
 
-# ===================================================================
-#   USER IDENTIFICATION DEPENDENCIES
-# ===================================================================
 
 def get_or_create_user(
     session: Session = Depends(get_db_session),
@@ -58,10 +53,6 @@ def get_or_create_user_from_query(
         session.commit()
         session.refresh(user)
     return user
-
-# ===================================================================
-#   JOB OWNERSHIP & STATE VERIFICATION DEPENDENCIES
-# ===================================================================
 
 # --- CORE OWNERSHIP VERIFIERS ---
 
@@ -137,7 +128,7 @@ def get_job_with_completed_diarization(
     Verifies ownership and ensures the job has a final, speaker-separated transcript.
     This gates features like 'summarize by speaker'.
     """
-    if not job.diarized_transcript:
+    if job.status != "completed" or not job.diarized_transcript:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This feature requires a completed speaker-separated transcript. Please run diarization first."
