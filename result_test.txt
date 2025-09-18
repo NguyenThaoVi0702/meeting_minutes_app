@@ -1,49 +1,7 @@
-
-meeting_api_server  | 2025-09-18 08:34:09,253 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 08:34:09,253 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 08:34:09,253 INFO sqlalchemy.engine.Engine [generated in 0.00016s] {'pk_1': 28}
-meeting_api_server  | 2025-09-18 08:34:09,253 - INFO - sqlalchemy.engine.Engine - [generated in 0.00016s] {'pk_1': 28}
-meeting_api_server  | 2025-09-18 08:34:09,254 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758159248'. Triggering background assembly and transcription.
-meeting_api_server  | 2025-09-18 08:34:09,259 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 08:34:09,259 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:53034 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_cpu_worker  | [2025-09-18 08:34:09,262: INFO/MainProcess] Task assemble_audio_task[c25673c2-b36c-42a7-aaeb-ee9ba5aa1ebd] received
-meeting_api_server  | WARNING:  Invalid HTTP request received.
-meeting_cpu_worker  | [2025-09-18 08:34:09,266: INFO/ForkPoolWorker-4] [Task ID: c25673c2-b36c-42a7-aaeb-ee9ba5aa1ebd] Assembling chunks for job 'test_Hop TO 11092025_1758159248'...
-meeting_api_server  | 2025-09-18 08:34:09,273 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 08:34:09,273 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 08:34:09,273 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-
-=======================================
-
-
-meeting_cpu_worker  | [2025-09-18 08:34:13,372: INFO/ForkPoolWorker-4] [generated in 0.00030s] {'request_id_1': 'test_Hop TO 11092025_1758159248'}
-meeting_cpu_worker  | 2025-09-18 08:34:13,420 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_cpu_worker  | 2025-09-18 08:34:13,420 INFO sqlalchemy.engine.Engine [generated in 0.00030s] {'status': 'transcribing', 'meetingjob_id': 28}
-meeting_cpu_worker  | [2025-09-18 08:34:13,420: INFO/ForkPoolWorker-4] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_cpu_worker  | [2025-09-18 08:34:13,420: INFO/ForkPoolWorker-4] [generated in 0.00030s] {'status': 'transcribing', 'meetingjob_id': 28}
-meeting_cpu_worker  | [2025-09-18 08:34:13,422: INFO/ForkPoolWorker-4] COMMIT
-meeting_cpu_worker  | 2025-09-18 08:34:13,422 INFO sqlalchemy.engine.Engine COMMIT
-meeting_cpu_worker  | [2025-09-18 08:34:13,428: INFO/ForkPoolWorker-4] Published update for job 'test_Hop TO 11092025_1758159248': transcribing
-meeting_cpu_worker  | [2025-09-18 08:34:13,468: INFO/ForkPoolWorker-4] Assembly complete. Dispatched transcription task for job 'test_Hop TO 11092025_1758159248'.
-meeting_gpu_worker  | [2025-09-18 08:34:13,471: INFO/MainProcess] Task run_transcription_task[e6401c69-2c17-4d82-bbcb-349a5469d2c9] received
-meeting_gpu_worker  | [2025-09-18 08:34:13,472: INFO/MainProcess] [Job ID: 28] Starting transcription for audio '/code/shared_audio/test_Hop TO 11092025_1758159248/Hop TO 11092025_full.wav' in 'vi'.
-meeting_gpu_worker  | [2025-09-18 08:34:13,472: INFO/MainProcess] Initializing Transcriber service for this process...
-meeting_gpu_worker  | [2025-09-18 08:34:13,472: INFO/MainProcess] Loading Faster-Whisper model from: /app/models/merged_model_ct2_dir
-meeting_cpu_worker  | [2025-09-18 08:34:13,487: INFO/ForkPoolWorker-4] Task assemble_audio_task[c25673c2-b36c-42a7-aaeb-ee9ba5aa1ebd] succeeded in 4.2216803058981895s: None
-meeting_gpu_worker  | [2025-09-18 08:34:16,046: INFO/MainProcess] Faster-Whisper model loaded successfully onto CUDA device.
-meeting_gpu_worker  | [2025-09-18 08:34:16,046: INFO/MainProcess] Starting transcription for audio file: /code/shared_audio/test_Hop TO 11092025_1758159248/Hop TO 11092025_full.wav in language 'vi'
-meeting_gpu_worker  | [2025-09-18 08:34:16,790: INFO/MainProcess] Processing audio with duration 19:00.500
-meeting_gpu_worker  | [2025-09-18 08:34:19,796: INFO/MainProcess] VAD filter removed 02:04.736 of audio
-meeting_gpu_worker  | Unable to load any of {libcudnn_cnn.so.9.1.0, libcudnn_cnn.so.9.1, libcudnn_cnn.so.9, libcudnn_cnn.so}
-meeting_gpu_worker  | Invalid handle. Cannot load symbol cudnnCreateConvolutionDescriptor
-meeting_cpu_worker  | [2025-09-18 08:34:21,140: INFO/MainProcess] missed heartbeat from celery@d8ca4174c8f2
-meeting_gpu_worker exited with code 0
-meeting_gpu_worker  | [NeMo W 2025-09-18 08:34:32 nemo_logging:405] /usr/local/lib/python3.12/dist-packages/celery/platforms.py:841: SecurityWarning: You're running the worker with superuser privileges: this is
-meeting_gpu_worker  |     absolutely not recommended!
+/usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so.9.8.0
+/usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so
+/usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so.9
+/usr/lib/x86_64-linux-gnu/libcudnn_cnn.so.9.8.0
+/usr/lib/x86_64-linux-gnu/libcudnn_cnn.so
+/usr/lib/x86_64-linux-gnu/libcudnn_cnn.so.9
+/usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9
