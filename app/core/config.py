@@ -1,99 +1,174 @@
-import os
-from pathlib import Path
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+import logging
+from typing import Generator
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+from fastapi import Depends, HTTPException, status, Form, Query, Path
+from sqlmodel import Session, select
 
-class Settings(BaseSettings):
+from app.db.base import engine
+from app.db.models import User, MeetingJob, Transcription
+
+logger = logging.getLogger(__name__)
+
+
+
+def get_db_session() -> Generator[Session, None, None]:
     """
-    Manages all application configuration settings.
-    Loads settings from a .env file and environment variables.
+    FastAPI dependency that creates and yields a new database session for
+    each request.
+    """
+    with Session(engine) as session:
+        yield session
+
+
+def get_or_create_user(
+    session: Session = Depends(get_db_session),
+    username: str = Form(..., description="The username of the user making the request.")
+) -> User:
+    """
+    Dependency to get a user from a POST form. If the user does not exist,
+    a new one is created.
+    """
+    user = session.exec(select(User).where(User.username == username)).first()
+    if not user:
+        logger.info(f"User '{username}' not found from form. Creating new user record.")
+        user = User(username=username, display_name=username)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    return user
+
+def get_or_create_user_from_query(
+    session: Session = Depends(get_db_session),
+    username: str = Query(..., description="The username of the user making the request.")
+) -> User:
+    """
+    Dependency to get a user from a URL query parameter (for GET requests).
+    If the user does not exist, a new one is created.
+    """
+    user = session.exec(select(User).where(User.username == username)).first()
+    if not user:
+        logger.info(f"User '{username}' not found from query. Creating new user record.")
+        user = User(username=username, display_name=username)
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+    return user
+
+# --- CORE OWNERSHIP VERIFIERS ---
+
+def get_owned_job_from_path(
+    request_id: str = Path(..., description="The unique request_id of the meeting job."),
+    current_user: User = Depends(get_or_create_user_from_query),
+    db: Session = Depends(get_db_session),
+) -> MeetingJob:
+    """
+    Core dependency for GET/PUT/DELETE requests.
+    1. Finds a job by its request_id from the URL path.
+    2. Verifies the current user (from query param) is the job's owner.
+    Raises 404 if not found, 403 if ownership fails.
     """
 
-    PROJECT_NAME: str = "VietinBank AI Meeting Assistant"
-    API_V1_STR: str = "/api/v1"
-    
-    model_config = SettingsConfigDict(env_file=os.path.join(BASE_DIR, '.env'), extra='ignore')
+    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting job with request_id '{request_id}' not found."
+        )
+    if job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to access this resource."
+        )
+    return job
 
-    # --------------------------------------------------------------------------
-    # Database Configuration
-    # --------------------------------------------------------------------------
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_HOST: str
-    POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str
-
-    @property
-    def DATABASE_URL(self) -> str:
-        """Constructs the full database connection string."""
-        return (f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@"
-                f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
-
-    # --------------------------------------------------------------------------
-    # Redis Configuration (for Celery & WebSockets)
-    # --------------------------------------------------------------------------
-    REDIS_HOST: str
-    REDIS_PORT: int = 6379
-    REDIS_PASSWORD: Optional[str] = None
-    REDIS_DB: int = 0
-
-    @property
-    def REDIS_URL(self) -> str:
-        """Constructs the Redis connection URL for Celery."""
-        password = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
-        return f"redis://{password}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
-
-    # --------------------------------------------------------------------------
-    # LLM Service Configuration (LiteLLM)
-    # --------------------------------------------------------------------------
-    LITE_LLM_API_KEY: str
-    LITE_LLM_BASE_URL: str
-    LITE_LLM_MODEL_NAME: str
-    LIMIT_TURN: int = 6 
-
-    # --------------------------------------------------------------------------
-    # File Storage Paths
-    # --------------------------------------------------------------------------
-
-    SHARED_AUDIO_PATH: str = "/code/shared_audio"
-    ENROLLMENT_SAMPLES_PATH: str = os.path.join(SHARED_AUDIO_PATH, "enrollment_samples")
-
-    # --------------------------------------------------------------------------
-    # AI/ML Model Paths
-    # --------------------------------------------------------------------------
-    # Path to the Faster-Whisper model 
-    FASTER_WHISPER_MODEL_PATH: str = "/app/models/merged_model_ct2_dir"
-    
-    # Path to the NeMo Rimecaster model
-    RIMECASTER_MODEL_PATH: str = "/app/models/rimecaster.nemo"
-
-    # --------------------------------------------------------------------------
-    # Vector Database Configuration (Qdrant)
-    # --------------------------------------------------------------------------
-    QDRANT_HOST: str
-    QDRANT_PORT: int = 6333
-    QDRANT_COLLECTION_NAME: str = "meeting_speakers"
-    
-    # --------------------------------------------------------------------------
-    # Diarization Algorithm Parameters
-    # --------------------------------------------------------------------------
-    DIAR_SEG_DURATION: float = 3.0
-    DIAR_SEG_OVERLAP: float = 1.0
-    DIAR_KNOWN_THRESH: float = 0.5 
-    DIAR_HAC_THRESH: float = 0.45   
-    DIAR_MERGE_PAUSE: float = 0.7  
-    DIAR_VAD_THRESH: float = 0.3   
-    ENABLE_VAD: bool = True 
-
-
-settings = Settings()
-
-
-def ensure_directories_exist():
+def get_owned_job_from_form(
+    requestId: str = Form(..., description="The unique request_id of the meeting job."),
+    current_user: User = Depends(get_or_create_user),
+    db: Session = Depends(get_db_session),
+) -> MeetingJob:
     """
-    Creates the shared audio and enrollment sample directories if they don't exist.
+    Core dependency for POST requests with form data.
+    1. Finds a job by its request_id from the form body.
+    2. Verifies the current user (from form body) is the job's owner.
+    Raises 404 if not found, 403 if ownership fails.
     """
-    Path(settings.SHARED_AUDIO_PATH).mkdir(parents=True, exist_ok=True)
-    Path(settings.ENROLLMENT_SAMPLES_PATH).mkdir(parents=True, exist_ok=True)
+    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting job with request_id '{requestId}' not found."
+        )
+    if job.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: You do not have permission to access this resource."
+        )
+    return job
+
+# --- STATE-AWARE DEPENDENCIES (Build on top of core verifiers) ---
+
+def get_job_ready_for_diarization(
+    job: MeetingJob = Depends(get_owned_job_from_path)
+) -> MeetingJob:
+    """
+    Verifies ownership and ensures the job is in the 'transcription_complete' state,
+    making it eligible for diarization to be triggered.
+    """
+    if job.status != "transcription_complete":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Diarization can only be started when job status is 'transcription_complete'. Current status is '{job.status}'."
+        )
+    return job
+
+def get_job_with_completed_diarization(
+    job: MeetingJob = Depends(get_owned_job_from_path)
+) -> MeetingJob:
+    """
+    Verifies ownership and ensures the job has a final, speaker-separated transcript.
+    This gates features like 'summarize by speaker'.
+    """
+    if job.status != "completed" or not job.diarized_transcript:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This feature requires a completed speaker-separated transcript. Please run diarization first."
+        )
+    return job
+
+def get_job_with_any_transcript(
+    job: MeetingJob = Depends(get_owned_job_from_path),
+    db: Session = Depends(get_db_session)
+) -> MeetingJob:
+    """
+    Verifies ownership and that at least one transcript (in any language) exists for the job.
+    This gates features like 'summarize by topic', chat, and editing.
+    """
+    # Check if a transcription record exists for the job's current language
+    transcription = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+
+    if not transcription:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This feature requires a transcript for the current language. Please ensure transcription is complete."
+        )
+    return job
+
+def get_cancellable_job(
+    job: MeetingJob = Depends(get_owned_job_from_path)
+) -> MeetingJob:
+    """
+    Verifies ownership and that the job is in a state where cancellation is permitted
+    (i.e., before the main processing has kicked off).
+    """
+    cancellable_states = ["uploading", "assembling"]
+    if job.status not in cancellable_states:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Meeting cannot be cancelled. It is already in the '{job.status}' state."
+        )
+    return job
