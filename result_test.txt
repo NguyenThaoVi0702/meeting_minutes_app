@@ -1,244 +1,153 @@
-You are absolutely right. My apologies. The attempt to fix the last bug was incorrect and actually re-introduced a problem we had already solved, causing the NoneType error. The WebSocket issue is also clearly persistent.
 
-Let's take a deep breath and fix these two problems definitively, referencing the working principles we've already established.
-
-Part 1: Fixing the 'NoneType' object has no attribute 'get_embedding' Error
-
-The log is crystal clear. The _load_embedding_model function is being called, it successfully restores the model from the file, but then the very next thing that happens is a WARNING that processing failed because of a NoneType error.
-
-This means that even though the model was loaded, the self.embedding_model attribute was not successfully set on the class instance, so when get_embedding_from_audio tried to use it, it was still None.
-
-The Root Cause:
-The lazy-loading logic I introduced was flawed. The _get_model function was calling _load_embedding_model, but _load_embedding_model was not correctly returning the loaded model object to be used.
-
-The Definitive Fix:
-We will simplify the lazy-loading pattern to be foolproof.
-
-Step 1: Fix app/processing/enrollment.py
-code
-Python
-download
-content_copy
-expand_less
-
-# in app/processing/enrollment.py
-
-# ... (imports) ...
-
-class SpeakerEnrollment:
-    # ...
-
-    def __init__(self):
-        # ... (init code is the same) ...
-        self.embedding_model = None
-
-    def _load_embedding_model(self):
-        """
-        Internal method to load the NeMo model into memory.
-        This method will now assign the model directly to self.embedding_model.
-        """
-        logger.info(f"Loading NeMo Speaker Embedding model from: {settings.RIMECASTER_MODEL_PATH}")
-        if not settings.RIMECASTER_MODEL_PATH or not os.path.exists(settings.RIMECASTER_MODEL_PATH):
-             msg = f"NeMo model path '{settings.RIMECASTER_MODEL_PATH}' is invalid or does not exist."
-             logger.critical(msg)
-             raise FileNotFoundError(msg)
-        try:
-            # --- FIX ---
-            # Load the model and assign it directly to the instance attribute.
-            self.embedding_model = nemo_asr.models.EncDecSpeakerLabelModel.restore_from(
-                settings.RIMECASTER_MODEL_PATH, map_location=self.device
-            )
-            self.embedding_model.eval()
-            # --- END FIX ---
-            logger.info(f"Speaker Embedding model '{settings.RIMECASTER_MODEL_PATH}' loaded successfully.")
-        except Exception as e:
-            logger.critical(f"FATAL: Failed to load NeMo Speaker Embedding model: {e}", exc_info=True)
-            # Ensure the model is None if loading fails
-            self.embedding_model = None
-            raise
-
-    def _get_model(self):
-        """
-        Ensures the AI model is loaded, loading it only if it hasn't been already.
-        """
-        if self.embedding_model is None:
-            self._load_embedding_model()
-        # This will now either return the loaded model or raise an exception from _load_embedding_model
-        return self.embedding_model
-
-    def get_embedding_from_audio(self, audio_data: np.ndarray) -> np.ndarray:
-        """Extracts a speaker embedding directly from a NumPy audio waveform."""
-        # This function is now correct because _get_model will reliably
-        # ensure self.embedding_model is populated.
-        model = self._get_model()
-        
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmpfile:
-            sf.write(tmpfile.name, audio_data, self.target_sr)
-            embedding = model.get_embedding(tmpfile.name).squeeze().cpu().numpy()
-        return embedding
-    
-    # ... (rest of the file is unchanged) ...
-
-This revised logic is now correct. _get_model ensures _load_embedding_model is called, and _load_embedding_model now correctly assigns the loaded model to self.embedding_model. The NoneType error will be gone.
-
-Part 2: Fixing the WebSocket Handshake status 400 Bad Request
-
-You are right to connect this to the speaker endpoints. Your logs show WARNING: Invalid HTTP request received immediately after the audio assembly finishes and transcription begins. This is not a coincidence.
-
-The Root Cause:
-The assemble_and_transcribe function is a FastAPI BackgroundTask. While it runs, the main Uvicorn server process is still active and handling new requests. At the exact moment your test script tries to open a WebSocket, the server is extremely busy with the I/O-intensive audio assembly process (combined_audio.export(...)).
-
-For very large files, this I/O operation can temporarily block the server's event loop just enough to prevent it from responding to the WebSocket handshake request in time, causing the client to receive a timeout or a generic 400 error.
-
-The fact that the speaker endpoints worked before this logic was added confirms that the issue is related to I/O blocking in the main API process.
-
-The Definitive Fix:
-We must move the I/O-heavy assembly process out of the API server's process and into a Celery worker.
-
-Step 2: Create a New Celery Task for Assembly
-
-We'll create a new, lightweight task that runs on the CPU worker.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in app/worker/tasks.py
-
-# ... (imports) ...
-
-@celery_app.task(bind=True, name="assemble_audio_task", queue='cpu_tasks')
-def assemble_audio_task(self, request_id: str, language: str):
-    """
-    Celery task to assemble audio chunks. Runs on a CPU worker.
-    This task then triggers the GPU-bound transcription task.
-    """
-    logger.info(f"[Task ID: {self.request.id}] Assembling chunks for job '{request_id}'...")
-    session_dir = Path(settings.SHARED_AUDIO_PATH) / request_id
-    
-    try:
-        chunk_files = sorted(
-            [f for f in session_dir.iterdir() if f.is_file() and f.stem.split('_')[-1].isdigit()],
-            key=lambda f: int(f.stem.split('_')[-1])
-        )
-        if not chunk_files:
-            raise FileNotFoundError("No valid chunk files found for assembly.")
-
-        combined_audio = AudioSegment.empty()
-        for chunk_path in chunk_files:
-            combined_audio += AudioSegment.from_file(chunk_path)
-
-        final_audio = combined_audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
-        
-        job_id_for_next_task = None
-        full_audio_path_for_next_task = None
-
-        with db_session() as session:
-            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
-            if not job: return
-            
-            final_filename = f"{Path(job.original_filename).stem}_full.wav"
-            full_audio_path = session_dir / final_filename
-            final_audio.export(full_audio_path, format="wav")
-            
-            job.status = "transcribing"
-            session.add(job)
-            
-            job_id_for_next_task = job.id
-            full_audio_path_for_next_task = str(full_audio_path)
-            
-        publish_job_update(request_id, {"status": "transcribing"})
-
-        for chunk_path in chunk_files:
-            os.remove(chunk_path)
-            
-        # Chain the next task: trigger transcription from this worker
-        run_transcription_task.delay(job_id_for_next_task, full_audio_path_for_next_task, language)
-        logger.info(f"Assembly complete. Dispatched transcription task for job '{request_id}'.")
-
-    except Exception as e:
-        logger.error(f"Assembly task failed for job '{request_id}': {e}", exc_info=True)
-        with db_session() as session:
-            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
-            if job:
-                job.status = "failed"
-                job.error_message = f"Audio Assembly Failed: {str(e)}"
-                session.add(job)
-                publish_job_update(job.request_id, {"status": "failed", "error_message": job.error_message})
-        raise
-Step 3: Update app/api/routes/meeting.py to Use the New Task
-
-The API endpoint now becomes incredibly lightweight. It just saves the file and dispatches the new Celery task.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in app/api/routes/meeting.py
-
-# --- Make sure the new task is imported ---
-from app.worker.tasks import assemble_audio_task
-
-# --- REMOVE the old assemble_and_transcribe background task function ---
-# async def assemble_and_transcribe(request_id: str, language: str):
-#     ... THIS ENTIRE FUNCTION IS DELETED ...
-
-
-@router.post("/upload-file-chunk", status_code=status.HTTP_202_ACCEPTED, summary="Upload a single audio chunk")
-async def upload_file_chunk(
-    # --- The 'background_tasks' dependency is no longer needed here ---
-    session: Session = Depends(get_db_session),
-    requestId: str = Form(...),
-    isLastChunk: bool = Form(...),
-    FileData: UploadFile = File(...),
-):
-    job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
-    # ... (error handling for job not found, etc. is the same) ...
-
-    # ... (code to save the chunk file is the same) ...
-    
-    if isLastChunk:
-        job.status = "assembling"
-        job.upload_finished_at = datetime.utcnow()
-        session.add(job)
-        session.commit()
-        
-        logger.info(f"Last chunk received for '{requestId}'. Dispatching assembly task to Celery.")
-        # --- FIX: Dispatch the new Celery task instead of the background task ---
-        assemble_audio_task.delay(requestId, job.language)
-        # --- END OF FIX ---
-        
-        # We can still publish a websocket update from here immediately
-        await websocket_manager.broadcast_to_job(requestId, {"status": "assembling"})
-    else:
-        # ... (code to save start time is the same) ...
-    
-    return {"status": 202, "message": f"Chunk '{FileData.filename}' accepted."}```
-
-### Final Step: Rebuild and Relaunch
-
-After saving `enrollment.py`, `tasks.py`, and `meeting.py`, you must do a final rebuild.
-
-```bash
-docker-compose down
-docker-compose up -d --build
-
-What Happens Now:
-
-Enrollment: The NoneType bug is fixed. Enrollment will succeed.
-
-Upload: The API server receives the last chunk, saves it, updates the status to "assembling", and immediately returns a response. Its work is done in milliseconds. It does not get blocked by any heavy I/O.
-
-Assembly: The worker-cpu container picks up the assemble_audio_task and performs the file I/O and assembly.
-
-WebSocket: Your test script tries to connect. The API server is idle and healthy, so it responds instantly and correctly to the handshake. The connection is established.
-
-Transcription: After assembly, the worker-cpu dispatches the run_transcription_task to the worker-gpu.
-
-Updates: The WebSocket will now correctly receive the "assembling", "transcribing", and "transcription_complete" status updates pushed by the workers.
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:06,988 INFO sqlalchemy.engine.Engine [cached since 1.219s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:06,988 - INFO - sqlalchemy.engine.Engine - [cached since 1.219s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:06,995 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 08:22:06,995 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     192.168.16.4:37852 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 08:22:07,010 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,010 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,011 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:07,011 - INFO - sqlalchemy.engine.Engine - [cached since 1.241s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:07,011 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:07,011 INFO sqlalchemy.engine.Engine [cached since 1.241s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:07,015 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758158525'. Recording end time.
+meeting_api_server  | 2025-09-18 08:22:07,016 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-18 08:22:07,016 - INFO - sqlalchemy.engine.Engine - [generated in 0.00019s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 1, 22, 7, 15505), 'status': 'assembling', 'meetingjob_id': 27}
+meeting_api_server  | 2025-09-18 08:22:07,016 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-18 08:22:07,016 INFO sqlalchemy.engine.Engine [generated in 0.00019s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 1, 22, 7, 15505), 'status': 'assembling', 'meetingjob_id': 27}
+meeting_api_server  | 2025-09-18 08:22:07,018 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 08:22:07,018 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-18 08:22:07,020 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,020 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,021 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-18 08:22:07,021 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-18 08:22:07,021 INFO sqlalchemy.engine.Engine [generated in 0.00017s] {'pk_1': 27}
+meeting_api_server  | 2025-09-18 08:22:07,021 - INFO - sqlalchemy.engine.Engine - [generated in 0.00017s] {'pk_1': 27}
+meeting_api_server  | 2025-09-18 08:22:07,023 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758158525'. Triggering background assembly and transcription.
+meeting_api_server  | 2025-09-18 08:22:07,028 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-18 08:22:07,028 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:37858 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_cpu_worker  | [2025-09-18 08:22:07,031: INFO/MainProcess] Task assemble_audio_task[56c4caa1-f573-43ce-a628-b962c2214b21] received
+meeting_cpu_worker  | [2025-09-18 08:22:07,034: INFO/ForkPoolWorker-4] [Task ID: 56c4caa1-f573-43ce-a628-b962c2214b21] Assembling chunks for job 'test_Hop TO 11092025_1758158525'...
+meeting_api_server  | WARNING:  Invalid HTTP request received.
+meeting_api_server  | 2025-09-18 08:22:07,043 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,043 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,043 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 08:22:07,043 - INFO - sqlalchemy.engine.Engine - [cached since 1.283s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 08:22:07,043 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 08:22:07,043 INFO sqlalchemy.engine.Engine [cached since 1.283s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 08:22:07,046 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:07,046 - INFO - sqlalchemy.engine.Engine - [cached since 1.277s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:07,046 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:07,046 INFO sqlalchemy.engine.Engine [cached since 1.277s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:07,050 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-18 08:22:07,050 INFO sqlalchemy.engine.Engine [generated in 0.00024s] {'meeting_job_id_1': 27, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 08:22:07,050 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-18 08:22:07,050 - INFO - sqlalchemy.engine.Engine - [generated in 0.00024s] {'meeting_job_id_1': 27, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 08:22:07,054 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-18 08:22:07,054 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'param_1': 27}
+meeting_api_server  | 2025-09-18 08:22:07,054 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-18 08:22:07,054 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'param_1': 27}
+meeting_api_server  | 2025-09-18 08:22:07,057 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 08:22:07,057 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:37876 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758158525/status?username=test_user_01 HTTP/1.1" 200 OK
+meeting_api_server  | 2025-09-18 08:22:07,064 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,064 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 08:22:07,065 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 08:22:07,065 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 08:22:07,065 - INFO - sqlalchemy.engine.Engine - [cached since 1.305s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 08:22:07,065 INFO sqlalchemy.engine.Engine [cached since 1.305s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 08:22:07,067 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:07,067 - INFO - sqlalchemy.engine.Engine - [cached since 1.298s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:07,067 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 08:22:07,067 INFO sqlalchemy.engine.Engine [cached since 1.298s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_api_server  | 2025-09-18 08:22:07,069 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 08:22:07,069 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:37890 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1758158525/diarize?username=test_user_01 HTTP/1.1" 400 Bad Request
+meeting_cpu_worker  | 2025-09-18 08:22:10,500 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_cpu_worker  | [2025-09-18 08:22:10,500: INFO/ForkPoolWorker-4] BEGIN (implicit)
+meeting_cpu_worker  | [2025-09-18 08:22:10,501: INFO/ForkPoolWorker-4] SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_cpu_worker  | FROM meetingjob
+meeting_cpu_worker  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_cpu_worker  | 2025-09-18 08:22:10,501 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_cpu_worker  | FROM meetingjob
+meeting_cpu_worker  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_cpu_worker  | [2025-09-18 08:22:10,501: INFO/ForkPoolWorker-4] [cached since 101.5s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_cpu_worker  | 2025-09-18 08:22:10,501 INFO sqlalchemy.engine.Engine [cached since 101.5s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_cpu_worker  | 2025-09-18 08:22:10,529 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_cpu_worker  | 2025-09-18 08:22:10,529 INFO sqlalchemy.engine.Engine [cached since 101.5s ago] {'status': 'transcribing', 'meetingjob_id': 27}
+meeting_cpu_worker  | [2025-09-18 08:22:10,529: INFO/ForkPoolWorker-4] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_cpu_worker  | [2025-09-18 08:22:10,529: INFO/ForkPoolWorker-4] [cached since 101.5s ago] {'status': 'transcribing', 'meetingjob_id': 27}
+meeting_cpu_worker  | 2025-09-18 08:22:10,530 INFO sqlalchemy.engine.Engine COMMIT
+meeting_cpu_worker  | [2025-09-18 08:22:10,530: INFO/ForkPoolWorker-4] COMMIT
+meeting_cpu_worker  | [2025-09-18 08:22:10,533: INFO/ForkPoolWorker-4] Published update for job 'test_Hop TO 11092025_1758158525': transcribing
+meeting_cpu_worker  | [2025-09-18 08:22:10,533: ERROR/ForkPoolWorker-4] Assembly task failed for job 'test_Hop TO 11092025_1758158525': name 'os' is not defined
+meeting_cpu_worker  | Traceback (most recent call last):
+meeting_cpu_worker  |   File "/code/app/worker/tasks.py", line 246, in assemble_audio_task
+meeting_cpu_worker  |     for chunk_path in chunk_files:
+meeting_cpu_worker  |         ^^
+meeting_cpu_worker  | NameError: name 'os' is not defined. Did you forget to import 'os'
+meeting_cpu_worker  | 2025-09-18 08:22:10,534 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_cpu_worker  | [2025-09-18 08:22:10,534: INFO/ForkPoolWorker-4] BEGIN (implicit)
+meeting_cpu_worker  | 2025-09-18 08:22:10,534 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_cpu_worker  | FROM meetingjob
+meeting_cpu_worker  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_cpu_worker  | 2025-09-18 08:22:10,534 INFO sqlalchemy.engine.Engine [cached since 101.5s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_cpu_worker  | [2025-09-18 08:22:10,534: INFO/ForkPoolWorker-4] SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_cpu_worker  | FROM meetingjob
+meeting_cpu_worker  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_cpu_worker  | [2025-09-18 08:22:10,534: INFO/ForkPoolWorker-4] [cached since 101.5s ago] {'request_id_1': 'test_Hop TO 11092025_1758158525'}
+meeting_cpu_worker  | [2025-09-18 08:22:10,537: INFO/ForkPoolWorker-4] Published update for job 'test_Hop TO 11092025_1758158525': failed
+meeting_cpu_worker  | 2025-09-18 08:22:10,537 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_cpu_worker  | [2025-09-18 08:22:10,537: INFO/ForkPoolWorker-4] UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_cpu_worker  | 2025-09-18 08:22:10,537 INFO sqlalchemy.engine.Engine [cached since 101.5s ago] {'status': 'failed', 'error_message': "Audio Assembly Failed: name 'os' is not defined", 'meetingjob_id': 27}
+meeting_cpu_worker  | [2025-09-18 08:22:10,537: INFO/ForkPoolWorker-4] [cached since 101.5s ago] {'status': 'failed', 'error_message': "Audio Assembly Failed: name 'os' is not defined", 'meetingjob_id': 27}
+meeting_cpu_worker  | [2025-09-18 08:22:10,538: INFO/ForkPoolWorker-4] COMMIT
+meeting_cpu_worker  | 2025-09-18 08:22:10,538 INFO sqlalchemy.engine.Engine COMMIT
+meeting_cpu_worker  | [2025-09-18 08:22:10,541: ERROR/ForkPoolWorker-4] Task assemble_audio_task[56c4caa1-f573-43ce-a628-b962c2214b21] raised unexpected: NameError("name 'os' is not defined")
+meeting_cpu_worker  | Traceback (most recent call last):
+meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 453, in trace_task
+meeting_cpu_worker  |     R = retval = fun(*args, **kwargs)
+meeting_cpu_worker  |                  ^^^^^^^^^^^^^^^^^^^^
+meeting_cpu_worker  |   File "/usr/local/lib/python3.12/dist-packages/celery/app/trace.py", line 736, in __protected_call__
+meeting_cpu_worker  |     return self.run(*args, **kwargs)
+meeting_cpu_worker  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_cpu_worker  |   File "/code/app/worker/tasks.py", line 246, in assemble_audio_task
+meeting_cpu_worker  |     for chunk_path in chunk_files:
+meeting_cpu_worker  |         ^^
+meeting_cpu_worker  | NameError: name 'os' is not defined. Did you forget to import 'os'
+^CGracefully stopping... (press Ctrl+C again to force)
