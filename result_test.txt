@@ -1,5 +1,6 @@
-i am testing using the code I gave you earlier but this is the result (Cannot register Takeo and still the horrible handshake eror):
-"Loaded metadata for 7 speakers from CSV.
+
+root@240a62b35800:/test_client# python3 test_api.py
+Loaded metadata for 7 speakers from CSV.
 Found 2 meetings to process.
 
 --- STEP 1: ENROLLING ALL SPEAKERS ---
@@ -229,89 +230,14 @@ Testing: POST /meeting/test_Hop TO 11092025_1758186290/diarize
 }
 
 --- WAITING FOR DIARIZATION VIA WEBSOCKET ---
-"
-this is the log:
-"
-meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 16:04:51,385 INFO sqlalchemy.engine.Engine [generated in 0.00018s] {'pk_1': 36}
-meeting_api_server  | 2025-09-18 16:04:51,385 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 16:04:51,385 - INFO - sqlalchemy.engine.Engine - [generated in 0.00018s] {'pk_1': 36}
-meeting_api_server  | 2025-09-18 16:04:51,391 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 16:04:51,391 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:53514 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_api_server  | WARNING:  Invalid HTTP request received.
-meeting_api_server  | 2025-09-18 16:04:51,407 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 16:04:51,407 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 16:04:51,407 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 16:04:51,407 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 16:04:51,407 INFO sqlalchemy.engine.Engine [cached since 1.136s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 16:04:51,407 - INFO - sqlalchemy.engine.Engine - [cached since 1.136s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 16:04:51,410 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 16:04:51,410 INFO sqlalchemy.engine.Engine [cached since 1.134s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
-meeting_api_server  | 2025-09-18 16:04:51,410 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 16:04:51,410 - INFO - sqlalchemy.engine.Engine - [cached since 1.134s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
-meeting_api_server  | 2025-09-18 16:04:51,415 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
-meeting_api_server  | FROM transcription
-meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 16:04:51,415 INFO sqlalchemy.engine.Engine [generated in 0.00031s] {'meeting_job_id_1': 36, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 16:04:51,415 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
-meeting_api_server  | FROM transcription
-meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 16:04:51,415 - INFO - sqlalchemy.engine.Engine - [generated in 0.00031s] {'meeting_job_id_1': 36, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 16:04:51,421 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
-meeting_api_server  | FROM diarizedtranscript
-meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 16:04:51,421 - INFO - sqlalchemy.engine.Engine - [generated in 0.00021s] {'param_1': 36}
-meeting_api_server  | 2025-09-18 16:04:51,421 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
-meeting_api_server  | FROM diarizedtranscript
-meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 16:04:51,421 INFO sqlalchemy.engine.Engine [generated in 0.00021s] {'param_1': 36}
-meeting_api_server  | 2025-09-18 16:04:51,423 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | 2025-09-18 16:04:51,423 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:53530 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758186290/status?username=test_user_01 HTTP/1.1" 200 OK
-meeting_api_server  | 2025-09-18 16:04:51,431 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 16:04:51,431 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 16:04:51,432 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 16:04:51,432 - INFO - sqlalchemy.engine.Engine - [cached since 1.161s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 16:04:51,432 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 16:04:51,432 INFO sqlalchemy.engine.Engine [cached since 1.161s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 16:04:51,435 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 16:04:51,435 INFO sqlalchemy.engine.Engine [cached since 1.158s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
-meeting_api_server  | 2025-09-18 16:04:51,435 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 16:04:51,435 - INFO - sqlalchemy.engine.Engine - [cached since 1.158s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
-meeting_api_server  | 2025-09-18 16:04:51,437 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 16:04:51,437 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:53542 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1758186290/diarize?username=test_user_01 HTTP/1.1" 400 Bad Request
-meeting_worker      | [NeMo I 2025-09-18 16:04:51 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
-meeting_worker      | [2025-09-18 16:04:51,746: INFO/MainProcess] Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
-meeting_worker      | [2025-09-18 16:04:51,746: INFO/MainProcess] Connecting to Qdrant at 10.43.128.107:7333...
-meeting_worker      | [2025-09-18 16:04:51,971: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 16:04:51,977: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 16:04:51,982: INFO/MainProcess] Qdrant collection 'meeting_speakers' already exists.
-meeting_worker      | [2025-09-18 16:04:51,982: INFO/MainProcess] Attempting to update metadata for speaker: 'huannt'
-meeting_worker      | [2025-09-18 16:04:51,989: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 16:04:51,997: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/payload?wait=true "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 16:04:51,999: INFO/MainProcess] Successfully updated metadata for 'huannt'.
-meeting_worker      | [2025-09-18 16:04:51,999: INFO/MainProcess] [Task] Successfully updated metadata for 'huannt'.
-meeting_worker      | [2025-09-18 16:04:52,006: INFO/MainProcess] Task update_metadata_task[3d4959d9-c2e0-4e24-b42f-99d911229eb1] succeeded in 1.9908382818102837s: None
-"
-
+^CTraceback (most recent call last):
+  File "/test_client/test_api.py", line 253, in <module>
+    run_full_test()
+  File "/test_client/test_api.py", line 210, in run_full_test
+    WEBSOCKET_DONE.wait(timeout=600) # Increased timeout
+  File "/usr/local/lib/python3.9/threading.py", line 581, in wait
+    signaled = self._cond.wait(timeout)
+  File "/usr/local/lib/python3.9/threading.py", line 316, in wait
+    gotit = waiter.acquire(True, timeout)
+KeyboardInterrupt
 
