@@ -26,14 +26,13 @@ class SpeakerActionLog(SQLModel, table=True):
     request_id: str = Field(index=True)
     submitter_id: int = Field(foreign_key="user.id")
     action_type: str = Field(index=True)
-    # ... other fields from original model
+    target_user_ad: Optional[str] = Field(default=None, index=True)
     device_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     payload: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     status: str
     error_message: Optional[str] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # Relationships
     submitter: User = Relationship(back_populates="action_logs")
 
 # ===================================================================
@@ -55,6 +54,8 @@ class MeetingJob(SQLModel, table=True):
     meeting_type: str
     meeting_host: str
     language: str = Field(default="vi", description="The currently active language for this meeting.")
+    upload_started_at: Optional[datetime] = Field(default=None, description="Timestamp of when the first audio chunk was received.")
+    upload_finished_at: Optional[datetime] = Field(default=None, description="Timestamp of when the last audio chunk was received.")
 
     # --- Job State & Workflow ---
     status: str = Field(default="uploading", index=True,
@@ -66,8 +67,7 @@ class MeetingJob(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": func.now()})
 
-    # --- Relationships (The Core of the New Design) ---
-    # Cascading deletes ensure that when a meeting is deleted, all its associated data is also removed.
+    # --- Relationships ---
     owner: User = Relationship(back_populates="meeting_jobs")
     
     # A meeting can have multiple transcripts, one for each language attempted.
@@ -99,8 +99,7 @@ class Transcription(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     meeting_job_id: int = Field(foreign_key="meetingjob.id")
     language: str = Field(index=True, description="The language code of this transcript (e.g., 'vi', 'en').")
-    
-    # Stores the raw, word-level or sentence-level transcript data from Whisper.
+
     transcript_data: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSONB))
     
     # Flag to indicate if the user has manually edited this transcript.
@@ -109,7 +108,6 @@ class Transcription(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": func.now()})
 
-    # Back-population for the relationship
     meeting_job: MeetingJob = Relationship(back_populates="transcriptions")
 
 
@@ -120,19 +118,15 @@ class DiarizedTranscript(SQLModel, table=True):
     dependent features can be enabled.
     """
     id: Optional[int] = Field(default=None, primary_key=True)
-    # The `unique=True` constraint enforces a one-to-one relationship with MeetingJob.
     meeting_job_id: int = Field(foreign_key="meetingjob.id", unique=True)
 
-    # Stores the final speaker-mapped transcript data.
     transcript_data: Optional[List[Dict[str, Any]]] = Field(default=None, sa_column=Column(JSONB))
 
-    # Flag to indicate if the user has manually edited this speaker-separated transcript.
     is_edited: bool = Field(default=False)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": func.now()})
 
-    # Back-population for the relationship
     meeting_job: MeetingJob = Relationship(back_populates="diarized_transcript")
 
 
@@ -146,15 +140,12 @@ class Summary(SQLModel, table=True):
     
     # The type of summary, e.g., 'topic', 'speaker', 'action_items', 'decision_log'.
     summary_type: str = Field(index=True)
-    
-    # The full markdown or text content of the generated summary.
-    # Using `Text` allows for very long summary content.
+
     summary_content: Optional[str] = Field(default=None, sa_column=Column(Text))
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow, sa_column_kwargs={"onupdate": func.now()})
 
-    # Back-population for the relationship
     meeting_job: MeetingJob = Relationship(back_populates="summaries")
 
 
