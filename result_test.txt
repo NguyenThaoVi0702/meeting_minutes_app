@@ -1,35 +1,276 @@
+import json
+import logging
+from contextlib import contextmanager
+from typing import Generator, Dict, Any, List
+import os
 
-meeting_api_server  |   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 70, in serve
-meeting_api_server  |     await self._serve(sockets)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 77, in _serve
-meeting_api_server  |     config.load()
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/config.py", line 435, in load
-meeting_api_server  |     self.loaded_app = import_from_string(self.app)
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 19, in import_from_string
-meeting_api_server  |     module = importlib.import_module(module_str)
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
-meeting_api_server  |     return _bootstrap._gcd_import(name[level:], package, level)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
-meeting_api_server  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
-meeting_api_server  |   File "/code/app/main.py", line 12, in <module>
-meeting_api_server  |     from app.api.routes import meeting, speaker
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 29, in <module>
-meeting_api_server  |     from app.worker.tasks import run_transcription_task, run_diarization_task
-meeting_api_server  |   File "/code/app/worker/tasks.py", line 56, in <module>
-meeting_api_server  |     transcriber_service = Transcriber()
-meeting_api_server  |                           ^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/processing/transcription.py", line 23, in __init__
-meeting_api_server  |     self.model = WhisperModel(
-meeting_api_server  |                  ^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/faster_whisper/transcribe.py", line 647, in __init__
-meeting_api_server  |     self.model = ctranslate2.models.Whisper(
-meeting_api_server  |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  | RuntimeError: CUDA failed with error CUDA driver version is insufficient for CUDA runtime version
+import redis
+from sqlmodel import Session, select
+
+from app.core.config import settings
+from app.db.base import engine
+from app.db.models import MeetingJob, Transcription, DiarizedTranscript
+from app.processing.mapper import map_speaker_to_text
+from app.worker.celery_app import celery_app
+from datetime import datetime
+#from app.core.services import get_transcriber, get_diarizer, get_enrollment_service
+from pathlib import Path
+from pydub import AudioSegment
+
+from app.processing.transcription import Transcriber
+from app.processing.diarization import SpeakerDiarization
+from app.processing.enrollment import SpeakerEnrollment
+
+logger = logging.getLogger(__name__)
+
+
+
+@contextmanager
+def db_session() -> Generator[Session, None, None]:
+    """Provides a transactional database session for tasks."""
+    session = Session(engine)
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+def publish_job_update(request_id: str, update_data: Dict[str, Any]):
+    """Publishes a job status update to Redis Pub/Sub for real-time frontend updates."""
+    try:
+        r = redis.Redis.from_url(settings.REDIS_URL)
+        payload = json.dumps({"request_id": request_id, "data": update_data})
+        r.publish("job_updates", payload)
+        logger.info(f"Published update for job '{request_id}': {update_data.get('status')}")
+    except Exception as e:
+        logger.error(f"Failed to publish Redis update for job '{request_id}': {e}", exc_info=True)
+
+# ===================================================================
+#   WORKER SINGLETON SERVICES
+# ===================================================================
+logger.info("WORKER PROCESS STARTING: Initializing AI Services...")
+try:
+    transcriber_service = Transcriber()
+    diarization_service = SpeakerDiarization()
+    enrollment_service = SpeakerEnrollment()
+    logger.info("WORKER PROCESS READY: AI Services initialized successfully.")
+except Exception as e:
+    logger.critical(f"WORKER FAILED TO START: Could not initialize AI services: {e}", exc_info=True)
+    raise
+
+# ===================================================================
+#   Celery Task Definitions
+# ===================================================================
+
+@celery_app.task(bind=True, name="run_transcription_task", queue='gpu_tasks')
+def run_transcription_task(self, job_id: int, audio_path: str, language: str):
+    """
+    Celery task to perform transcription on an audio file.
+    This task is routed to the 'gpu_tasks' queue.
+    """
+    logger.info(f"[Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
+    
+    request_id_for_publish = None
+    try:
+        sentence_transcript, word_transcript = transcriber_service.transcribe(audio_path, language)
+        
+        if not sentence_transcript:
+            raise ValueError("Transcription resulted in an empty output.")
+
+        with db_session() as session:
+            job = session.get(MeetingJob, job_id)
+            if not job:
+                logger.error(f"[Job ID: {job_id}] Job not found in database. Aborting.")
+                return
+
+            request_id_for_publish = job.request_id
+
+            new_transcription = Transcription(
+                meeting_job_id=job.id,
+                language=language,
+                transcript_data=word_transcript 
+            )
+            session.add(new_transcription)
+            
+
+            job.status = "transcription_complete"
+            job.error_message = None
+            session.add(job)
+
+
+        update_payload = {
+            "status": "transcription_complete",
+            "plain_transcript": sentence_transcript 
+        }
+        publish_job_update(request_id_for_publish, update_payload)
+        logger.info(f"[Job ID: {job_id}] Transcription completed and saved successfully.")
+
+    except Exception as e:
+        logger.error(f"[Job ID: {job_id}] Transcription failed: {e}", exc_info=True)
+        with db_session() as session:
+            job = session.get(MeetingJob, job_id)
+            if job:
+                job.status = "failed"
+                job.error_message = f"Transcription Error: {str(e)}"
+                session.add(job)
+                publish_job_update(job.request_id, {"status": "failed", "error_message": job.error_message})
+        raise
+
+@celery_app.task(bind=True, name="run_diarization_task", queue='gpu_tasks')
+def run_diarization_task(self, job_id: int, audio_path: str):
+    """
+    Celery task to perform diarization and map speakers to an existing transcript.
+    This task is also routed to the 'gpu_tasks' queue.
+    """
+    logger.info(f"[Job ID: {job_id}] Starting diarization for audio '{audio_path}'.")
+
+    request_id_for_publish = None
+    try:
+
+        with db_session() as session:
+            job = session.get(MeetingJob, job_id)
+            if not job:
+                logger.error(f"[Job ID: {job_id}] Job not found. Aborting diarization.")
+                return
+
+            request_id_for_publish = job.request_id
+
+            transcription_entry = session.exec(
+                select(Transcription).where(
+                    Transcription.meeting_job_id == job.id,
+                    Transcription.language == job.language
+                )
+            ).first()
+
+            if not transcription_entry or not transcription_entry.transcript_data:
+                raise FileNotFoundError("Could not find a valid source transcript for diarization.")
+
+            word_level_transcript = transcription_entry.transcript_data
+
+        enrolled_profiles = enrollment_service.get_all_enrolled_profiles_for_diarization()
+
+        speaker_segments = diarization_service.diarize(audio_path, enrolled_profiles, enrollment_service)
+        if not speaker_segments:
+            raise ValueError("Diarization process did not produce any speaker segments.")
+
+        diarized_transcript = map_speaker_to_text(speaker_segments, word_level_transcript)
+
+        with db_session() as session:
+            job = session.get(MeetingJob, job_id)
+
+            new_diarized_entry = DiarizedTranscript(
+                meeting_job_id=job.id,
+                transcript_data=diarized_transcript,
+                is_edited=False
+            )
+            session.add(new_diarized_entry)
+            
+            job.status = "completed"
+            job.error_message = None
+            session.add(job)
+
+
+        update_payload = {
+            "status": "completed",
+            "diarized_transcript": diarized_transcript
+        }
+        publish_job_update(request_id_for_publish, update_payload)
+        logger.info(f"[Job ID: {job_id}] Diarization and mapping completed successfully.")
+
+    except Exception as e:
+        logger.error(f"[Job ID: {job_id}] Diarization failed: {e}", exc_info=True)
+        with db_session() as session:
+            job = session.get(MeetingJob, job_id)
+            if job:
+                job.status = "failed"
+                job.error_message = f"Diarization Error: {str(e)}"
+                session.add(job)
+                publish_job_update(job.request_id, {"status": "failed", "error_message": job.error_message})
+        raise
+
+
+@celery_app.task(bind=True, name="enroll_speaker_task", queue='gpu_tasks')
+def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metadata: dict):
+    """
+    Celery task to perform speaker enrollment in the background.
+    This task is routed to the 'gpu_tasks' queue.
+    """
+    logger.info(f"[Task] Starting enrollment for new speaker: '{user_ad}'")
+    try:
+        enrollment_service.enroll_new_speaker(
+            user_ad=user_ad,
+            audio_sample_paths=audio_sample_paths,
+            metadata=metadata
+        )
+        logger.info(f"[Task] Enrollment successful for '{user_ad}'.")
+        # Can replace with websocket later
+        
+    except Exception as e:
+        logger.error(f"[Task] Enrollment failed for '{user_ad}': {e}", exc_info=True)
+        raise
+
+
+@celery_app.task(bind=True, name="assemble_audio_task", queue='cpu_tasks')
+def assemble_audio_task(self, request_id: str, language: str):
+    """
+    Celery task to assemble audio chunks. Runs on a CPU worker.
+    This task then triggers the GPU-bound transcription task.
+    """
+    import os 
+    
+    logger.info(f"[Task ID: {self.request.id}] Assembling chunks for job '{request_id}'...")
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / request_id
+    
+    try:
+        chunk_files = sorted(
+            [f for f in session_dir.iterdir() if f.is_file() and f.stem.split('_')[-1].isdigit()],
+            key=lambda f: int(f.stem.split('_')[-1])
+        )
+        if not chunk_files:
+            raise FileNotFoundError("No valid chunk files found for assembly.")
+
+        combined_audio = AudioSegment.empty()
+        for chunk_path in chunk_files:
+            combined_audio += AudioSegment.from_file(chunk_path)
+
+        final_audio = combined_audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
+        
+        job_id_for_next_task = None
+        full_audio_path_for_next_task = None
+
+        with db_session() as session:
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if not job: return
+            
+            final_filename = f"{Path(job.original_filename).stem}_full.wav"
+            full_audio_path = session_dir / final_filename
+            final_audio.export(full_audio_path, format="wav")
+            
+            job.status = "transcribing"
+            session.add(job)
+            
+            job_id_for_next_task = job.id
+            full_audio_path_for_next_task = str(full_audio_path)
+            
+        publish_job_update(request_id, {"status": "transcribing"})
+
+        for chunk_path in chunk_files:
+            os.remove(chunk_path)
+            
+        # Chain the next task: trigger transcription from this worker
+        run_transcription_task.delay(job_id_for_next_task, full_audio_path_for_next_task, language)
+        logger.info(f"Assembly complete. Dispatched transcription task for job '{request_id}'.")
+
+    except Exception as e:
+        logger.error(f"Assembly task failed for job '{request_id}': {e}", exc_info=True)
+        with db_session() as session:
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if job:
+                job.status = "failed"
+                job.error_message = f"Audio Assembly Failed: {str(e)}"
+                session.add(job)
+                publish_job_update(job.request_id, {"status": "failed", "error_message": job.error_message})
+        raise
