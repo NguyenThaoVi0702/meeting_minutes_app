@@ -19,8 +19,7 @@ def _clean_ai_response(text: str) -> str:
     if not text:
         return ""
     text = text.strip()
-    # Pattern to find markdown code fences and extract the content within.
-    # Handles fences with or without language identifiers (e.g., ```json, ```).
+
     fence_pattern = r'^\s*```(?:\w+)?\s*\n(.*?)\n\s*```\s*$'
     match = re.search(fence_pattern, text, re.DOTALL)
     if match:
@@ -28,7 +27,7 @@ def _clean_ai_response(text: str) -> str:
         logger.debug("Removed Markdown fence wrapper from AI response.")
         return cleaned_text
 
-    # Fallback for cases where only a keyword is present without fences
+
     if text.lower().startswith(('markdown\n', 'json\n')):
         cleaned_text = text.split('\n', 1)[1].lstrip()
         logger.debug("Removed leading keyword from AI response.")
@@ -164,6 +163,48 @@ Nếu không có quyết định nào được đưa ra, hãy trả về: "Khôn
 **LƯU Ý QUAN TRỌNG:** Chỉ trả về nội dung Markdown. TUYỆT ĐỐI KHÔNG bắt đầu câu trả lời bằng ```markdown.
 """
 
+SUMMARY_BBH_HDQT_PROMPT = """Bạn là một trợ lý AI chuyên nghiệp, có nhiệm vụ trích xuất thông tin chi tiết từ bản ghi cuộc họp của Hội đồng Quản trị và trả về dưới dạng một đối tượng JSON.
+
+## YÊU CẦU
+Phân tích kỹ lưỡng bản ghi cuộc họp được cung cấp và điền vào cấu trúc JSON sau. TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
+
+- Với các trường văn bản dài (đánh dấu [Markdown]), hãy định dạng nội dung bằng Markdown: dùng `*` cho gạch đầu dòng và `**text**` để in đậm các điểm quan trọng.
+- Nếu không tìm thấy thông tin, hãy để giá trị là "Không tìm thấy thông tin tương ứng".
+
+## Cấu trúc JSON đầu ra:
+```json
+{
+  "start_time": "HH:mm",
+  "end_time": "HH:mm",
+  "meeting_date": "dd/mm/yyyy",
+  "board_members": "Liệt kê tên các thành viên HĐQT có mặt, mỗi người một dòng.",
+  "supervisory_members": "Liệt kê tên các thành viên BKS có mặt, mỗi người một dòng.",
+  "absent_members": "Liệt kê tên và lý do vắng mặt (nếu có), mỗi người một dòng.",
+  "secretary": "Tên thư ký cuộc họp.",
+  "main_progress": "[Markdown] Tóm tắt chi tiết diễn biến chính của cuộc họp. Chia thành các luận điểm rõ ràng.",
+  "member_discussions": "[Markdown] Tóm tắt chi tiết các ý kiến trao đổi, tranh luận chính của các thành viên.",
+  "conclusion": "[Markdown] Tóm tắt chi tiết kết luận cuối cùng, bao gồm hai phần chính là chỉ đạo chung và các chỉ đạo cụ thể."
+}
+
+"""
+
+SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của bạn là chắt lọc các CHỈ ĐẠO và QUYẾT NGHỊ cuối cùng từ bản ghi cuộc họp của Hội đồng Quản trị và trả về dưới dạng một đối tượng JSON.
+
+## YÊU CẦU
+- Chỉ tập trung vào các kết luận, chỉ đạo đã được chốt. Bỏ qua phần diễn biến và thảo luận. Trả về kết quả theo cấu trúc JSON sau. TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
+- Định dạng nội dung bằng Markdown: dùng * cho gạch đầu dòng và **text** để in đậm các điểm quan trọng.
+- Nếu không tìm thấy thông tin, hãy để giá trị là "Không tìm thấy thông tin tương ứng".
+
+## Cấu trúc JSON đầu ra:
+```json
+{
+  "meeting_date": "dd/mm/yyyy",
+  "general_directives": "[Markdown] Tóm tắt các chỉ đạo chung, mang tính định hướng, chiến lược.",
+  "specific_directives": "[Markdown] Liệt kê chi tiết các chỉ đạo cụ thể, bao gồm: công việc, người/đơn vị phụ trách, và thời hạn (nếu có)."
+}
+"""
+
+
 # --- Prompt for Chat ---
 
 CHAT_SYSTEM_PROMPT = """Bạn là Genie, một trợ lý AI của VietinBank. Nhiệm vụ của bạn là trả lời các câu hỏi của người dùng về nội dung một cuộc họp dựa trên các thông tin được cung cấp, bao gồm: bản ghi hội thoại đầy đủ và bản tóm tắt.
@@ -180,10 +221,7 @@ Quy tắc ứng xử:
 # ===================================================================
 
 class AIService:
-    """
-    A singleton service to handle all interactions with the LLM.
-    It is designed to be asynchronous and configured via the central settings.
-    """
+
     def __init__(self):
         """Initializes the asynchronous OpenAI client."""
         self.client = AsyncOpenAI(
@@ -196,11 +234,12 @@ class AIService:
     def _get_system_prompt_for_task(self, task: str) -> str:
         """Retrieves the appropriate system prompt based on the task type."""
         prompts = {
-            # Map summary types from the DB/Schema to the correct prompt
             "topic": SUMMARY_BY_TOPIC_PROMPT,
             "speaker": SUMMARY_BY_SPEAKER_PROMPT,
             "action_items": SUMMARY_ACTION_ITEMS_PROMPT,
             "decision_log": SUMMARY_DECISION_LOG_PROMPT,
+            "summary_bbh_hdqt": SUMMARY_BBH_HDQT_PROMPT,
+            "summary_nghi_quyet": SUMMARY_NGHI_QUYET_PROMPT,
             "chat": CHAT_SYSTEM_PROMPT,
         }
         prompt = prompts.get(task)
@@ -212,16 +251,6 @@ class AIService:
     async def get_response(self, task: str, user_message: str, context: Optional[Dict[str, Any]] = None) -> str:
         """
         Generates a response from the LLM for a given task and context.
-
-        Args:
-            task (str): The type of task to perform (e.g., 'topic', 'chat').
-            user_message (str): The primary input text (e.g., full transcript, user chat query).
-            context (dict, optional): A dictionary containing additional context, such as:
-                - 'meeting_info': Dict with bbh_name, meeting_type, meeting_host.
-                - 'history': A list of previous chat turns for conversation history.
-
-        Returns:
-            The cleaned, text-only response from the AI model.
         """
         if context is None:
             context = {}
@@ -246,8 +275,8 @@ class AIService:
             response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=messages,
-                temperature=0.2,  # Low temperature for factual, consistent outputs
-                timeout=120, # Set a timeout for the API call
+                temperature=0.2,  
+                timeout=120,
             )
 
             raw_response_text = response.choices[0].message.content
@@ -263,5 +292,5 @@ class AIService:
             logger.error(f"An unexpected error occurred in AIService for task '{task}': {e}", exc_info=True)
             raise RuntimeError(f"An unexpected error occurred: {e}")
 
-# Create a single, shared instance of the service for the application to use.
+
 ai_service = AIService()
