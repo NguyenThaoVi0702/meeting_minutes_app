@@ -1,257 +1,317 @@
-You are 100% correct to be frustrated. I am sincerely sorry. The issue has persisted because I have been trying to fix symptoms instead of addressing the fundamental architectural flaw I introduced. Your insistence that a CPU worker is failing on CUDA is the key that unlocks the entire problem. You are right, and the previous fixes were wrong.
+i am testing using the code I gave you earlier but this is the result (Cannot register Takeo and still the horrible handshake eror):
+"Loaded metadata for 7 speakers from CSV.
+Found 2 meetings to process.
 
-Let's do this one last time, the right way. We will go back to the core principle of your original, working service: absolute, physical separation.
+--- STEP 1: ENROLLING ALL SPEAKERS ---
 
-The Definitive, Final Diagnosis: The Root of All Evil
+Enrolling 'TAKEOS' (TV HDQT Takeo Shimotsu) with 1 samples...
+  -> [Enroll Speaker] Status: 202
+     Response: {
+  "success": true,
+  "message": "Enrollment for speaker 'takeos' has been accepted for processing."
+}
 
-The problem is the file app/worker/tasks.py and the Celery configuration that loads it.
+Enrolling 'BINHTM' (CT HDQT Tran Minh Binh) with 20 samples...
+  -> [Enroll Speaker] Status: 503
+     Response: {
+  "detail": "Could not verify speaker existence: 409: Speaker with user_ad 'binhtm' already exists."
+}
 
-The line include=["app.worker.tasks"] in your celery_app.py is a global instruction. It forces every single worker, including the CPU worker, to import and parse the tasks.py file on startup.
+Enrolling 'ANHNV19' (TV HDQT Nguyen Van Anh) with 1 samples...
+  -> [Enroll Speaker] Status: 503
+     Response: {
+  "detail": "Could not verify speaker existence: 409: Speaker with user_ad 'anhnv19' already exists."
+}
 
-Even with the "lazy loading" pattern, the tasks.py file still contains lines like from app.processing.transcription import Transcriber. The moment the CPU worker's Python interpreter sees this line, it has to load the transcription.py file, which in turn imports faster_whisper, which then probes the system for CUDA. This is where the crash happens.
+Enrolling 'IRIGUCHIK' (TV HDQT Koji Iriguchi) with 1 samples...
+  -> [Enroll Speaker] Status: 503
+     Response: {
+  "detail": "Could not verify speaker existence: 409: Speaker with user_ad 'iriguchik' already exists."
+}
 
-The CPU worker must never, ever even know that the Transcriber or SpeakerEnrollment classes exist.
+Enrolling 'HUANNT' (TV HDQT Nguyen The Huan) with 1 samples...
+  -> [Enroll Speaker] Status: 503
+     Response: {
+  "detail": "Could not verify speaker existence: 409: Speaker with user_ad 'huannt' already exists."
+}
 
-The Final, Correct, and Foolproof Solution
+Enrolling 'DUONGCQ' (TV HDQT Cat Quang Duong) with 1 samples...
+  -> [Enroll Speaker] Status: 503
+     Response: {
+  "detail": "Could not verify speaker existence: 409: Speaker with user_ad 'duongcq' already exists."
+}
 
-We will physically split the tasks into two separate files. The CPU worker will only load the safe file. The GPU worker will load the file with the AI models. This creates a perfect "air gap" between them.
+Enrolling 'DUC.TM' (CVP HDQT Tran Minh Duc) with 1 samples...
+  -> [Enroll Speaker] Status: 503
+     Response: {
+  "detail": "Could not verify speaker existence: 409: Speaker with user_ad 'duc.tm' already exists."
+}
 
-Step 1: Create Two New Task Files
 
-Create app/worker/cpu_tasks.py: This file will contain ONLY the safe, CPU-bound tasks.
+--- STEP 2: TESTING ALL SPEAKER CRUD ENDPOINTS ---
 
-code
-Python
-download
-content_copy
-expand_less
+Testing: GET /speaker/
+  -> [List All Speakers] Status: 200
+     Response: {
+  "success": true,
+  "message": "Successfully retrieved all speaker profiles.",
+  "data": [
+    {
+      "display_name": "Takeosimashi",
+      "user_ad": "huannt",
+      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
+      "num_enrollment_samples": 1
+    },
+    {
+      "display_name": "CVP HDQT Trần Minh Đức",
+      "user_ad": "duc.tm",
+      "enrolled_at_utc": "2025-09-16T10:31:02.082136",
+      "num_enrollment_samples": 1
+    },
+    {
+      "display_name": "TV HDQT Koji Iriguchi",
+      "user_ad": "iriguchik",
+      "enrolled_at_utc": "2025-09-16T10:30:56.125636",
+      "num_enrollment_samples": 1
+    },
+    {
+      "display_name": "CT HDQT Trần Minh Bình",
+      "user_ad": "binhtm",
+      "enrolled_at_utc": "2025-09-16T10:30:19.011222",
+      "num_enrollment_samples": 10
+    },
+    {
+      "display_name": "TV HDQT Cát Quang Dương",
+      "user_ad": "duongcq",
+      "enrolled_at_utc": "2025-09-17T03:26:36.926173",
+      "num_enrollment_samples": 1
+    },
+    {
+      "display_name": "TV HDQT Nguyễn Vân Anh",
+      "user_ad": "anhnv19",
+      "enrolled_at_utc": "2025-09-16T10:30:53.613820",
+      "num_enrollment_samples": 1
+    }
+  ]
+}
 
-# app/worker/cpu_tasks.py (NEW FILE)
+Testing: GET /speaker/huannt
+  -> [Get Speaker Details] Status: 200
+     Response: {
+  "success": true,
+  "message": "Profile retrieved successfully",
+  "user_ad": "huannt",
+  "profile_details": {
+    "qdrant_point_id": "2c5e08b3-a028-4682-849a-4f871717f61b",
+    "payload": {
+      "display_name": "Takeosimashi",
+      "user_ad": "huannt",
+      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
+      "num_enrollment_samples": 1,
+      "search_terms": [
+        "tak",
+        "hu",
+        "takeo",
+        "takeosim",
+        "huannt",
+        "takeosi",
+        "h",
+        "takeosimas",
+        "huann",
+        "takeos",
+        "takeosimashi",
+        "take",
+        "t",
+        "takeosima",
+        "takeosimash",
+        "hua",
+        "huan",
+        "ta"
+      ]
+    },
+    "has_vector": true
+  }
+}
 
-import logging
-import os
-from pathlib import Path
-from pydub import AudioSegment
-from sqlmodel import select
+Testing: PUT /speaker/huannt/metadata
+  -> [Update Metadata] Status: 202
+     Response: {
+  "success": true,
+  "message": "Metadata update request has been accepted for processing."
+}
+  -> [Get Speaker Upodated Details] Status: 200
+     Response: {
+  "success": true,
+  "message": "Profile retrieved successfully",
+  "user_ad": "huannt",
+  "profile_details": {
+    "qdrant_point_id": "2c5e08b3-a028-4682-849a-4f871717f61b",
+    "payload": {
+      "display_name": "Takeosimashi",
+      "user_ad": "huannt",
+      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
+      "num_enrollment_samples": 1,
+      "search_terms": [
+        "tak",
+        "hu",
+        "takeo",
+        "takeosim",
+        "huannt",
+        "takeosi",
+        "h",
+        "takeosimas",
+        "huann",
+        "takeos",
+        "takeosimashi",
+        "take",
+        "t",
+        "takeosima",
+        "takeosimash",
+        "hua",
+        "huan",
+        "ta"
+      ]
+    },
+    "has_vector": true
+  }
+}
 
-from app.worker.celery_app import celery_app
-from app.core.config import settings
-from app.db.models import MeetingJob
-# Import the helpers directly, they are safe
-from app.worker.tasks_utils import db_session, publish_job_update
+Testing: POST /speaker/huannt/samples
+  -> Skipping Add Sample test: Not enough audio files.
 
-logger = logging.getLogger(__name__)
+Testing: DELETE /speaker/takeos
+  -> [Delete Speaker] Status: 404
+     Response: {
+  "detail": "Speaker with user_ad 'takeos' not found."
+}
 
-@celery_app.task(bind=True, name="assemble_audio_task", queue='cpu_tasks')
-def assemble_audio_task(self, request_id: str, language: str):
-    """Assembles audio chunks and then triggers the transcription task."""
-    logger.info(f"[CPU-Task] Assembling chunks for job '{request_id}'...")
-    session_dir = Path(settings.SHARED_AUDIO_PATH) / request_id
-    job_id_for_next_task, full_audio_path_for_next_task = None, None
-    try:
-        chunk_files = sorted(
-            [f for f in session_dir.iterdir() if f.is_file() and f.stem.split('_')[-1].isdigit()],
-            key=lambda f: int(f.stem.split('_')[-1])
-        )
-        if not chunk_files: raise FileNotFoundError("No valid chunk files found.")
 
-        combined_audio = AudioSegment.empty()
-        for chunk_path in chunk_files:
-            combined_audio += AudioSegment.from_file(chunk_path)
+--- STEP 3: PROCESSING A FULL MEETING ---
 
-        final_audio = combined_audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
+Testing: POST /meeting/start-bbh for requestId 'test_Hop TO 11092025_1758186290'...
+  -> [Start Meeting] Status: 201
+     Response: {
+  "status": 201,
+  "message": "Meeting initialized. Ready for chunk uploads."
+}
 
-        with db_session() as session:
-            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
-            if not job: return
-            
-            final_filename = f"{Path(job.original_filename).stem}_full.wav"
-            full_audio_path = session_dir / final_filename
-            final_audio.export(full_audio_path, format="wav")
-            
-            job.status = "transcribing"
-            session.add(job)
-            job_id_for_next_task, full_audio_path_for_next_task = job.id, str(full_audio_path)
-            
-        publish_job_update(request_id, {"status": "transcribing"})
-        for chunk_path in chunk_files: os.remove(chunk_path)
-            
-        celery_app.send_task("run_transcription_task", args=[job_id_for_next_task, full_audio_path_for_next_task, language])
-        logger.info(f"[CPU-Task] Assembly complete. Dispatched transcription task for job '{request_id}'.")
-    except Exception as e:
-        # ... (Error handling logic)
+Testing: POST /meeting/upload-file-chunk...
+  -> [Upload Chunks] All chunks sent.
 
-Create app/worker/gpu_tasks.py: This file will contain all the GPU-bound tasks and is the ONLY place where the AI models are imported and loaded.
+--- STEP 4: WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---
 
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# app/worker/gpu_tasks.py (NEW FILE)
+[WebSocket] Connecting to ws://api:8072/api/v1/meeting/ws/test_Hop TO 11092025_1758186290...
+[WebSocket] Error: Handshake status 400 Bad Request -+-+- {'date': 'Thu, 18 Sep 2025 09:04:50 GMT', 'server': 'uvicorn', 'content-type': 'text/plain; charset=utf-8', 'content-length': '30', 'connection': 'close'} -+-+- b'Invalid HTTP request received.'
+[WebSocket] Connection closed.
 
-import logging
-from typing import List
-from sqlmodel import select
+Testing: GET /meeting/test_Hop TO 11092025_1758186290/status (after transcription)
+  -> [Get Status] Status: 200
+     Response: {
+  "status": 200,
+  "message": "Success",
+  "data": {
+    "request_id": "test_Hop TO 11092025_1758186290",
+    "status": "assembling",
+    "bbh_name": "Test BBH Name",
+    "meeting_type": "Test Type",
+    "meeting_host": "Test Host",
+    "language": "vi",
+    "plain_transcript": null,
+    "diarized_transcript": null,
+    "error_message": null
+  }
+}
 
-from app.worker.celery_app import celery_app
-from app.db.models import MeetingJob, Transcription, DiarizedTranscript
-# Import the helpers directly, they are safe
-from app.worker.tasks_utils import db_session, publish_job_update
-# --- DANGEROUS IMPORTS ARE ONLY HERE ---
-from app.processing.transcription import Transcriber
-from app.processing.diarization import SpeakerDiarization
-from app.processing.enrollment import SpeakerEnrollment
-from app.processing.mapper import map_speaker_to_text
+Testing: POST /meeting/test_Hop TO 11092025_1758186290/diarize
+  -> [Trigger Diarization] Status: 400
+     Response: {
+  "detail": "Diarization can only be started when job status is 'transcription_complete'. Current status is 'assembling'."
+}
 
-logger = logging.getLogger(__name__)
+--- WAITING FOR DIARIZATION VIA WEBSOCKET ---
+"
+this is the log:
+"
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-18 16:04:51,385 INFO sqlalchemy.engine.Engine [generated in 0.00018s] {'pk_1': 36}
+meeting_api_server  | 2025-09-18 16:04:51,385 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-18 16:04:51,385 - INFO - sqlalchemy.engine.Engine - [generated in 0.00018s] {'pk_1': 36}
+meeting_api_server  | 2025-09-18 16:04:51,391 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 16:04:51,391 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:53514 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | WARNING:  Invalid HTTP request received.
+meeting_api_server  | 2025-09-18 16:04:51,407 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 16:04:51,407 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 16:04:51,407 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 16:04:51,407 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 16:04:51,407 INFO sqlalchemy.engine.Engine [cached since 1.136s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 16:04:51,407 - INFO - sqlalchemy.engine.Engine - [cached since 1.136s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 16:04:51,410 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 16:04:51,410 INFO sqlalchemy.engine.Engine [cached since 1.134s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
+meeting_api_server  | 2025-09-18 16:04:51,410 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 16:04:51,410 - INFO - sqlalchemy.engine.Engine - [cached since 1.134s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
+meeting_api_server  | 2025-09-18 16:04:51,415 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-18 16:04:51,415 INFO sqlalchemy.engine.Engine [generated in 0.00031s] {'meeting_job_id_1': 36, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 16:04:51,415 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-18 16:04:51,415 - INFO - sqlalchemy.engine.Engine - [generated in 0.00031s] {'meeting_job_id_1': 36, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 16:04:51,421 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-18 16:04:51,421 - INFO - sqlalchemy.engine.Engine - [generated in 0.00021s] {'param_1': 36}
+meeting_api_server  | 2025-09-18 16:04:51,421 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-18 16:04:51,421 INFO sqlalchemy.engine.Engine [generated in 0.00021s] {'param_1': 36}
+meeting_api_server  | 2025-09-18 16:04:51,423 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-18 16:04:51,423 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:53530 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758186290/status?username=test_user_01 HTTP/1.1" 200 OK
+meeting_api_server  | 2025-09-18 16:04:51,431 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 16:04:51,431 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 16:04:51,432 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 16:04:51,432 - INFO - sqlalchemy.engine.Engine - [cached since 1.161s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 16:04:51,432 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-18 16:04:51,432 INFO sqlalchemy.engine.Engine [cached since 1.161s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-18 16:04:51,435 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 16:04:51,435 INFO sqlalchemy.engine.Engine [cached since 1.158s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
+meeting_api_server  | 2025-09-18 16:04:51,435 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 16:04:51,435 - INFO - sqlalchemy.engine.Engine - [cached since 1.158s ago] {'request_id_1': 'test_Hop TO 11092025_1758186290'}
+meeting_api_server  | 2025-09-18 16:04:51,437 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 16:04:51,437 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:53542 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1758186290/diarize?username=test_user_01 HTTP/1.1" 400 Bad Request
+meeting_worker      | [NeMo I 2025-09-18 16:04:51 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
+meeting_worker      | [2025-09-18 16:04:51,746: INFO/MainProcess] Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
+meeting_worker      | [2025-09-18 16:04:51,746: INFO/MainProcess] Connecting to Qdrant at 10.43.128.107:7333...
+meeting_worker      | [2025-09-18 16:04:51,971: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
+meeting_worker      | [2025-09-18 16:04:51,977: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
+meeting_worker      | [2025-09-18 16:04:51,982: INFO/MainProcess] Qdrant collection 'meeting_speakers' already exists.
+meeting_worker      | [2025-09-18 16:04:51,982: INFO/MainProcess] Attempting to update metadata for speaker: 'huannt'
+meeting_worker      | [2025-09-18 16:04:51,989: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
+meeting_worker      | [2025-09-18 16:04:51,997: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/payload?wait=true "HTTP/1.1 200 OK"
+meeting_worker      | [2025-09-18 16:04:51,999: INFO/MainProcess] Successfully updated metadata for 'huannt'.
+meeting_worker      | [2025-09-18 16:04:51,999: INFO/MainProcess] [Task] Successfully updated metadata for 'huannt'.
+meeting_worker      | [2025-09-18 16:04:52,006: INFO/MainProcess] Task update_metadata_task[3d4959d9-c2e0-4e24-b42f-99d911229eb1] succeeded in 1.9908382818102837s: None
+"
 
-# --- Models are loaded ONLY in the context of this file ---
-logger.info("GPU WORKER: Initializing AI Services...")
-transcriber_service = Transcriber()
-diarization_service = SpeakerDiarization()
-enrollment_service = SpeakerEnrollment()
-logger.info("GPU WORKER: AI Services initialized successfully.")
 
-@celery_app.task(bind=True, name="run_transcription_task", queue='gpu_tasks')
-def run_transcription_task(self, job_id: int, audio_path: str, language: str):
-    # ... (Your existing correct transcription task logic) ...
-
-@celery_app.task(bind=True, name="run_diarization_task", queue='gpu_tasks')
-def run_diarization_task(self, job_id: int, audio_path: str):
-    # ... (Your existing correct diarization task logic) ...
-
-@celery_app.task(bind=True, name="enroll_speaker_task", queue='gpu_tasks')
-def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metadata: dict):
-    # ... (Your existing correct enrollment task logic) ...
-
-# ... (add_samples_task and update_metadata_task also go here if they need GPU) ...
-
-Create app/worker/tasks_utils.py: Move the safe, shared helper functions here.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# app/worker/tasks_utils.py (NEW FILE)
-import json
-import redis
-import logging
-from contextlib import contextmanager
-from typing import Generator, Dict, Any
-from sqlmodel import Session
-from app.core.config import settings
-from app.db.base import engine
-
-logger = logging.getLogger(__name__)
-
-@contextmanager
-def db_session() -> Generator[Session, None, None]:
-    # ... (This function is correct) ...
-
-def publish_job_update(request_id: str, update_data: Dict[str, Any]):
-    # ... (This function is correct) ...
-
-DELETE the old app/worker/tasks.py file. It is now replaced by the two new files.
-
-Step 2: Fix app/worker/celery_app.py
-
-Remove the dangerous include directive. The celery_app object will now be a "blank slate" that knows nothing about the tasks.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in app/worker/celery_app.py (REVISED)
-
-# ... (imports) ...
-
-celery_app = Celery(
-    "worker",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
-    # --- FIX: REMOVE this line completely ---
-    # include=["app.worker.tasks"]
-)
-
-# ... (rest of the file is unchanged) ...
-Step 3: Fix docker-compose.yml
-
-This is the final, critical step. We will tell each worker, via its command, exactly which task file it is allowed to load.
-
-code
-Yaml
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in docker-compose.yml (REVISED)
-
-# ... (api service is unchanged) ...
-
-  worker-gpu:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: meeting_gpu_worker
-    # --- FIX: Use the -I flag to include ONLY the GPU tasks file ---
-    command: >
-      celery -A app.worker.celery_app worker -l info 
-      --pool=solo 
-      -Q gpu_tasks 
-      -I app.worker.gpu_tasks
-      --concurrency=1
-    # ... (volumes, deploy, etc. are unchanged) ...
-
-  worker-cpu:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: meeting_cpu_worker
-    # --- FIX: Use the -I flag to include ONLY the CPU tasks file ---
-    command: >
-      celery -A app.worker.celery_app worker -l info 
-      -Q cpu_tasks
-      -I app.worker.cpu_tasks
-      --concurrency=4
-    # ... (volumes, etc. are unchanged) ...
-Final Step: Rebuild and Relaunch
-
-This is a major structural change. You must run a clean rebuild.
-
-Delete the old app/worker/tasks.py.
-
-Create the three new files: cpu_tasks.py, gpu_tasks.py, and tasks_utils.py.
-
-Save the updated celery_app.py and docker-compose.yml.
-
-Run the commands:
-
-code
-Bash
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-docker-compose down -v
-docker-compose up -d --build
-
-This architecture is now foolproof.
-
-The meeting_cpu_worker starts and its command tells it to -I app.worker.cpu_tasks. Its process will never see or import gpu_tasks.py. It is physically impossible for it to crash with a CUDA error.
-
-The meeting_gpu_worker starts and its command tells it to -I app.worker.gpu_tasks. It will correctly import the AI models and be ready for work.
-
-The API server remains completely decoupled.
-
-This restores the perfect isolation of your original services and will resolve the startup crashes permanently. I am confident this is the correct and final solution.
