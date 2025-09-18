@@ -1,13 +1,7 @@
-This is the output of the cmd:
-/usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so.9.8.0
-/usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so
-/usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so.9
-/usr/lib/x86_64-linux-gnu/libcudnn_cnn.so.9.8.0
-/usr/lib/x86_64-linux-gnu/libcudnn_cnn.so
-/usr/lib/x86_64-linux-gnu/libcudnn_cnn.so.9
-/usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9
+# docker-compose.yml (FINAL CORRECTED VERSION)
 
-while this is the current docker_compose.yml
+version: "3.8"
+
 services:
 
   api:
@@ -40,7 +34,16 @@ services:
     volumes:
       - ./app:/code/app
       - ./shared_audio:/code/shared_audio
-      - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+      
+      # --- THE FIX IS HERE ---
+      # REMOVE the old, incorrect line:
+      # - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+      
+      # ADD the NEW, CORRECT line based on your 'find' command output.
+      # This mounts the standard system library path where your NVIDIA driver has placed the cuDNN files.
+      - /usr/lib/x86_64-linux-gnu:/usr/local/cuda/lib64
+      # --- END OF FIX ---
+      
     env_file: .env
     restart: unless-stopped
     deploy:
@@ -69,6 +72,10 @@ services:
     env_file: .env
     restart: unless-stopped
 
-volumes:
-  shared_audio_files:
-    driver: local
+# --- CLEANUP ---
+# This top-level key is no longer needed because we are not using a
+# Docker-managed named volume called 'shared_audio_files'. We are using
+# a bind mount './shared_audio' directly.
+# volumes:
+#   shared_audio_files:
+#     driver: local
