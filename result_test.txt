@@ -1,116 +1,71 @@
-eeting_api_server  | 2025-09-18 08:49:23,456 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758160162'. Triggering background assembly and transcription.
-meeting_api_server  | 2025-09-18 08:49:23,463 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 08:49:23,463 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_cpu_worker  | [2025-09-18 08:49:23,464: INFO/MainProcess] Task assemble_audio_task[4c513d4b-bd89-4f00-81d0-28e99a18a921] received
-meeting_api_server  | INFO:     192.168.16.4:34958 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_cpu_worker  | [2025-09-18 08:49:23,466: INFO/ForkPoolWorker-4] [Task ID: 4c513d4b-bd89-4f00-81d0-28e99a18a921] Assembling chunks for job 'test_Hop TO 11092025_1758160162'...
-meeting_api_server  | WARNING:  Invalid HTTP request received.
-meeting_api_server  | 2025-09-18 08:49:23,475 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 08:49:23,475 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 08:49:23,476 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 08:49:23,476 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 08:49:23,476 INFO sqlalchemy.engine.Engine [cached since 0.824s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 08:49:23,476 - INFO - sqlalchemy.engine.Engine - [cached since 0.824s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 08:49:23,478 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 08:49:23,478 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 08:49:23,478 INFO sqlalchemy.engine.Engine [cached since 0.8189s ago] {'request_id_1': 'test_Hop TO 11092025_1758160162'}
-meeting_api_server  | 2025-09-18 08:49:23,478 - INFO - sqlalchemy.engine.Engine - [cached since 0.8189s ago] {'request_id_1': 'test_Hop TO 11092025_1758160162'}
-meeting_api_server  | 2025-09-18 08:49:23,482 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
-meeting_api_server  | FROM transcription
-meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 08:49:23,482 INFO sqlalchemy.engine.Engine [generated in 0.00028s] {'meeting_job_id_1': 29, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 08:49:23,482 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
-meeting_api_server  | FROM transcription
-meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 08:49:23,482 - INFO - sqlalchemy.engine.Engine - [generated in 0.00028s] {'meeting_job_id_1': 29, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 08:49:23,488 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
-meeting_api_server  | FROM diarizedtranscript
-meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 08:49:23,488 INFO sqlalchemy.engine.Engine [generated in 0.00015s] {'param_1': 29}
-meeting_api_server  | 2025-09-18 08:49:23,488 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
-meeting_api_server  | FROM diarizedtranscript
-meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 08:49:23,488 - INFO - sqlalchemy.engine.Engine - [generated in 0.00015s] {'param_1': 29}
-meeting_api_server  | 2025-09-18 08:49:23,489 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 08:49:23,489 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:34974 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758160162/status?username=test_user_01 HTTP/1.1" 200 OK
-meeting_api_server  | 2025-09-18 08:49:23,494 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 08:49:23,494 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 08:49:23,494 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 08:49:23,494 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
-meeting_api_server  | FROM "user"
-meeting_api_server  | WHERE "user".username = %(username_1)s
-meeting_api_server  | 2025-09-18 08:49:23,494 INFO sqlalchemy.engine.Engine [cached since 0.8426s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 08:49:23,494 - INFO - sqlalchemy.engine.Engine - [cached since 0.8426s ago] {'username_1': 'test_user_01'}
-meeting_api_server  | 2025-09-18 08:49:23,495 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 08:49:23,495 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 08:49:23,496 - INFO - sqlalchemy.engine.Engine - [cached since 0.8366s ago] {'request_id_1': 'test_Hop TO 11092025_1758160162'}
-meeting_api_server  | 2025-09-18 08:49:23,496 INFO sqlalchemy.engine.Engine [cached since 0.8366s ago] {'request_id_1': 'test_Hop TO 11092025_1758160162'}
-meeting_api_server  | 2025-09-18 08:49:23,496 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 08:49:23,496 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:34982 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1758160162/diarize?username=test_user_01 HTTP/1.1" 400 Bad Request
-meeting_cpu_worker  | [2025-09-18 08:49:27,743: INFO/ForkPoolWorker-4] select pg_catalog.version()
-meeting_cpu_worker  | 2025-09-18 08:49:27,743 INFO sqlalchemy.engine.Engine select pg_catalog.version()
-meeting_cpu_worker  | 2025-09-18 08:49:27,744 INFO sqlalchemy.engine.Engine [raw sql] {}
-meeting_cpu_worker  | [2025-09-18 08:49:27,744: INFO/ForkPoolWorker-4] [raw sql] {}
-meeting_cpu_worker  | 2025-09-18 08:49:27,746 INFO sqlalchemy.engine.Engine select current_schema()
-meeting_cpu_worker  | 2025-09-18 08:49:27,747 INFO sqlalchemy.engine.Engine [raw sql] {}
-meeting_cpu_worker  | [2025-09-18 08:49:27,746: INFO/ForkPoolWorker-4] select current_schema()
-meeting_cpu_worker  | [2025-09-18 08:49:27,747: INFO/ForkPoolWorker-4] [raw sql] {}
-meeting_cpu_worker  | [2025-09-18 08:49:27,748: INFO/ForkPoolWorker-4] show standard_conforming_strings
-meeting_cpu_worker  | [2025-09-18 08:49:27,749: INFO/ForkPoolWorker-4] [raw sql] {}
-meeting_cpu_worker  | 2025-09-18 08:49:27,748 INFO sqlalchemy.engine.Engine show standard_conforming_strings
-meeting_cpu_worker  | 2025-09-18 08:49:27,749 INFO sqlalchemy.engine.Engine [raw sql] {}
-meeting_cpu_worker  | 2025-09-18 08:49:27,750 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_cpu_worker  | [2025-09-18 08:49:27,750: INFO/ForkPoolWorker-4] BEGIN (implicit)
-meeting_cpu_worker  | [2025-09-18 08:49:27,780: INFO/ForkPoolWorker-4] SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_cpu_worker  | FROM meetingjob
-meeting_cpu_worker  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_cpu_worker  | [2025-09-18 08:49:27,780: INFO/ForkPoolWorker-4] [generated in 0.00038s] {'request_id_1': 'test_Hop TO 11092025_1758160162'}
-meeting_cpu_worker  | 2025-09-18 08:49:27,780 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_cpu_worker  | FROM meetingjob
-meeting_cpu_worker  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_cpu_worker  | 2025-09-18 08:49:27,780 INFO sqlalchemy.engine.Engine [generated in 0.00038s] {'request_id_1': 'test_Hop TO 11092025_1758160162'}
-meeting_cpu_worker  | 2025-09-18 08:49:27,829 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_cpu_worker  | 2025-09-18 08:49:27,829 INFO sqlalchemy.engine.Engine [generated in 0.00037s] {'status': 'transcribing', 'meetingjob_id': 29}
-meeting_cpu_worker  | [2025-09-18 08:49:27,829: INFO/ForkPoolWorker-4] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_cpu_worker  | [2025-09-18 08:49:27,829: INFO/ForkPoolWorker-4] [generated in 0.00037s] {'status': 'transcribing', 'meetingjob_id': 29}
-meeting_cpu_worker  | 2025-09-18 08:49:27,832 INFO sqlalchemy.engine.Engine COMMIT
-meeting_cpu_worker  | [2025-09-18 08:49:27,832: INFO/ForkPoolWorker-4] COMMIT
-meeting_cpu_worker  | [2025-09-18 08:49:27,838: INFO/ForkPoolWorker-4] Published update for job 'test_Hop TO 11092025_1758160162': transcribing
-meeting_cpu_worker  | [2025-09-18 08:49:27,891: INFO/ForkPoolWorker-4] Assembly complete. Dispatched transcription task for job 'test_Hop TO 11092025_1758160162'.
-meeting_gpu_worker  | [2025-09-18 08:49:27,894: INFO/MainProcess] Task run_transcription_task[c5e9f45a-49de-4e12-8741-ae20b2550096] received
-meeting_gpu_worker  | [2025-09-18 08:49:27,894: INFO/MainProcess] [Job ID: 29] Starting transcription for audio '/code/shared_audio/test_Hop TO 11092025_1758160162/Hop TO 11092025_full.wav' in 'vi'.
-meeting_gpu_worker  | [2025-09-18 08:49:27,894: INFO/MainProcess] Initializing Transcriber service for this process...
-meeting_gpu_worker  | [2025-09-18 08:49:27,894: INFO/MainProcess] Loading Faster-Whisper model from: /app/models/merged_model_ct2_dir
-meeting_cpu_worker  | [2025-09-18 08:49:27,912: INFO/ForkPoolWorker-4] Task assemble_audio_task[4c513d4b-bd89-4f00-81d0-28e99a18a921] succeeded in 4.44584540836513s: None
-meeting_gpu_worker  | [2025-09-18 08:49:29,810: INFO/MainProcess] Faster-Whisper model loaded successfully onto CUDA device.
-meeting_gpu_worker  | [2025-09-18 08:49:29,810: INFO/MainProcess] Starting transcription for audio file: /code/shared_audio/test_Hop TO 11092025_1758160162/Hop TO 11092025_full.wav in language 'vi'
-meeting_gpu_worker  | [2025-09-18 08:49:30,709: INFO/MainProcess] Processing audio with duration 19:00.500
-meeting_gpu_worker  | [2025-09-18 08:49:34,705: INFO/MainProcess] VAD filter removed 02:04.736 of audio
-meeting_cpu_worker  | [2025-09-18 08:49:34,892: INFO/MainProcess] missed heartbeat from celery@517ff15fb48a
-meeting_gpu_worker  | Unable to load any of {libcudnn_cnn.so.9.1.0, libcudnn_cnn.so.9.1, libcudnn_cnn.so.9, libcudnn_cnn.so}
-meeting_gpu_worker  | Invalid handle. Cannot load symbol cudnnCreateConvolutionDescriptor
-meeting_gpu_worker exited with code 0
-meeting_gpu_worker  | [NeMo W 2025-09-18 08:49:46 nemo_logging:405] /usr/local/lib/python3.12/dist-packages/celery/platforms.py:841: SecurityWarning: You're running the worker with superuser privileges: this is
-meeting_gpu_worker  |     absolutely not recommended!
-meeting_gpu_worker  |
-meeting_gpu_worker  |     Please specify a different user using the --uid option.
-meeting_gpu_worker  |
-meeting_gpu_worker  |     User information: uid=0 euid=0 gid=0 egid=0
-meeting_gpu_worker  |
-meeting_gpu_worker  |       warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
+# docker-compose.yml (FINAL, ENHANCED VERSION)
+
+version: "3.8"
+
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_api_server
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8072 --reload"
+    ports:
+      - "8072:8072"
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+    env_file: .env
+    restart: unless-stopped
+
+  worker-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_gpu_worker
+    command: >
+      celery -A app.worker.celery_app worker -l info 
+      --pool=solo 
+      -Q gpu_tasks 
+      --concurrency=1
+    
+    # --- THE DEFINITIVE FIX IS HERE ---
+    environment:
+      # Explicitly tell the container where to find the NVIDIA libraries.
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu
+      
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+      # Mount BOTH the standard system library path AND the specific CUDA toolkit path.
+      # This provides maximum compatibility.
+      - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
+      - /usr/local/cuda-12.2/targets/x86_64-linux/lib:/usr/local/cuda/lib64
+    # --- END OF FIX ---
+      
+    env_file: .env
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  worker-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_cpu_worker
+    command: >
+      celery -A app.worker.celery_app worker -l info 
+      -Q cpu_tasks 
+      --concurrency=4
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+    env_file: .env
+    restart: unless-stopped
