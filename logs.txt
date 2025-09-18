@@ -1,226 +1,77 @@
-Test_code result:
 
-
---- STEP 2: TESTING ALL SPEAKER CRUD ENDPOINTS ---
-
-Testing: GET /speaker/
-  -> [List All Speakers] Status: 200
-     Response: {
-  "success": true,
-  "message": "Successfully retrieved all speaker profiles.",
-  "data": [
-    {
-      "display_name": "Takeosimashi",
-      "user_ad": "huannt",
-      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "CVP HDQT Trần Minh Đức",
-      "user_ad": "duc.tm",
-      "enrolled_at_utc": "2025-09-16T10:31:02.082136",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "TV HDQT Koji Iriguchi",
-      "user_ad": "iriguchik",
-      "enrolled_at_utc": "2025-09-16T10:30:56.125636",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "CT HDQT Trần Minh Bình",
-      "user_ad": "binhtm",
-      "enrolled_at_utc": "2025-09-16T10:30:19.011222",
-      "num_enrollment_samples": 10
-    },
-    {
-      "display_name": "TV HDQT Cát Quang Dương",
-      "user_ad": "duongcq",
-      "enrolled_at_utc": "2025-09-17T03:26:36.926173",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "TV HDQT Nguyễn Vân Anh",
-      "user_ad": "anhnv19",
-      "enrolled_at_utc": "2025-09-16T10:30:53.613820",
-      "num_enrollment_samples": 1
-    }
-  ]
-}
-
-Testing: GET /speaker/huannt
-  -> [Get Speaker Details] Status: 200
-     Response: {
-  "success": true,
-  "message": "Profile retrieved successfully",
-  "user_ad": "huannt",
-  "profile_details": {
-    "qdrant_point_id": "2c5e08b3-a028-4682-849a-4f871717f61b",
-    "payload": {
-      "display_name": "Takeosimashi",
-      "user_ad": "huannt",
-      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
-      "num_enrollment_samples": 1,
-      "search_terms": [
-        "takeos",
-        "hua",
-        "takeosimash",
-        "ta",
-        "takeosima",
-        "huann",
-        "takeosimas",
-        "tak",
-        "hu",
-        "huan",
-        "takeosimashi",
-        "takeosim",
-        "h",
-        "huannt",
-        "take",
-        "t",
-        "takeo",
-        "takeosi"
-      ]
-    },
-    "has_vector": true
-  }
-}
-
-Testing: PUT /speaker/huannt/metadata
-  -> [Update Metadata] Status: 202
-     Response: {
-  "success": true,
-  "message": "Metadata update request has been accepted for processing."
-}
-  -> [Get Speaker Upodated Details] Status: 200
-     Response: {
-  "success": true,
-  "message": "Profile retrieved successfully",
-  "user_ad": "huannt",
-  "profile_details": {
-    "qdrant_point_id": "2c5e08b3-a028-4682-849a-4f871717f61b",
-    "payload": {
-      "display_name": "Takeosimashi",
-      "user_ad": "huannt",
-      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
-      "num_enrollment_samples": 1,
-      "search_terms": [
-        "takeos",
-        "hua",
-        "takeosimash",
-        "ta",
-        "takeosima",
-        "huann",
-        "takeosimas",
-        "tak",
-        "hu",
-        "huan",
-        "takeosimashi",
-        "takeosim",
-        "h",
-        "huannt",
-        "take",
-        "t",
-        "takeo",
-        "takeosi"
-      ]
-    },
-    "has_vector": true
-  }
-}
-
-Testing: POST /speaker/huannt/samples
-  -> Skipping Add Sample test: Not enough audio files.
-
-Testing: DELETE /speaker/takeos
-  -> [Delete Speaker] Status: 404
-     Response: {
-  "detail": "Speaker with user_ad 'takeos' not found."
-}
-
-
---- STEP 3: PROCESSING A FULL MEETING ---
-
-Testing: POST /meeting/start-bbh for requestId 'test_Hop TO 11092025_1758191448'...
-  -> [Start Meeting] Status: 201
-     Response: {
-  "status": 201,
-  "message": "Meeting initialized. Ready for chunk uploads."
-}
-
-Testing: POST /meeting/upload-file-chunk...
-  -> [Upload Chunks] All chunks sent.
-
---- STEP 4: WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---
-
-[WebSocket] Connecting to ws://api:8072/api/v1/meeting/ws/test_Hop%20TO%2011092025_1758191448...
-[WebSocket] Connection opened.
-
-[WebSocket] === STATUS UPDATE: assembling ===
-{
-  "request_id": "test_Hop TO 11092025_1758191448",
-  "status": "assembling",
-  "bbh_name": "Test BBH Name",
-  "meeting_type": "Test Type",
-  "meeting_host": "Test Host",
-  "language": "vi",
-  "plain_transcript": null,
-  "diarized_transcript": null,
-  "error_message": null
-}
-
-
-
-=============================
-
-
-
+meeting_api_server  | INFO:     192.168.16.4:38180 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 18:06:52,735 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,735 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,735 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:06:52,735 - INFO - sqlalchemy.engine.Engine - [cached since 1.075s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
+meeting_api_server  | 2025-09-18 18:06:52,735 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:06:52,735 INFO sqlalchemy.engine.Engine [cached since 1.075s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
+meeting_api_server  | 2025-09-18 18:06:52,740 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-18 18:06:52,740 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | INFO:     192.168.16.4:38190 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 18:06:52,756 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,756 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,757 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:06:52,757 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:06:52,757 INFO sqlalchemy.engine.Engine [cached since 1.096s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
+meeting_api_server  | 2025-09-18 18:06:52,757 - INFO - sqlalchemy.engine.Engine - [cached since 1.096s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
+meeting_api_server  | 2025-09-18 18:06:52,762 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758193611'. Recording end time.
+meeting_api_server  | 2025-09-18 18:06:52,764 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-18 18:06:52,764 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 11, 6, 52, 762741), 'status': 'assembling', 'meetingjob_id': 40}
+meeting_api_server  | 2025-09-18 18:06:52,764 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-18 18:06:52,764 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 11, 6, 52, 762741), 'status': 'assembling', 'meetingjob_id': 40}
+meeting_api_server  | 2025-09-18 18:06:52,766 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-18 18:06:52,766 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 18:06:52,767 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758193611'. Triggering background assembly and transcription.
+meeting_api_server  | 2025-09-18 18:06:52,768 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,768 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,770 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 17:30:49,441 - INFO - sqlalchemy.engine.Engine - [generated in 0.00017s] {'pk_1': 39}
-meeting_api_server  | 2025-09-18 17:30:49,446 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 17:30:49,446 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:44380 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_api_server  | INFO:     ('192.168.16.4', 44382) - "WebSocket /api/v1/meeting/ws/test_Hop%20TO%2011092025_1758191448" [accepted]
-meeting_api_server  | 2025-09-18 17:30:49,456 - INFO - app.api.routes.meeting - WebSocket connected for request_id 'test_Hop TO 11092025_1758191448'.
-meeting_api_server  | 2025-09-18 17:30:49,456 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 17:30:49,456 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:06:52,771 - INFO - sqlalchemy.engine.Engine - [generated in 0.00022s] {'pk_1': 40}
+meeting_api_server  | 2025-09-18 18:06:52,770 INFO sqlalchemy.engine.Engine SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-18 18:06:52,771 INFO sqlalchemy.engine.Engine [generated in 0.00022s] {'pk_1': 40}
+meeting_api_server  | 2025-09-18 18:06:52,776 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 18:06:52,776 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:38204 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | INFO:     ('192.168.16.4', 38218) - "WebSocket /api/v1/meeting/ws/test_Hop%20TO%2011092025_1758193611" [accepted]
+meeting_api_server  | 2025-09-18 18:06:52,789 - INFO - app.api.routes.meeting - WebSocket connected for request_id 'test_Hop TO 11092025_1758193611'.
+meeting_api_server  | 2025-09-18 18:06:52,789 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,789 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:06:52,790 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 17:30:49,456 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 17:30:49,456 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:06:52,790 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 17:30:49,456 - INFO - sqlalchemy.engine.Engine - [cached since 1.258s ago] {'request_id_1': 'test_Hop TO 11092025_1758191448'}
-meeting_api_server  | 2025-09-18 17:30:49,456 INFO sqlalchemy.engine.Engine [cached since 1.258s ago] {'request_id_1': 'test_Hop TO 11092025_1758191448'}
-meeting_api_server  | 2025-09-18 17:30:49,460 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | 2025-09-18 18:06:52,790 - INFO - sqlalchemy.engine.Engine - [cached since 1.129s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
+meeting_api_server  | 2025-09-18 18:06:52,790 INFO sqlalchemy.engine.Engine [cached since 1.129s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
+meeting_api_server  | 2025-09-18 18:06:52,794 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
 meeting_api_server  | FROM transcription
 meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 17:30:49,460 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'meeting_job_id_1': 39, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 17:30:49,460 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | 2025-09-18 18:06:52,794 INFO sqlalchemy.engine.Engine [generated in 0.00024s] {'meeting_job_id_1': 40, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 18:06:52,794 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
 meeting_api_server  | FROM transcription
 meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 17:30:49,460 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'meeting_job_id_1': 39, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 17:30:49,464 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | 2025-09-18 18:06:52,794 - INFO - sqlalchemy.engine.Engine - [generated in 0.00024s] {'meeting_job_id_1': 40, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 18:06:52,799 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
 meeting_api_server  | FROM diarizedtranscript
 meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 17:30:49,464 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'param_1': 39}
-meeting_api_server  | 2025-09-18 17:30:49,464 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | 2025-09-18 18:06:52,799 - INFO - sqlalchemy.engine.Engine - [generated in 0.00021s] {'param_1': 40}
+meeting_api_server  | 2025-09-18 18:06:52,799 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
 meeting_api_server  | FROM diarizedtranscript
 meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 17:30:49,464 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'param_1': 39}
+meeting_api_server  | 2025-09-18 18:06:52,799 INFO sqlalchemy.engine.Engine [generated in 0.00021s] {'param_1': 40}
 meeting_api_server  | INFO:     connection open
-meeting_api_server  | 2025-09-18 17:30:49,467 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 17:30:49,467 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_worker      | [NeMo I 2025-09-18 17:30:49 nemo_logging:393] Model EncDecSpeakerLabelModel was successfully restored from /project/diarization_service/models/rimecaster.nemo.
-meeting_worker      | [2025-09-18 17:30:49,719: INFO/MainProcess] Speaker Embedding model '/project/diarization_service/models/rimecaster.nemo' loaded successfully.
-meeting_worker      | [2025-09-18 17:30:49,719: INFO/MainProcess] Connecting to Qdrant at 10.43.128.107:7333...
-meeting_worker      | [2025-09-18 17:30:49,936: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333 "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 17:30:49,940: INFO/MainProcess] HTTP Request: GET http://10.43.128.107:7333/collections/meeting_speakers "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 17:30:49,942: INFO/MainProcess] Qdrant collection 'meeting_speakers' already exists.
-meeting_worker      | [2025-09-18 17:30:49,942: INFO/MainProcess] Attempting to update metadata for speaker: 'huannt'
-meeting_worker      | [2025-09-18 17:30:49,946: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 17:30:49,955: INFO/MainProcess] HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/payload?wait=true "HTTP/1.1 200 OK"
-meeting_worker      | [2025-09-18 17:30:49,956: INFO/MainProcess] Successfully updated metadata for 'huannt'.
-meeting_worker      | [2025-09-18 17:30:49,956: INFO/MainProcess] [Task] Successfully updated metadata for 'huannt'.
-meeting_worker      | [2025-09-18 17:30:49,961: INFO/MainProcess] Task update_metadata_task[3c773b7d-d736-4802-8f0a-bab753cf44d0] succeeded in 1.9344805907458067s: None
+meeting_api_server  | 2025-09-18 18:06:52,802 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 18:06:52,802 - INFO - sqlalchemy.engine.Engine - ROLLBACK
