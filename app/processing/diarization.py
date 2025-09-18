@@ -13,24 +13,13 @@ from silero_vad import load_silero_vad, read_audio, get_speech_timestamps
 from typing import Optional, List, Dict, Any
 
 from app.core.config import settings
-from app.processing.enrollment import SpeakerEnrollment  # Used for type hinting
+from app.processing.enrollment import SpeakerEnrollment  
 
 logger = logging.getLogger(__name__)
 
 class SpeakerDiarization:
-    """
-    Performs speaker diarization on a given audio file.
-
-    This class identifies speech segments, extracts speaker embeddings from them,
-    compares them against a provided list of known speakers, and clusters any
-    remaining unknown speakers. It is designed to be run in a background worker.
-    """
 
     def __init__(self):
-        """
-        Initializes the SpeakerDiarization service and its parameters from settings.
-        """
-        # Load diarization parameters from the central configuration
         self.segment_duration_s = settings.DIAR_SEG_DURATION
         self.segment_overlap_s = settings.DIAR_SEG_OVERLAP
         self.known_speaker_similarity_threshold = settings.DIAR_KNOWN_THRESH
@@ -44,7 +33,7 @@ class SpeakerDiarization:
             logger.warning("Segment overlap is greater than or equal to duration. Adjusting to duration / 3.")
             self.segment_overlap_s = self.segment_duration_s / 3.0
 
-        # Load the VAD model for identifying speech segments
+        # Load the VAD model
         self.vad_model = None
         if self.enable_vad:
             try:
@@ -52,11 +41,12 @@ class SpeakerDiarization:
                 logger.info("Silero VAD model loaded successfully for diarization.")
             except Exception as e:
                 logger.error(f"Error loading Silero VAD model: {e}. VAD will be disabled.", exc_info=True)
-                self.enable_vad = False # Force disable if model fails to load
+                self.enable_vad = False
         else:
             logger.warning("Voice Activity Detection (VAD) is DISABLED by configuration.")
 
         logger.info("SpeakerDiarization service initialized.")
+        
 
     def diarize(self, audio_path: str, enrolled_profiles: List[Dict], embedding_service: SpeakerEnrollment) -> List[Dict[str, Any]]:
         """
@@ -80,34 +70,33 @@ class SpeakerDiarization:
         else:
             logger.info(f"Diarizing with {len(enrolled_profiles)} known speaker profiles.")
 
-        # Use a temporary directory for intermediate files (like resampled audio)
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_dir_path = Path(temp_dir)
 
-            # Preprocess the audio (resample to the target sample rate)
             processed_audio_path = self._preprocess_audio(audio_path, temp_dir_path, embedding_service.target_sr)
             if not processed_audio_path:
                 logger.error("Audio preprocessing failed. Aborting diarization.")
                 return []
 
-            # Step 1: Apply Voice Activity Detection (VAD) to find speech regions
+            # Apply Voice Activity Detection (VAD) to find speech regions
+            #speech_timestamps = self._apply_vad(processed_audio_path)
             speech_timestamps = []
             if self.enable_vad:
-                logger.info("Applying Voice Activity Detection (VAD) to find speech regions.")
+                logger.info("Applying VAD to find speech sections.")
                 speech_timestamps = self._apply_vad(processed_audio_path)
             else:
                 logger.info("VAD is disabled. The entire audio file will be processed as a single segment.")
 
-            # Step 2: Segment the speech regions and generate speaker embeddings for each segment
+            # Segment the speech regions and generate speaker embeddings for each segment
             all_segments_info = self._segment_and_embed(processed_audio_path, speech_timestamps, embedding_service)
             if not all_segments_info:
                 logger.error("No audio segments could be embedded. Aborting diarization.")
                 return []
 
-            # Step 3: Identify known speakers by comparing segment embeddings to enrolled profiles
+            # Identify known speakers by comparing segment embeddings to enrolled profiles
             raw_diarization_results, unknown_segments = self._identify_known_speakers(all_segments_info, enrolled_profiles)
 
-            # Step 4: Cluster any remaining unknown speaker segments
+            # Cluster any remaining unknown speaker segments
             if unknown_segments:
                 unknown_speaker_results = self._cluster_unknown_speakers(unknown_segments)
                 raw_diarization_results.extend(unknown_speaker_results)
@@ -116,7 +105,7 @@ class SpeakerDiarization:
                 logger.warning("No diarization results were generated after all steps.")
                 return []
 
-            # Step 5: Merge consecutive segments from the same speaker for a clean timeline
+            # Merge consecutive segments from the same speaker for a clean timeline
             merged_timeline = self._merge_timeline_segments(raw_diarization_results)
 
         total_time = time.time() - t_overall_start
@@ -173,14 +162,12 @@ class SpeakerDiarization:
                 for seg_start in range(0, len(region_audio), step_samples):
                     seg_end = seg_start + segment_len_samples
                     if seg_end > len(region_audio):
-                        # Use the last possible full segment instead of a partial one
                         seg_end = len(region_audio)
                         seg_start = seg_end - segment_len_samples
                         if seg_start < 0: continue
 
                     segment_audio = region_audio[seg_start:seg_end]
 
-                    # Use the passed embedding service to generate the embedding
                     embedding = embedding_service.get_embedding_from_audio(segment_audio)
 
                     segments_info.append({
@@ -197,7 +184,7 @@ class SpeakerDiarization:
             logger.error(f"Failed during segmenting and embedding stage: {e}", exc_info=True)
             return []
 
-    def _identify_known_speakers(self, all_segments: List[Dict], enrolled_profiles: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
+    def _identify_known_speakers(self, all_segments: List[Dict], enrolled_profiles: List[Dict]) -> tuple[List[Dict], List[Dict]]:
         """Compares segment embeddings to known profiles using cosine similarity."""
         known_results = []
         unknown_segments = []
@@ -270,7 +257,6 @@ class SpeakerDiarization:
         if not timeline:
             return []
 
-        # Sort the timeline by start time to process chronologically
         timeline.sort(key=lambda x: x["start_s"])
 
         merged = []
@@ -280,17 +266,15 @@ class SpeakerDiarization:
 
         for next_seg in timeline[1:]:
             is_same_speaker = (current_seg["speaker"] == next_seg["speaker"])
-            # Check if the gap between segments is smaller than our configured max pause
+            # Check if the gap between segments is smaller than configured max pause
             is_continuous = (next_seg["start_s"] - current_seg["end_s"] <= self.merge_max_pause_s)
 
             if is_same_speaker and is_continuous:
                 # If same speaker and close in time, merge by extending the end time
                 current_seg["end_s"] = max(current_seg["end_s"], next_seg["end_s"])
             else:
-                # Otherwise, this segment is finished. Add it to the list and start a new one.
                 merged.append(current_seg)
                 current_seg = next_seg
 
-        # Append the very last segment
         merged.append(current_seg)
         return merged
