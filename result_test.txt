@@ -1,161 +1,734 @@
-import json
-import logging
 import os
-from contextlib import contextmanager
-from typing import Generator, Dict, Any, List
-
-import redis
-from pydub import AudioSegment
+import json
+import shutil
+import logging
 from pathlib import Path
-from sqlmodel import Session, select
 
-from app.core.config import settings
+from fastapi import (
+    APIRouter, Depends, Form, File, UploadFile, HTTPException, BackgroundTasks,
+    WebSocket, WebSocketDisconnect, status, Query
+)
+from fastapi.responses import FileResponse
+from sqlmodel import Session, select
+from pydub import AudioSegment, exceptions as pydub_exceptions
+
 from app.db.base import engine
-from app.db.models import MeetingJob, Transcription, DiarizedTranscript
-from app.processing.diarization import SpeakerDiarization
-from app.processing.enrollment import SpeakerEnrollment
-from app.processing.mapper import map_speaker_to_text
-from app.processing.transcription import Transcriber
-from app.worker.celery_app import celery_app
+from app.api.deps import (
+    get_db_session, get_or_create_user, get_owned_job_from_path,
+    get_job_ready_for_diarization, get_cancellable_job,
+    get_job_with_any_transcript, get_job_with_completed_diarization
+)
+from app.core.config import settings
+from app.db.models import MeetingJob, Transcription,  Summary, ChatHistory, User
+from app.schemas.meeting import (
+    MeetingStatusResponse, MeetingJobResponseWrapper, PlainSegment,
+    MeetingInfoUpdateRequest, LanguageChangeRequest, SummaryRequest, SummaryResponse, 
+    ChatRequest, ChatResponse, PlainTranscriptUpdateRequest
+)
+from app.services.websocket_manager import websocket_manager
+from app.worker.tasks import run_transcription_task, run_diarization_task
+from datetime import datetime
+
+from app.worker.tasks import assemble_audio_task
 
 logger = logging.getLogger(__name__)
+router = APIRouter()
 
-# ===================================================================
-#   Database and Pub/Sub Helpers
-# ===================================================================
+from fastapi.responses import StreamingResponse
+from app.services.ai_service import ai_service
+from app.services.document_generator import generate_templated_document
 
-@contextmanager
-def db_session() -> Generator[Session, None, None]:
-    """Provides a transactional database session for tasks."""
-    session = Session(engine)
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
+from app.worker.celery_app import celery_app
 
-def publish_job_update(request_id: str, update_data: Dict[str, Any]):
-    """Publishes a job status update to Redis Pub/Sub for real-time frontend updates."""
-    try:
-        r = redis.Redis.from_url(settings.REDIS_URL)
-        payload = json.dumps({"request_id": request_id, "data": update_data})
-        r.publish("job_updates", payload)
-        logger.info(f"Published update for job '{request_id}': {update_data.get('status')}")
-    except Exception as e:
-        logger.error(f"Failed to publish Redis update for job '{request_id}': {e}", exc_info=True)
 
-# ===================================================================
-#   WORKER SINGLETON SERVICES (Model Loading)
-# ===================================================================
-# These lines are executed ONLY ONCE when a Celery worker process starts,
-# creating a single, shared instance of each service for all tasks.
-logger.info("WORKER PROCESS STARTING: Initializing AI Services...")
-try:
-    transcriber_service = Transcriber()
-    diarization_service = SpeakerDiarization()
-    enrollment_service = SpeakerEnrollment()
-    logger.info("WORKER PROCESS READY: AI Services initialized successfully.")
-except Exception as e:
-    logger.critical(f"WORKER FAILED TO START: Could not initialize AI services: {e}", exc_info=True)
-    raise
+def _format_job_status(job: MeetingJob, db: Session) -> dict:
+    """
+    Packages a MeetingJob object and its related data into the
+    standard API response schema.
+    """
+    plain_transcript_data = None
+    
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
 
-# ===================================================================
-#   Celery Task Definitions
-# ===================================================================
+    if transcription_entry and transcription_entry.transcript_data:
+        plain_transcript_data = [PlainSegment(**seg) for seg in transcription_entry.transcript_data]
 
-# --- Meeting Workflow Tasks ---
+    response = MeetingStatusResponse(
+        request_id=job.request_id,
+        status=job.status,
+        bbh_name=job.bbh_name,
+        meeting_type=job.meeting_type,
+        meeting_host=job.meeting_host,
+        language=job.language,
+        plain_transcript=plain_transcript_data,
+        diarized_transcript=job.diarized_transcript.transcript_data if job.diarized_transcript else None,
+        error_message=job.error_message
+    )
+    return response.model_dump()
 
-@celery_app.task(bind=True, name="assemble_audio_task", queue='cpu_tasks')
-def assemble_audio_task(self, request_id: str, language: str):
-    """Assembles audio chunks and then triggers the transcription task."""
-    logger.info(f"[Task ID: {self.request.id}] Assembling chunks for job '{request_id}'...")
+'''
+async def assemble_and_transcribe(request_id: str, language: str):
+    """
+    Background task to assemble audio chunks and trigger the Celery
+    transcription task.
+    """
+    logger.info(f"[BG Task] Assembling chunks for job '{request_id}'...")
     session_dir = Path(settings.SHARED_AUDIO_PATH) / request_id
-    job_id_for_next_task, full_audio_path_for_next_task = None, None
+
+    job_id_for_celery = None
+    full_audio_path_for_celery = None
+    
     try:
+        # Find all numbered chunk files
         chunk_files = sorted(
             [f for f in session_dir.iterdir() if f.is_file() and f.stem.split('_')[-1].isdigit()],
             key=lambda f: int(f.stem.split('_')[-1])
         )
-        if not chunk_files: raise FileNotFoundError("No valid chunk files found.")
+        if not chunk_files:
+            raise FileNotFoundError("No valid chunk files found for assembly.")
 
+        # Combine audio chunks
         combined_audio = AudioSegment.empty()
         for chunk_path in chunk_files:
             combined_audio += AudioSegment.from_file(chunk_path)
 
+        # Standardize and export the final audio file
         final_audio = combined_audio.set_channels(1).set_frame_rate(16000).set_sample_width(2)
-
-        with db_session() as session:
+        
+        with Session(engine) as session:
             job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
             if not job: return
-            
             final_filename = f"{Path(job.original_filename).stem}_full.wav"
             full_audio_path = session_dir / final_filename
             final_audio.export(full_audio_path, format="wav")
             
+            # Update job status and notify clients
             job.status = "transcribing"
             session.add(job)
-            job_id_for_next_task, full_audio_path_for_next_task = job.id, str(full_audio_path)
-            
-        publish_job_update(request_id, {"status": "transcribing"})
-        for chunk_path in chunk_files: os.remove(chunk_path)
-            
-        celery_app.send_task("run_transcription_task", args=[job_id_for_next_task, full_audio_path_for_next_task, language])
-        logger.info(f"Assembly complete. Dispatched transcription task for job '{request_id}'.")
-    except Exception as e:
-        logger.error(f"Assembly task failed for job '{request_id}': {e}", exc_info=True)
-        # Error handling logic... (unchanged)
+            session.commit()
 
-@celery_app.task(bind=True, name="run_transcription_task", queue='gpu_tasks')
-def run_transcription_task(self, job_id: int, audio_path: str, language: str):
-    """Performs transcription on an audio file."""
-    # ... (This task is already correct from your provided code) ...
+            job_id_for_celery = job.id
+            full_audio_path_for_celery = str(full_audio_path)
+        await websocket_manager.broadcast_to_job(request_id, {"status": "transcribing"})
 
-@celery_app.task(bind=True, name="run_diarization_task", queue='gpu_tasks')
-def run_diarization_task(self, job_id: int, audio_path: str):
-    """Performs diarization and maps speakers to the transcript."""
-    # ... (This task is also correct from your provided code) ...
+        # Clean up chunk files
+        for chunk_path in chunk_files:
+            os.remove(chunk_path)
+        
+        if job_id_for_celery and full_audio_path_for_celery:
+            # Trigger the Celery task for the heavy lifting
+            run_transcription_task.delay(job.id, str(full_audio_path), language)
+            logger.info(f"Successfully assembled audio and dispatched transcription task for job '{request_id}'.")
+        else:
+            logger.error(f"Could not dispatch transcription task for '{request_id}' due to missing job ID or path.")
 
-# --- Speaker Management Tasks ---
+    except (FileNotFoundError, pydub_exceptions.CouldntDecodeError, Exception) as e:
+        logger.error(f"Failed during background assembly for job '{request_id}': {e}", exc_info=True)
+        with Session(engine) as session:
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if job:
+                job.status = "failed"
+                job.error_message = f"Audio Assembly Failed: {e}"
+                session.add(job)
+                session.commit()
+                await websocket_manager.broadcast_to_job(request_id, {"status": "failed", "error_message": job.error_message})
+'''
 
-@celery_app.task(bind=True, name="enroll_speaker_task", queue='gpu_tasks')
-def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metadata: dict):
-    """Enrolls a new speaker by generating and storing their voice embedding."""
-    logger.info(f"[Task] Starting enrollment for new speaker: '{user_ad}'")
+# ===================================================================
+#   Core Meeting Workflow Endpoints
+# ===================================================================
+
+@router.post("/start-bbh", status_code=status.HTTP_201_CREATED, summary="Initialize a new meeting session")
+async def start_bbh(
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_or_create_user),
+    requestId: str = Form(...),
+    language: str = Form("vi"),
+    filename: str = Form(...),
+    bbhName: str = Form(...),
+    Type: str = Form(...),
+    Host: str = Form(...),
+):
+    """
+    Initializes a meeting job record in the database and creates a
+    dedicated directory for storing incoming audio chunks.
+    """
+    logger.info(f"Initializing job '{requestId}' by user '{current_user.username}'.")
+    if session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first():
+        raise HTTPException(status_code=409, detail=f"Meeting job with requestId '{requestId}' already exists.")
+
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
+    os.makedirs(session_dir, exist_ok=True)
+
+    job = MeetingJob(
+        request_id=requestId,
+        user_id=current_user.id,
+        language=language,
+        original_filename=filename,
+        bbh_name=bbhName,
+        meeting_type=Type,
+        meeting_host=Host,
+        status="uploading"
+    )
+    session.add(job)
+    session.commit()
+    return {"status": 201, "message": "Meeting initialized. Ready for chunk uploads."}
+
+
+@router.post("/upload-file-chunk", status_code=status.HTTP_202_ACCEPTED, summary="Upload a single audio chunk")
+async def upload_file_chunk(
+    #background_tasks: BackgroundTasks,
+    session: Session = Depends(get_db_session),
+    requestId: str = Form(...),
+    isLastChunk: bool = Form(...),
+    FileData: UploadFile = File(...),
+):
+    """
+    Receives an audio chunk, saves it, and if it's the last chunk,
+    triggers a background task to assemble the audio and start transcription.
+    """
+    job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Meeting job not found.")
+    if job.status != "uploading":
+        raise HTTPException(status_code=400, detail=f"Cannot upload chunks when job status is '{job.status}'.")
+
+    if not job.upload_started_at:
+        job.upload_started_at = datetime.utcnow()
+        logger.info(f"First chunk received for '{requestId}'. Recording start time.")
+
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
+    chunk_path = session_dir / FileData.filename
+    
     try:
-        enrollment_service.enroll_new_speaker(user_ad, audio_sample_paths, metadata)
-        logger.info(f"[Task] Enrollment successful for '{user_ad}'.")
-    except Exception as e:
-        logger.error(f"[Task] Enrollment failed for '{user_ad}': {e}", exc_info=True)
-        # In production, you might want to clean up the saved audio files here.
-        raise
+        with open(chunk_path, "wb") as buffer:
+            shutil.copyfileobj(FileData.file, buffer)
+    except IOError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save chunk file: {e}")
 
-@celery_app.task(bind=True, name="add_samples_task", queue='gpu_tasks')
-def add_samples_task(self, user_ad: str, new_audio_paths: List[str]):
-    """
-    Adds new voice samples to an existing speaker profile.
-    This is a GPU task because it requires generating new embeddings.
-    """
-    logger.info(f"[Task] Adding {len(new_audio_paths)} samples to speaker '{user_ad}'")
-    try:
-        enrollment_service.add_samples_to_profile(user_ad, new_audio_paths)
-        logger.info(f"[Task] Successfully added samples to '{user_ad}'.")
-    except Exception as e:
-        logger.error(f"[Task] Failed to add samples for '{user_ad}': {e}", exc_info=True)
-        raise
+    if isLastChunk:
+        job.status = "assembling"
+        job.upload_finished_at = datetime.utcnow()
+        logger.info(f"Last chunk received for '{requestId}'. Recording end time.")
 
-@celery_app.task(bind=True, name="update_metadata_task", queue='cpu_tasks')
-def update_metadata_task(self, user_ad: str, new_metadata: dict):
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        logger.info(f"Last chunk received for '{requestId}'. Triggering background assembly and transcription.")
+        assemble_audio_task.delay(requestId, job.language)
+        await websocket_manager.broadcast_to_job(requestId, {"status": "assembling"})
+    else:
+        session.add(job)
+        session.commit()
+
+    return {"status": 202, "message": f"Chunk '{FileData.filename}' accepted."}
+
+
+@router.post("/{request_id}/diarize", status_code=status.HTTP_202_ACCEPTED, summary="Trigger speaker diarization")
+async def diarize_meeting(
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_job_ready_for_diarization)
+):
     """
-    Updates a speaker's metadata. This is a CPU task because it only involves
-    a database write and regenerating search terms (a string operation).
+    Triggers the speaker diarization and mapping process for a meeting that
+    has a completed transcription.
     """
-    logger.info(f"[Task] Updating metadata for speaker '{user_ad}'")
+    audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
+    if not audio_file_path.exists():
+        raise HTTPException(status_code=404, detail="Assembled audio file not found. Please re-upload.")
+
+    job.status = "diarizing"
+    db.add(job)
+    db.commit()
+
+    await websocket_manager.broadcast_to_job(job.request_id, {"status": "diarizing"})
+    
+    run_diarization_task.delay(job.id, str(audio_file_path))
+    
+    return {"status": 202, "message": "Diarization process started."}
+
+# ===================================================================
+#   Real-time Status and Management Endpoints
+# ===================================================================
+
+@router.get("/{request_id}/status", response_model=MeetingJobResponseWrapper, summary="Get current meeting status")
+async def get_meeting_status(
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Retrieves the complete current status of a meeting job, including any
+    available transcripts. Ideal for initial page loads.
+    """
+    db.add(job)
+    formatted_data = _format_job_status(job, db)
+    return MeetingJobResponseWrapper(data=formatted_data)
+
+
+@router.websocket("/ws/{request_id}")
+async def websocket_endpoint(websocket: WebSocket, request_id: str):
+    """
+    Establishes a WebSocket connection for receiving real-time updates
+    about a meeting job's status.
+    """
+    # --- DEFINITIVE FIX ---
+    # 1. Accept the connection. This completes the handshake.
+    await websocket.accept()
+    
+    # 2. Add the connection directly to the manager's dictionary.
+    if request_id not in websocket_manager.active_connections:
+        websocket_manager.active_connections[request_id] = []
+    websocket_manager.active_connections[request_id].append(websocket)
+    logger.info(f"WebSocket connected for request_id '{request_id}'.")
+    # --- END OF FIX ---
+
     try:
-        enrollment_service.update_metadata(user_ad, new_metadata)
-        logger.info(f"[Task] Successfully updated metadata for '{user_ad}'.")
+        # 3. Send the initial status using a self-contained session.
+        with Session(engine) as session:
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if job:
+                initial_status = _format_job_status(job, session)
+                await websocket.send_json(initial_status)
+
+        # 4. Keep the connection alive.
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for request_id '{request_id}'.")
+    finally:
+        # 5. ALWAYS remove the connection on exit.
+        websocket_manager.disconnect(websocket, request_id)
+
+@router.patch("/{request_id}/info", response_model=MeetingJobResponseWrapper, summary="Update meeting metadata")
+async def update_meeting_info(
+    update_data: MeetingInfoUpdateRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Updates editable meeting metadata (name, type, host) at any time.
+    """
+    db.add(job)
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No update data provided.")
+        
+    for key, value in update_dict.items():
+        setattr(job, key, value)
+    
+    db.commit()
+    db.refresh(job)
+
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(message="Meeting info updated successfully.", data=updated_status)
+
+
+# ===================================================================
+#   Editing, Language, and Cancellation Endpoints
+# ===================================================================
+
+@router.post("/{request_id}/language", response_model=MeetingJobResponseWrapper, summary="Change meeting language")
+async def change_meeting_language(
+    language_request: LanguageChangeRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Changes the active language of the meeting. If a transcript for the new
+    language doesn't exist, it triggers a new transcription task.
+    """
+    db.add(job)
+    new_language = language_request.language
+    if job.language == new_language:
+        return MeetingJobResponseWrapper(data=_format_job_status(job, db), message="Language is already set to the requested one.")
+
+    # Check if a transcript for this language already exists
+    cached_transcript = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == new_language
+        )
+    ).first()
+
+    job.language = new_language
+    
+    if cached_transcript:
+        logger.info(f"Found cached transcript for language '{new_language}' for job '{job.request_id}'.")
+        # Clear diarizatio result
+        if job.diarized_transcript:
+             db.delete(job.diarized_transcript)
+        job.status = "transcription_complete"
+    else:
+        logger.info(f"No cached transcript for '{new_language}'. Triggering new transcription task for job '{job.request_id}'.")
+        audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
+        if not audio_file_path.exists():
+            raise HTTPException(status_code=404, detail="Assembled audio file not found. Cannot re-transcribe.")
+        
+        job.status = "transcribing"
+        run_transcription_task.delay(job.id, str(audio_file_path), new_language)
+
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(message=f"Language changed to '{new_language}'.", data=updated_status)
+
+
+@router.put(
+    "/{request_id}/transcript/plain",
+    response_model=MeetingJobResponseWrapper,
+    summary="Update the plain (non-diarized) transcript"
+)
+async def update_plain_transcript(
+    update_request: PlainTranscriptUpdateRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Overwrites the current plain transcript with user-provided edits.
+    **IMPORTANT**: Submitting a new transcript will PERMANENTLY DELETE any existing diarized transcript
+    and all previously generated summaries for this meeting, as they will be
+    based on outdated information. The job status will revert to
+    'transcription_complete', requiring diarization to be run again.
+    """
+    db.add(job)
+    logger.info(f"Received request to update plain transcript for job '{job.request_id}'.")
+
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+
+    if not transcription_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active transcript found for language '{job.language}'. Cannot update."
+        )
+
+    # Invalidate and delete all downstream data that depends on this transcript
+    logger.warning(f"Invalidating downstream data for job '{job.request_id}' due to transcript edit.")
+
+
+    if job.diarized_transcript:
+        logger.info(f"Deleting stale diarized transcript for job '{job.request_id}'.")
+        db.delete(job.diarized_transcript)
+        # Revert status 
+        job.status = "transcription_complete"
+
+    # Delete all associated summaries
+    if job.summaries:
+        logger.info(f"Deleting {len(job.summaries)} stale summaries for job '{job.request_id}'.")
+        for summary in job.summaries:
+            db.delete(summary)
+    
+    # Delete chat history as it may refer to old text. 
+    if job.chat_history:
+        logger.info(f"Deleting {len(job.chat_history)} stale chat history entries for job '{job.request_id}'.")
+        for chat_entry in job.chat_history:
+            db.delete(chat_entry)
+
+    new_transcript_data = [seg.model_dump() for seg in update_request.segments]
+    transcription_entry.transcript_data = new_transcript_data
+    transcription_entry.is_edited = True # Mark this transcript as user-modified
+
+    db.add(transcription_entry)
+    db.add(job) 
+    db.commit()
+    db.refresh(job)
+
+    logger.info(f"Successfully updated transcript for job '{job.request_id}'.")
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(
+        message="Transcript updated successfully. All dependent data like diarization and summaries have been cleared.",
+        data=updated_status
+    )
+
+
+@router.delete("/{request_id}/cancel", status_code=status.HTTP_200_OK, summary="Cancel an ongoing meeting")
+async def cancel_meeting(
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_cancellable_job)
+):
+    """
+    Allows a user to cancel a meeting that is still in the 'uploading' or
+    'assembling' phase. This deletes the job record and all associated files.
+    """
+    logger.info(f"Received cancellation request for job '{job.request_id}'.")
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / job.request_id
+    if session_dir.exists():
+        try:
+            shutil.rmtree(session_dir)
+            logger.info(f"Removed temporary directory: {session_dir}")
+        except OSError as e:
+            logger.error(f"Error removing directory {session_dir} during cancellation: {e}")
+
+    db.delete(job)
+    db.commit()
+
+    await websocket_manager.broadcast_to_job(job.request_id, {"status": "cancelled", "message": "The meeting has been cancelled."})
+
+    return {"status": 200, "message": "Meeting successfully cancelled."}
+
+
+# ===================================================================
+#   Analysis, Chat, and Download Endpoints
+# ===================================================================
+
+@router.post(
+    "/{request_id}/summary",
+    response_model=SummaryResponse,
+    summary="Generate a meeting summary"
+)
+async def generate_summary(
+    summary_request: SummaryRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path) 
+):
+    """
+    Generates a summary for the meeting based on the requested type.
+    - 'topic', 'action_items', 'decision_log' require a completed transcript.
+    - 'speaker' requires a completed, speaker-separated transcript.
+
+    If a summary of the same type already exists, it will be overwritten.
+    """
+    db.add(job)
+    summary_type = summary_request.summary_type
+    logger.info(f"Received request to generate '{summary_type}' summary for job '{job.request_id}'.")
+
+   
+    if summary_type == "speaker":
+        if not job.diarized_transcript:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A 'speaker' summary requires a completed speaker-separated transcript. Please run diarization first."
+            )
+        transcript_source = job.diarized_transcript.transcript_data
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
+    else:
+        
+        transcription_entry = db.exec(
+            select(Transcription).where(
+                Transcription.meeting_job_id == job.id,
+                Transcription.language == job.language
+            )
+        ).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A summary requires a completed transcript. Please ensure transcription is complete."
+            )
+        
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
+
+   
+    try:
+        meeting_info = {
+            "bbh_name": job.bbh_name,
+            "meeting_type": job.meeting_type,
+            "meeting_host": job.meeting_host,
+        }
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
     except Exception as e:
-        logger.error(f"Failed to update metadata for '{user_ad}': {e}", exc_info=True)
-        raise
+        logger.error(f"AI service failed during summary generation for job '{job.request_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+    
+    existing_summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
+
+    if existing_summary:
+        logger.info(f"Updating existing '{summary_type}' summary for job '{job.request_id}'.")
+        existing_summary.summary_content = summary_content
+        summary_to_return = existing_summary
+    else:
+        logger.info(f"Creating new '{summary_type}' summary for job '{job.request_id}'.")
+        new_summary = Summary(
+            meeting_job_id=job.id,
+            summary_type=summary_type,
+            summary_content=summary_content
+        )
+        db.add(new_summary)
+        summary_to_return = new_summary
+    
+    db.commit()
+    db.refresh(summary_to_return)
+
+    return SummaryResponse(
+        request_id=job.request_id,
+        summary_type=summary_to_return.summary_type,
+        summary_content=summary_to_return.summary_content
+    )
+
+
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Chat about the meeting content"
+)
+async def chat_with_meeting(
+    chat_request: ChatRequest,
+    db: Session = Depends(get_db_session)
+):
+    """
+    Handles conversational queries about a completed meeting. It uses the
+    transcript, summaries, and recent conversation history as context.
+    """
+    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Meeting job not found.")
+    
+    
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+    if not transcription_entry:
+        raise HTTPException(status_code=400, detail="Cannot chat without a completed transcript.")
+    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
+
+    
+    summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
+    summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
+
+    
+    chat_history_db = db.exec(
+        select(ChatHistory)
+        .where(ChatHistory.meeting_job_id == job.id)
+        .order_by(ChatHistory.created_at.desc())
+        .limit(settings.LIMIT_TURN * 2) 
+    ).all()
+    
+    chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
+
+    
+    full_context_for_llm = (
+        f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" +
+        "\n\n".join(summary_texts)
+    )
+
+    
+    try:
+        assistant_response = await ai_service.get_response(
+            task="chat",
+            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
+            context={"history": chat_history_formatted}
+        )
+    except Exception as e:
+        logger.error(f"AI service failed during chat for job '{job.request_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+    
+    user_message_entry = ChatHistory(
+        meeting_job_id=job.id,
+        role="user",
+        message=chat_request.message
+    )
+    assistant_message_entry = ChatHistory(
+        meeting_job_id=job.id,
+        role="assistant",
+        message=assistant_response
+    )
+    db.add(user_message_entry)
+    db.add(assistant_message_entry)
+    db.commit()
+
+    return ChatResponse(response=assistant_response)
+
+
+@router.get("/{request_id}/download/audio", summary="Download the original audio file")
+async def download_audio_file(
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Provides a direct download of the fully assembled meeting audio file.
+    """
+    logger.info(f"Request to download audio for job '{job.request_id}'.")
+    audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
+
+    if not audio_file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assembled audio file not found. It may not have been processed yet."
+        )
+
+    safe_filename = f"Meeting_Audio_{job.bbh_name.replace(' ', '_')}.wav"
+    
+    return FileResponse(
+        path=audio_file_path,
+        media_type='audio/wav',
+        filename=safe_filename
+    )
+
+
+@router.get("/{request_id}/download/document", summary="Generate and download a formal meeting document")
+async def generate_and_download_document(
+    job: MeetingJob = Depends(get_job_with_any_transcript),
+    template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"], description="The type of document template to use."),
+    db: Session = Depends(get_db_session)
+):
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
+
+    start_time_str = job.upload_started_at.strftime('%H:%M') if job.upload_started_at else "N/A"
+    end_time_str = job.upload_finished_at.strftime('%H:%M') if job.upload_finished_at else "N/A"
+    
+    
+    context_header = (
+        f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+        f"- Giờ bắt đầu: {start_time_str}\n"
+        f"- Giờ kết thúc: {end_time_str}\n\n"
+        f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
+    )
+    full_llm_input = context_header + transcript_text
+    
+    try:
+        task_name = f"summary_{template_type}"
+        llm_json_response = await ai_service.get_response(task=task_name, user_message=full_llm_input)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to get data from AI service: {e}")
+
+    
+    try:
+        document_buffer = generate_templated_document(template_type, llm_json_response)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
+
+    filename = f"{template_type}_{job.bbh_name.replace(' ', '_')}.docx"
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    
+    return StreamingResponse(
+        document_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers
+    )
