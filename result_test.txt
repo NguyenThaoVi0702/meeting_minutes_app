@@ -1,3 +1,4 @@
+This is the output of the cmd:
 /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so.9.8.0
 /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so
 /usr/local/cuda-12.8/targets/x86_64-linux/lib/libcudnn_cnn.so.9
@@ -5,3 +6,69 @@
 /usr/lib/x86_64-linux-gnu/libcudnn_cnn.so
 /usr/lib/x86_64-linux-gnu/libcudnn_cnn.so.9
 /usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9
+
+while this is the current docker_compose.yml
+services:
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_api_server
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8072 --reload"
+    ports:
+      - "8072:8072"
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+    env_file: .env
+    restart: unless-stopped
+
+  # -------------------------------------------------------------
+  #  GPU Worker: Executes heavy AI tasks
+  # -------------------------------------------------------------
+  worker-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_gpu_worker
+    command: >
+      celery -A app.worker.celery_app worker -l info 
+      --pool=solo 
+      -Q gpu_tasks 
+      --concurrency=1
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+      - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+    env_file: .env
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  # -------------------------------------------------------------
+  #  CPU Worker
+  # -------------------------------------------------------------
+  worker-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_cpu_worker
+    command: >
+      celery -A app.worker.celery_app worker -l info 
+      -Q cpu_tasks 
+      --concurrency=4
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+    env_file: .env
+    restart: unless-stopped
+
+volumes:
+  shared_audio_files:
+    driver: local
