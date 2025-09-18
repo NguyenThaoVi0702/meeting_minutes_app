@@ -15,18 +15,15 @@ from app.db.base import engine
 from app.db.models import MeetingJob
 from app.services.websocket_manager import websocket_manager
 
-# Configure logging
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ===================================================================
-#   Background Tasks (Redis Listener & Cleanup)
-# ===================================================================
 
 async def redis_listener():
     """
     Listens to the 'job_updates' Redis channel and broadcasts messages
-    to connected WebSocket clients. Runs for the entire application lifetime.
+    to connected WebSocket clients.
     """
     try:
         r = aioredis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
@@ -55,11 +52,10 @@ async def redis_listener():
 
 async def cleanup_stale_jobs():
     """
-    Periodically cleans up old jobs that were started but never completed,
-    preventing orphaned files and database entries.
+    Periodically cleans up old jobs that were started but never completed.
     """
     while True:
-        await asyncio.sleep(3600 * 6) # Run every 6 hours
+        await asyncio.sleep(3600 * 6) 
         logger.info("Running cleanup task for stale, incomplete jobs...")
         # Incomplete jobs older than 2 days
         threshold = datetime.utcnow() - timedelta(days=2)
@@ -105,7 +101,6 @@ async def lifespan(app: FastAPI):
     SQLModel.metadata.create_all(engine)
     logger.info("Database tables verified.")
 
-    # 2. Ensure shared directories are present
     ensure_directories_exist()
     logger.info(f"Verified shared directories exist at '{settings.SHARED_AUDIO_PATH}'.")
 
@@ -134,20 +129,19 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configure CORS (Cross-Origin Resource Sharing)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, restrict this to your frontend's domain
+    allow_origins=["*"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include the API routers
+# API routers
 app.include_router(meeting.router, prefix=f"{settings.API_V1_STR}/meeting", tags=["Meeting Workflow & Analysis"])
 app.include_router(speaker.router, prefix=f"{settings.API_V1_STR}/speaker", tags=["Speaker Enrollment & Management"])
 
-# Add a health check endpoint
+
 @app.get("/health", tags=["Health Check"])
 def health_check():
     """A simple endpoint to confirm that the API is running."""
