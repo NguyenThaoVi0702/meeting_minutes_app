@@ -57,7 +57,7 @@ class AllSpeakersResponse(BaseModel):
 
 class QdrantPointDetails(BaseModel):
     """
-    A Pydantic model representing the detailed information stored for a
+    Detailed information stored for a
     speaker's vector profile in the Qdrant database.
     """
     qdrant_point_id: str = Field(..., description="The UUID of the point in Qdrant.")
@@ -79,13 +79,9 @@ class SpeakerProfileResponse(BaseModel):
 
 class SpeakerMetadataUpdate(BaseModel):
     """
-
     Schema for the metadata provided when creating or updating a speaker profile.
-    This is typically sent as a JSON string in a multipart/form-data request.
     """
     display_name: str = Field(..., description="The speaker's display name.", min_length=1)
-    # The user_ad is typically taken from the URL path parameter, not the body,
-    # but it can be included for validation or creation purposes.
     user_ad: Optional[str] = Field(None, description="The speaker's unique Active Directory username.")
 
     class Config:
