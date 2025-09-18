@@ -1,35 +1,33 @@
-# Dockerfile
+FROM dso-nexus.vietinbank.vn/ai_docker/diarization_transcription_service:v1
 
-# Start from your mandatory base image which contains necessary system-level
-# dependencies for diarization (e.g., CUDA, cuDNN, specific libraries).
-FROM vint1-diarization:v1
 
-# Set environment variables to prevent interactive prompts during build
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Ho_Chi_Minh
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-# Create the application directory
-WORKDIR /app
+RUN pip config set global.index-url https://dso-nexus.vietinbank.vn/repository/itd_pypi/simple
+RUN pip config set global.trusted-host dso-nexus.vietinbank.vn
 
-# Install pip dependencies
-# First, copy only the requirements file to leverage Docker's build cache.
+#RUN apt-get update && apt-get install -y --no-install-recommends pandoc
+
+WORKDIR /code
+
+ENV PYTHONPATH=/app
+
+RUN pip install --no-cache-dir --upgrade pip
+
 COPY requirements.txt .
 
-# Install all Python packages. This will add our application-specific
-# libraries on top of the ones already present in the base image.
+
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir --timeout 60 -r requirements.txt
 
-# Copy the entire application source code into the container
-# This includes the api, services, processing, worker, etc. directories.
-COPY ./app /app
+    
+COPY ./app /code/app
 
-# Expose the port the API server will run on
-EXPOSE 8000
 
-# Define the default command to run when a container starts.
-# This will start the FastAPI web server. For our workers, we will
-# override this command in the docker-compose.yml file.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+EXPOSE 8072
+
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8072"]
