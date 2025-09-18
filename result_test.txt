@@ -1,174 +1,101 @@
-You are absolutely right. I sincerely apologize.
-
-In the effort to solve one problem (preventing the API server from loading models), I created a cascade of more complex bugs and went against a core principle that was already working perfectly in your original code. You are 100% correct to call this out.
-
-Let's go back to basics and implement the simple, robust pattern you started with: Load all models once at startup in the processes that need them.
-
-We will undo the complex "lazy loading" and service factories and implement a clean, simple singleton pattern that works.
-
-The Definitive, Simplified, and Correct Architecture
-
-The Principle:
-
-The API Server process should NEVER import any code that triggers a model to load.
-
-The Celery Worker processes should load their models ONCE when the worker process starts.
-
-This requires a clean separation. The API code and the Worker code must be treated as two separate applications that just happen to share the same source files.
-
-Step 1: Fix app/processing/enrollment.py (Revert to Simple & Correct)
-
-We will go back to the simple __init__ loading. This was never the problem.
-
-code
-Python
-download
-content_copy
-expand_less
-
-# in app/processing/enrollment.py (REVISED AND SIMPLIFIED)
-
-# ... (imports) ...
-# Make sure these are present:
-import nemo.collections.asr as nemo_asr
-import torch
 import os
+import uuid
+import shutil
+import logging
+from pathlib import Path as FilePath
+from typing import List
+
+from fastapi import (
+    APIRouter, Depends, HTTPException, status, Query, Form, File, UploadFile, Path
+)
+from pydantic import ValidationError
+
 from app.core.config import settings
-
-class SpeakerEnrollment:
-    QDRANT_VECTOR_SIZE = 512
-
-    def __init__(self):
-        """
-        Initializes the service and loads all necessary models and clients.
-        This is intended to be called once per worker process.
-        """
-        self.qdrant_collection_name = settings.QDRANT_COLLECTION_NAME
-        self.target_sr = 16000
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        # --- FIX: Load the model directly and correctly in the constructor ---
-        logger.info(f"SpeakerEnrollment service is using device: {self.device}")
-        logger.info(f"Loading NeMo Speaker Embedding model from: {settings.RIMECASTER_MODEL_PATH}")
-        
-        try:
-            # This is the simple, correct way.
-            self.embedding_model = nemo_asr.models.EncDecSpeakerLabelModel.restore_from(
-                settings.RIMECASTER_MODEL_PATH, map_location=self.device
-            )
-            self.embedding_model.eval()
-            logger.info(f"Speaker Embedding model '{settings.RIMECASTER_MODEL_PATH}' loaded successfully.")
-        except Exception as e:
-            logger.critical(f"FATAL: Failed to load NeMo Speaker Embedding model: {e}", exc_info=True)
-            raise # Fail fast if the model can't be loaded
-        # --- END OF FIX ---
-
-        logger.info(f"Connecting to Qdrant at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}...")
-        self.qdrant_client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=20)
-        self._ensure_qdrant_collection()
-
-    def get_embedding_from_audio(self, audio_data: np.ndarray) -> np.ndarray:
-        """Extracts a speaker embedding directly from a NumPy audio waveform."""
-        # Now self.embedding_model is guaranteed to exist.
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=True) as tmpfile:
-            sf.write(tmpfile.name, audio_data, self.target_sr)
-            embedding = self.embedding_model.get_embedding(tmpfile.name).squeeze().cpu().numpy()
-        return embedding
-
-    # ... (the rest of the file is correct and does not need to be changed) ...
-Step 2: Fix app/worker/tasks.py (The Singleton Pattern)
-
-This is the most important change. We will instantiate our services at the global level of this file. When a Celery worker process starts, it will import this file, run this global code once, and create the singleton instances of the services. All tasks running in that process will then share these instances.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in app/worker/tasks.py (REVISED AND SIMPLIFIED)
-
-# ... (imports: json, logging, redis, Session, models, etc.) ...
-
-# --- NEW: Import the service classes directly ---
-from app.processing.transcription import Transcriber
-from app.processing.diarization import SpeakerDiarization
 from app.processing.enrollment import SpeakerEnrollment
-# ... (celery_app import) ...
-
-# ===================================================================
-#   WORKER SINGLETON SERVICES
-# ===================================================================
-# These lines are executed ONLY ONCE when a Celery worker process starts.
-# This creates a single, shared instance of each service for all tasks
-# handled by that worker process. This is the simple, robust way.
-logger.info("WORKER PROCESS STARTING: Initializing AI Services...")
-try:
-    transcriber_service = Transcriber()
-    diarization_service = SpeakerDiarization()
-    enrollment_service = SpeakerEnrollment()
-    logger.info("WORKER PROCESS READY: AI Services initialized successfully.")
-except Exception as e:
-    # If models fail to load, the worker will not start. This is a good thing.
-    logger.critical(f"WORKER FAILED TO START: Could not initialize AI services: {e}", exc_info=True)
-    # Raising the exception will cause the worker to crash and restart,
-    # which is the desired behavior if it can't load its models.
-    raise
-
-# ===================================================================
-#   Celery Task Definitions
-# ===================================================================
-# The tasks now simply use the globally available service instances.
-
-@celery_app.task(bind=True, name="run_transcription_task", queue='gpu_tasks')
-def run_transcription_task(self, job_id: int, audio_path: str, language: str):
-    logger.info(f"[Job ID: {job_id}] Starting transcription...")
-    # No need for a 'get_transcriber()' function, just use the global instance
-    sentence_transcript, word_transcript = transcriber_service.transcribe(audio_path, language)
-    # ... (the rest of the task logic is the same) ...
-
-@celery_app.task(bind=True, name="enroll_speaker_task", queue='gpu_tasks')
-def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metadata: dict):
-    logger.info(f"[Task] Starting enrollment for new speaker: '{user_ad}'")
-    # Use the global instance directly
-    enrollment_service.enroll_new_speaker(...)
-    # ... (the rest of the task logic is the same) ...
-
-# ... (Apply the same pattern to all other tasks) ...
-
-(You will need to remove the get_...() functions from this file and just use the global ..._service variables directly in each task).
-
-Step 3: Remove All Service/Model Code from the API Layer
-
-Now we enforce the strict separation. The API server must never import SpeakerEnrollment or Transcriber.
-
-Delete the file app/core/services.py. It is no longer needed and was part of the overly complex solution.
-
-Fix app/api/routes/speaker.py: This endpoint can no longer have a dependency that loads a model. The check for an existing speaker must be done differently. Since Qdrant is a network service, we can create a lightweight, dedicated client for this check.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# in app/api/routes/speaker.py (REVISED AND SIMPLIFIED)
-
-# ... (imports) ...
-# DO NOT IMPORT SpeakerEnrollment or get_enrollment_service
+from app.schemas.speaker import (
+    AllSpeakersResponse, SpeakerProfileInfo, SpeakerSearchResponse,
+    SpeakerSearchResult, GenericSuccessResponse, SpeakerMetadataUpdate,
+    QdrantPointDetails, SpeakerProfileResponse
+)
 from app.worker.tasks import enroll_speaker_task
-from app.core.config import settings
-from qdrant_client import QdrantClient, models # Import qdrant client
+from qdrant_client import QdrantClient, models 
 
-# = a lightweight qdrant client for the API server
+logger = logging.getLogger(__name__)
+router = APIRouter()
 qdrant_client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT)
 
-# --- REMOVE the get_enrollment_manager dependency ---
 
-# ... (list and search endpoints need to be rewritten to only use the qdrant_client) ...
-# For now, let's focus on fixing the failing enrollment endpoint.
+# def get_enrollment_manager() -> SpeakerEnrollment:
+#     """
+#     Ensures the heavy model is loaded only once and is shared across
+#     all API requests handled by this server process.
+#     """
+#     try:
+#         # The get_enrollment_service function from tasks.py handles the
+#         # singleton logic (initializing only if the global var is None).
+#         service = get_enrollment_service()
+#         if not service:
+#              raise RuntimeError("Enrollment service failed to initialize.")
+#         return service
+#     except Exception as e:
+#         logger.critical(f"FATAL: Could not provide SpeakerEnrollment service to endpoint: {e}", exc_info=True)
+#         raise HTTPException(
+#             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+#             detail="Speaker enrollment service is currently unavailable. Please check server logs."
+#         )
+
+# ===================================================================
+#   Speaker Collection Endpoints (List & Search)
+# ===================================================================
+
+@router.get(
+    "/",
+    response_model=AllSpeakersResponse,
+    summary="List all enrolled speaker profiles"
+)
+async def list_all_speakers(
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Retrieves a list of all speaker profiles currently stored in the system,
+    providing key metadata for each.
+    """
+    try:
+        profiles_data = em.get_all_speaker_profiles() 
+        formatted_profiles = [SpeakerProfileInfo(**p) for p in profiles_data]
+
+        return AllSpeakersResponse(data=formatted_profiles)
+    except Exception as e:
+        logger.error(f"Failed to list all speakers: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred while fetching speaker list.")
+
+@router.get(
+    "/search",
+    response_model=SpeakerSearchResponse,
+    summary="Search for speaker profiles"
+)
+async def search_speaker_profiles(
+    query: str = Query(..., min_length=1, description="The search term to find speakers by name or user_ad."),
+    limit: int = Query(10, ge=1, le=50, description="The maximum number of results to return."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Searches for speaker profiles based on a query string.
+    """
+    try:
+        search_results_data = em.search_profiles(query.strip(), limit=limit)
+        
+        formatted_results = [SpeakerSearchResult(**r) for r in search_results_data]
+
+        return SpeakerSearchResponse(data=formatted_results)
+    except Exception as e:
+        logger.error(f"Failed during speaker search for query '{query}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred during search.")
+
+
+# ===================================================================
+#   Speaker Creation Endpoint
+# ===================================================================
 
 @router.post(
     "/",
@@ -176,61 +103,184 @@ qdrant_client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_POR
     summary="Enroll a new speaker profile"
 )
 async def enroll_new_speaker(
-    metadata_json: str = Form(..., alias="metadata", ...),
-    files: List[UploadFile] = File(...),
+    metadata_json: str = Form(..., alias="metadata", description="A JSON string with speaker metadata (display_name, user_ad)."),
+    files: List[UploadFile] = File(..., description="One or more audio files (.wav, .mp3) for the speaker's voice sample."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
 ):
-    # ... (metadata validation is the same) ...
-
-    # --- FIX: Use a direct, lightweight Qdrant check ---
+    """
+    Accepts a new speaker enrollment request and queues it for background processing.
+    """
     try:
-        points, _ = qdrant_client.scroll(
-            collection_name=settings.QDRANT_COLLECTION_NAME,
-            scroll_filter=models.Filter(must=[
-                models.FieldCondition(key="user_ad", match=models.MatchValue(value=metadata.user_ad))
-            ]),
-            limit=1
-        )
-        if points:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Speaker with user_ad '{metadata.user_ad}' already exists.")
-    except Exception as e:
-        logger.error(f"Qdrant check failed for speaker '{metadata.user_ad}': {e}", exc_info=True)
-        raise HTTPException(status_code=503, detail="Could not verify speaker existence. Vector database may be unavailable.")
-    # --- END OF FIX ---
+        metadata = SpeakerMetadataUpdate.model_validate_json(metadata_json)
+    except ValidationError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid metadata JSON: {e}")
 
-    # ... (code to save files is the same) ...
+    user_ad = metadata.user_ad.lower().strip()
+    if not user_ad:
+         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="user_ad is a required field in metadata.")
+
+    # check if the speaker already exists 
+    if em.get_profile_by_ref_id(user_ad):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Speaker with user_ad '{user_ad}' already exists.")
+
+    enrollment_dir = FilePath(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
+    os.makedirs(enrollment_dir, exist_ok=True)
     
-    # Dispatch the background task (this part is correct)
-    enroll_speaker_task.delay(...)
+    saved_paths = []
+    try:
+        for file in files:
+            if not file.filename: continue
+            file_path = enrollment_dir / f"{uuid.uuid4()}_{file.filename}"
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            saved_paths.append(str(file_path))
 
-    return {"status": 202, "message": "Enrollment accepted..."}
-Final Step: Rebuild and Relaunch
+        if not saved_paths:
+            raise HTTPException(status_code=400, detail="No valid audio files were provided for enrollment.")
 
-This is a major architectural simplification and correction.
+        # --- DISPATCH THE BACKGROUND TASK ---
+        enroll_speaker_task.delay(
+            user_ad=user_ad,
+            audio_sample_paths=saved_paths,
+            metadata=metadata.model_dump()
+        )
 
-Delete the file app/core/services.py.
+        return {"status": 202, "message": f"Enrollment for speaker '{user_ad}' has been accepted and is processing in the background."}
 
-Save the updated enrollment.py, tasks.py, and speaker.py.
+    except Exception as e:
+        for path in saved_paths:
+            if os.path.exists(path):
+                os.remove(path)
+        logger.error(f"Failed to dispatch enrollment task for user_ad '{user_ad}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"An internal server error occurred while queuing the enrollment task.")
 
-Relaunch with a clean build.
 
-code
-Bash
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-docker-compose down -v
-docker-compose up -d --build
+# ===================================================================
+#   Individual Speaker Resource Endpoints (Get, Update, Delete)
+# ===================================================================
 
-Why This is Correct and Matches Your Original Logic:
+@router.get(
+    "/{user_ad}",
+    response_model=SpeakerProfileResponse,
+    summary="Get a specific speaker's profile"
+)
+async def get_speaker_profile_details(
+    user_ad: str = Path(..., description="The unique user_ad of the speaker to retrieve."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Retrieves the detailed profile for a single speaker by their reference ID (user_ad)
+    """
+    profile_record = em.get_profile_by_ref_id(user_ad)
+    if not profile_record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Speaker with user_ad '{user_ad}' not found."
+        )
 
-Simple Startup: When a worker-gpu process starts, it imports tasks.py, which immediately and explicitly loads the NeMo and Whisper models into that process's memory. It will fail loudly if it can't, which is what you want.
+    profile_details = QdrantPointDetails(
+        qdrant_point_id=profile_record.id,
+        payload=profile_record.payload,
+        has_vector=bool(profile_record.vector)
+    )
 
-Strict Separation: The api server code now has zero knowledge of the SpeakerEnrollment or Transcriber classes. It cannot accidentally load a model.
+    return SpeakerProfileResponse(
+        user_ad=user_ad,
+        profile_details=profile_details
+    )
 
-Lightweight API: The API's only job is to receive data, do a quick, lightweight check against the Qdrant network service, save files, and dispatch a task. It remains fast and responsive.
+@router.put(
+    "/{user_ad}/metadata",
+    response_model=GenericSuccessResponse,
+    summary="Update a speaker's metadata"
+)
+async def update_speaker_metadata(
+    metadata: SpeakerMetadataUpdate,
+    user_ad: str = Path(..., description="The unique user_ad of the speaker to update."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Updates the metadata (e.g., display_name) for an existing speaker profile.
+    This will also regenerate the search terms for the speaker.
+    """
+    try:
+        em.update_metadata(user_ad, metadata.model_dump(exclude_unset=True))
+        return GenericSuccessResponse(message=f"Metadata for '{user_ad}' updated successfully.")
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to update metadata for speaker '{user_ad}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred while updating metadata.")
 
-No More NoneType Errors: The enrollment.py code is back to the simple, robust constructor-loading pattern. The model is guaranteed to be loaded and ready when get_embedding_from_audio is called by a worker.
 
-This architecture is clean, correct, and respects the boundaries of your different services. The enrollment will now succeed.
+@router.post(
+    "/{user_ad}/samples",
+    response_model=GenericSuccessResponse,
+    summary="Add new voice samples to a profile"
+)
+async def add_voice_samples_to_profile(
+    user_ad: str = Path(..., description="The unique user_ad of the speaker to add samples to."),
+    files: List[UploadFile] = File(..., description="One or more new audio files to add to the speaker's voice profile."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Adds new voice samples to an existing speaker's profile.
+    """
+    if not files or all(not f.filename for f in files):
+        raise HTTPException(status_code=400, detail="No valid audio sample files provided.")
+
+    temp_dir = FilePath(settings.SHARED_AUDIO_PATH) / "temp_samples" / str(uuid.uuid4())
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    saved_paths = []
+    try:
+        for file in files:
+            if not file.filename: continue
+            file_path = temp_dir / f"{uuid.uuid4()}_{file.filename}"
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            saved_paths.append(str(file_path))
+
+        if not saved_paths:
+            raise HTTPException(status_code=400, detail="No valid audio files were processed.")
+
+        em.add_samples_to_profile(user_ad, saved_paths)
+
+        return GenericSuccessResponse(
+            message=f"Successfully added {len(saved_paths)} new sample(s) to profile '{user_ad}'."
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to add samples for speaker '{user_ad}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal server error occurred while adding samples.")
+    finally:
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir)
+
+@router.delete(
+    "/{user_ad}",
+    response_model=GenericSuccessResponse,
+    summary="Delete a speaker's profile"
+)
+async def delete_speaker_profile(
+    user_ad: str = Path(..., description="The unique user_ad of the speaker to delete."),
+    em: SpeakerEnrollment = Depends(get_enrollment_manager)
+):
+    """
+    Permanently deletes a speaker's profile, including their voice embedding
+    and all associated metadata. 
+    """
+    try:
+        success = em.remove_profile(user_ad)
+        if not success:
+            # This case handles if the profile was deleted between a check and this call.
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Speaker with user_ad '{user_ad}' not found, nothing to delete."
+            )
+        return GenericSuccessResponse(message=f"Profile for '{user_ad}' was successfully deleted.")
+    except Exception as e:
+        logger.error(f"Failed to delete speaker '{user_ad}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="An internal error occurred while deleting the profile.")
+
