@@ -1,50 +1,43 @@
-# docker-compose.yml (Updated)
-
-version: "3.8"
-
 services:
-  # -------------------------------------------------------------
-  #  The 'redis' service has been REMOVED from this file.
-  # -------------------------------------------------------------
 
-  # -------------------------------------------------------------
-  #  API Server: Handles HTTP and WebSocket connections
-  # -------------------------------------------------------------
   api:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: meeting_api_server
-    command: "uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    command: "uvicorn app.main:app --host 0.0.0.0 --port 8072 --reload"
     ports:
-      - "8000:8000"
+      - "8072:8072"
     volumes:
-      - ./app:/app
-      - ./shared_audio:/app/shared_audio
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
     env_file: .env
-    # 'depends_on: - redis' has been REMOVED.
     restart: unless-stopped
 
   # -------------------------------------------------------------
   #  GPU Worker: Executes heavy AI tasks
   # -------------------------------------------------------------
-  worker-gpu:
+  worker:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: meeting_gpu_worker
+    container_name: meeting_worker
     command: >
       celery -A app.worker.celery_app worker -l info 
       --pool=solo 
-      -Q gpu_tasks 
       --concurrency=1
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=a11
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    #   - LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu
     volumes:
-      - ./app:/app
-      - ./shared_audio:/app/shared_audio
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+      # - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
+      # - /usr/local/cuda-12.8/targets/x86_64-linux/lib:/usr/local/cuda/lib64
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+
     env_file: .env
-    # 'depends_on: - api' and '- redis' have been REMOVED for simplicity.
-    # The worker will automatically try to connect to Redis when it starts.
     restart: unless-stopped
     deploy:
       resources:
@@ -57,22 +50,18 @@ services:
   # -------------------------------------------------------------
   #  CPU Worker
   # -------------------------------------------------------------
-  worker-cpu:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: meeting_cpu_worker
-    command: >
-      celery -A app.worker.celery_app worker -l info 
-      -Q cpu_tasks 
-      --concurrency=4
-    volumes:
-      - ./app:/app
-      - ./shared_audio:/app/shared_audio
-    env_file: .env
-    # 'depends_on: - api' and '- redis' have been REMOVED.
-    restart: unless-stopped
+  # worker-cpu:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: meeting_cpu_worker
+  #   command: >
+  #     celery -A app.worker.celery_app worker -l info 
+  #     -Q cpu_tasks 
+  #     --concurrency=4
+  #   volumes:
+  #     - ./app:/code/app
+  #     - ./shared_audio:/code/shared_audio
+  #   env_file: .env
+  #   restart: unless-stopped
 
-volumes:
-  shared_audio_files:
-    driver: local
