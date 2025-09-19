@@ -70,7 +70,7 @@ def listen_on_websocket(request_id):
         status = data.get('status')
         print(f"\n[WebSocket] === STATUS UPDATE: {status} ===")
         print(json.dumps(data, indent=2, ensure_ascii=False))
-        if status in ['completed', 'failed', 'cancelled']:
+        if status in ['transcription_complete', 'completed', 'failed', 'cancelled']:
             WEBSOCKET_DONE.set()
             ws.close()
     def on_error(ws, error): print(f"[WebSocket] Error: {error}"); WEBSOCKET_DONE.set()
