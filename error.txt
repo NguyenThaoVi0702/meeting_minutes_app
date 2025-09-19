@@ -1,35 +1,161 @@
+x-common-variables: &common-environment
+  DATABASE_URL: "postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@10.43.128.107:5432/${POSTGRES_DB}"
+  REDIS_URL: "redis://:${REDIS_PASSWORD}@10.43.128.107:6379/0"
+  AZURE_OPENAI_API_KEY: "${AZURE_OPENAI_API_KEY}"
+  AZURE_OPENAI_ENDPOINT: "${AZURE_OPENAI_ENDPOINT}"
+  AZURE_OPENAI_API_VERSION: "${AZURE_OPENAI_API_VERSION}"
+  AZURE_OPENAI_DEPLOYMNENT_NAME: "gpt-4.1-GS"
+  LITE_LLM_API_KEY: "sk-ViUwPBWOrdINDxfldb69Fw"
+  LITE_LLM_BASE_URL: "https://ai-platform.vietinbank.vn/"
+  LITE_LLM_MODEL_NAME: "gpt-4.1-GS"
+  QDRANT_HOST: "10.43.128.107"
+  QDRANT_PORT: "6333"
+  QDRANT_COLLECTION_NAME: "meeting_speakers"
+  CUDNN_H_PATH: "/usr/include/cudnn.h"
+  RIMECASTER_MODEL_PATH: "/app/models/rimecaster.nemo"
+  FASTER_WHISPER_MODEL_PATH: "/app/models/merged_model_ct2_dir"
 
-ubuntu@dr-bigdata-aiml-03:/u01/user-data/vint1/meeting_minutes_app$ docker exec -it meeting_worker bash
-root@5e306a61a6c1:/code# cd /usr/local/cuda/lib64
-root@5e306a61a6c1:/usr/local/cuda/lib64# ls
-12.4                      libcudnn_cnn.so.9                              libcufft.so.11                libcusolver_lapack_static.a  libnppig_static.a        libnvfatbin.so
-cmake                     libcudnn_cnn.so.9.8.0                          libcufft.so.11.3.3.83         libcusolver_metis_static.a   libnppim.so              libnvfatbin.so.12
-libOpenCL.so              libcudnn_cnn_static.a                          libcufft_static.a             libcusolver_static.a         libnppim.so.12           libnvfatbin.so.12.8.90
-libOpenCL.so.1            libcudnn_cnn_static_v9.a                       libcufft_static_nocallback.a  libcusparse.so               libnppim.so.12.3.3.100   libnvfatbin_static.a
-libOpenCL.so.1.0          libcudnn_engines_precompiled.so                libcufftw.so                  libcusparse.so.12            libnppim_static.a        libnvjpeg.so
-libOpenCL.so.1.0.0        libcudnn_engines_precompiled.so.9              libcufftw.so.11               libcusparse.so.12.5.8.93     libnppist.so             libnvjpeg.so.12
-libaccinj64.so            libcudnn_engines_precompiled.so.9.8.0          libcufftw.so.11.3.3.83        libcusparse_static.a         libnppist.so.12          libnvjpeg.so.12.3.5.92
-libaccinj64.so.12.8       libcudnn_engines_precompiled_static.a          libcufftw_static.a            libmetis_static.a            libnppist.so.12.3.3.100  libnvjpeg_static.a
-libaccinj64.so.12.8.90    libcudnn_engines_precompiled_static_v9.a       libcufile.so                  libnppc.so                   libnppist_static.a       libnvptxcompiler_static.a
-libcublas.so              libcudnn_engines_runtime_compiled.so           libcufile.so.0                libnppc.so.12                libnppisu.so             libnvrtc-builtins.alt.so
-libcublas.so.12           libcudnn_engines_runtime_compiled.so.9         libcufile.so.1.13.1           libnppc.so.12.3.3.100        libnppisu.so.12          libnvrtc-builtins.alt.so.12.8
-libcublas.so.12.8.4.1     libcudnn_engines_runtime_compiled.so.9.8.0     libcufile_rdma.so             libnppc_static.a             libnppisu.so.12.3.3.100  libnvrtc-builtins.alt.so.12.8.93
-libcublasLt.so            libcudnn_engines_runtime_compiled_static.a     libcufile_rdma.so.1           libnppial.so                 libnppisu_static.a       libnvrtc-builtins.so
-libcublasLt.so.12         libcudnn_engines_runtime_compiled_static_v9.a  libcufile_rdma.so.1.13.1      libnppial.so.12              libnppitc.so             libnvrtc-builtins.so.12.8
-libcublasLt.so.12.8.4.1   libcudnn_graph.so                              libcufile_rdma_static.a       libnppial.so.12.3.3.100      libnppitc.so.12          libnvrtc-builtins.so.12.8.93
-libcublasLt_static.a      libcudnn_graph.so.9                            libcufile_static.a            libnppial_static.a           libnppitc.so.12.3.3.100  libnvrtc-builtins_static.a
-libcublas_static.a        libcudnn_graph.so.9.8.0                        libcufilt.a                   libnppicc.so                 libnppitc_static.a       libnvrtc-builtins_static.alt.a
-libcudadevrt.a            libcudnn_graph_static.a                        libcuinj64.so                 libnppicc.so.12              libnpps.so               libnvrtc.alt.so
-libcudart.so              libcudnn_graph_static_v9.a                     libcuinj64.so.12.8            libnppicc.so.12.3.3.100      libnpps.so.12            libnvrtc.alt.so.12
-libcudart.so.12           libcudnn_heuristic.so                          libcuinj64.so.12.8.90         libnppicc_static.a           libnpps.so.12.3.3.100    libnvrtc.alt.so.12.8.93
-libcudart.so.12.8.90      libcudnn_heuristic.so.9                        libculibos.a                  libnppidei.so                libnpps_static.a         libnvrtc.so
-libcudart_static.a        libcudnn_heuristic.so.9.8.0                    libcurand.so                  libnppidei.so.12             libnvJitLink.so          libnvrtc.so.12
-libcudnn.so               libcudnn_heuristic_static.a                    libcurand.so.10               libnppidei.so.12.3.3.100     libnvJitLink.so.12       libnvrtc.so.12.8.93
-libcudnn.so.9             libcudnn_heuristic_static_v9.a                 libcurand.so.10.3.9.90        libnppidei_static.a          libnvJitLink.so.12.8.93  libnvrtc_static.a
-libcudnn.so.9.8.0         libcudnn_ops.so                                libcurand_static.a            libnppif.so                  libnvJitLink_static.a    libnvrtc_static.alt.a
-libcudnn_adv.so           libcudnn_ops.so.9                              libcusolver.so                libnppif.so.12               libnvToolsExt.so         stubs
-libcudnn_adv.so.9         libcudnn_ops.so.9.1.0                          libcusolver.so.11             libnppif.so.12.3.3.100       libnvToolsExt.so.1
-libcudnn_adv.so.9.8.0     libcudnn_ops.so.9.8.0                          libcusolver.so.11.7.3.90      libnppif_static.a            libnvToolsExt.so.1.0.0
-libcudnn_adv_static.a     libcudnn_ops_static.a                          libcusolverMg.so              libnppig.so                  libnvblas.so
-libcudnn_adv_static_v9.a  libcudnn_ops_static_v9.a                       libcusolverMg.so.11           libnppig.so.12               libnvblas.so.12
-libcudnn_cnn.so           libcufft.so                                    libcusolverMg.so.11.7.3.90    libnppig.so.12.3.3.100       libnvblas.so.12.8.4.1
+
+services:
+  # -----------------------------------------------------------------
+  #  1. API Service (The Web Server)
+  #  - Handles incoming HTTP requests quickly.
+  #  - Offloads heavy work to the worker.
+  #  - Does NOT use the GPU.
+  # -----------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: diarization_pipeline_server
+    command: "uvicorn main:app --host 0.0.0.0 --port 8020 --reload"
+    ports:
+      - "8020:8020" 
+    volumes:
+      - ./app:/app
+      #- /usr/include:/usr/include
+      - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+      - ./shared_audio:/app/shared_audio
+      #- /usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9:/usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9
+    environment:
+      <<: *common-environment
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # -----------------------------------------------------------------
+  #  2. Worker Service (The Heavy Lifter)
+  #  - Consumes tasks from Redis (Celery).
+  #  - Has dedicated GPU access for AI/ML models.
+  #  - Shares the same codebase as the API.
+  # -----------------------------------------------------------------
+  
+  worker-transcription:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pipeline_transcription_worker
+    command: "celery -A processing.tasks.celery_app worker -l info --pool=solo -Q gpu_transcription --concurrency=1"
+    volumes:
+      - ./app:/app
+      - ./models:/app/models
+      - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+      - ./shared_audio:/app/shared_audio
+    environment:
+      <<: *common-environment
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 
+              capabilities: [gpu]
+    restart: unless-stopped
+
+
+  worker-diarization:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pipeline_diarization_worker
+    command: "celery -A processing.tasks.celery_app worker -l info --pool=solo -Q gpu_diarization --concurrency=1"
+    volumes:
+      - ./app:/app
+      - ./models:/app/models
+      - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+      - ./shared_audio:/app/shared_audio
+    environment:
+      <<: *common-environment
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1 
+              capabilities: [gpu]
+    restart: unless-stopped
+
+
+  worker-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pipeline_cpu_worker
+    command: "celery -A processing.tasks.celery_app worker -l info -Q cpu_tasks --concurrency=2"
+    volumes:
+      - ./app:/app
+      - ./models:/app/models
+      - ./shared_audio:/app/shared_audio
+    environment:
+      <<: *common-environment
+    restart: unless-stopped
+
+    
+
+#   worker:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     container_name: diarization_full_worker
+#     command: "celery -A processing.tasks.celery_app worker -l info --pool=solo --concurrency=1"
+#     #command: "sleep infinity"
+#     volumes:
+#       - ./app:/app
+#       #- /usr/include:/usr/include
+#       - ./models:/app/models
+#       - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+#       - shared_audio:/app/shared_audio
+#       #- /usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9:/usr/lib/x86-64-linux-gnu/libcudnn_cnn.so.9
+#     environment:
+#       - DATABASE_URL=postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@10.43.128.107:5432/${POSTGRES_DB}
+#       - REDIS_URL=redis://:${REDIS_PASSWORD}@10.43.128.107:6379/0
+#       - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+#       - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+#       - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}
+#       - QDRANT_HOST=10.43.128.107
+#       - QDRANT_PORT=6333
+#       - QDRANT_COLLECTION_NAME=meeting_speakers
+#       - CUDNN_H_PATH=/usr/include/cudnn.h
+#       - RIMECASTER_MODEL_PATH=/app/models/rimecaster.nemo
+#       - FASTER_WHISPER_MODEL_PATH=/app/models/merged_model_ct2_dir
+#     depends_on:
+#       - api 
+
+#     deploy:
+#       resources:
+#         reservations:
+#           devices:
+#             - driver: nvidia
+#               count: 1 
+#               capabilities: [gpu]
+#     restart: unless-stopped
+
+volumes:
+  shared_audio:
+    driver: local
+    
