@@ -1,72 +1,291 @@
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-19 09:44:58,732 INFO sqlalchemy.engine.Engine [generated in 0.00017s] {'pk_1': 46}
-meeting_api_server  | 2025-09-19 09:44:58,736 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-19 09:44:58,736 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_worker      | [2025-09-19 09:44:58,737: INFO/MainProcess] Task assemble_audio_task[98da7e87-7fb4-4b20-86cf-3dc14806dd47] received
-meeting_api_server  | INFO:     192.168.16.4:46694 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_worker      | [2025-09-19 09:44:58,737: INFO/MainProcess] [Task ID: 98da7e87-7fb4-4b20-86cf-3dc14806dd47] Assembling chunks for job 'test_Hop TO 11092025_1758249897'...
-meeting_api_server  | INFO:     ('192.168.16.4', 46696) - "WebSocket /api/v1/meeting/ws/test_Hop%20TO%2011092025_1758249897" [accepted]
-meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - app.api.routes.meeting - WebSocket connected for request_id 'test_Hop TO 11092025_1758249897'.
-meeting_api_server  | 2025-09-19 09:44:58,743 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-19 09:44:58,743 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_worker      | [2025-09-19 14:18:25,970: INFO/MainProcess] Published update for job 'test_Hop TO 11092025_1758266269': transcription_complete
+meeting_worker      | [2025-09-19 14:18:25,971: INFO/MainProcess] [Job ID: 52] Transcription completed and saved successfully.
+meeting_api_server  | 2025-09-19 14:18:25,972 - INFO - app.services.websocket_manager - Broadcasting message to 1 client(s) for request_id 'test_Hop TO 11092025_1758266269'.
+meeting_worker      | [2025-09-19 14:18:25,973: INFO/MainProcess] Task run_transcription_task[54ff3f30-9788-419b-b372-9ec9fb7dcff2] succeeded in 31.522235494107008s: None
+meeting_worker      | [2025-09-19 14:18:25,977: INFO/MainProcess] missed heartbeat from celery@fe7e2fac3ea3
+meeting_api_server  | 2025-09-19 14:18:25,996 - INFO - app.api.routes.meeting - WebSocket disconnected for request_id 'test_Hop TO 11092025_1758266269'.
+meeting_api_server  | 2025-09-19 14:18:25,996 - INFO - app.services.websocket_manager - WebSocket disconnected for request_id 'test_Hop TO 11092025_1758266269'.
+meeting_api_server  | INFO:     connection closed
+meeting_api_server  | 2025-09-19 14:18:25,998 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:18:25,998 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:18:25,999 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:18:25,999 INFO sqlalchemy.engine.Engine [cached since 139.7s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:18:25,999 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:18:25,999 - INFO - sqlalchemy.engine.Engine - [cached since 139.7s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:18:26,001 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-19 14:18:26,001 - INFO - sqlalchemy.engine.Engine - [cached since 139.7s ago] {'request_id_1': 'test_Hop TO 11092025_1758266269'}
+meeting_api_server  | 2025-09-19 14:18:26,001 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - sqlalchemy.engine.Engine - [cached since 1.211s ago] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
-meeting_api_server  | 2025-09-19 09:44:58,743 INFO sqlalchemy.engine.Engine [cached since 1.211s ago] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
-meeting_api_server  | 2025-09-19 09:44:58,747 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | 2025-09-19 14:18:26,001 INFO sqlalchemy.engine.Engine [cached since 139.7s ago] {'request_id_1': 'test_Hop TO 11092025_1758266269'}
+meeting_api_server  | 2025-09-19 14:18:26,003 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
 meeting_api_server  | FROM transcription
 meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-19 09:44:58,747 INFO sqlalchemy.engine.Engine [generated in 0.00022s] {'meeting_job_id_1': 46, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-19 09:44:58,747 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | 2025-09-19 14:18:26,003 INFO sqlalchemy.engine.Engine [cached since 138.5s ago] {'meeting_job_id_1': 52, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 14:18:26,003 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
 meeting_api_server  | FROM transcription
 meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-19 09:44:58,747 - INFO - sqlalchemy.engine.Engine - [generated in 0.00022s] {'meeting_job_id_1': 46, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-19 09:44:58,751 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
-meeting_api_server  | FROM diarizedtranscript
-meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-19 09:44:58,751 INFO sqlalchemy.engine.Engine [generated in 0.00021s] {'param_1': 46}
-meeting_api_server  | 2025-09-19 09:44:58,751 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
-meeting_api_server  | FROM diarizedtranscript
-meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-19 09:44:58,751 - INFO - sqlalchemy.engine.Engine - [generated in 0.00021s] {'param_1': 46}
-meeting_api_server  | INFO:     connection open
-meeting_api_server  | 2025-09-19 09:44:58,753 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | 2025-09-19 09:44:58,753 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_worker      | [2025-09-19 09:45:02,388: INFO/MainProcess] select pg_catalog.version()
-meeting_worker      | [2025-09-19 09:45:02,388: INFO/MainProcess] [raw sql] {}
-meeting_worker      | 2025-09-19 09:45:02,388 INFO sqlalchemy.engine.Engine select pg_catalog.version()
-meeting_worker      | 2025-09-19 09:45:02,388 INFO sqlalchemy.engine.Engine [raw sql] {}
-meeting_worker      | [2025-09-19 09:45:02,390: INFO/MainProcess] select current_schema()
-meeting_worker      | [2025-09-19 09:45:02,390: INFO/MainProcess] [raw sql] {}
-meeting_worker      | 2025-09-19 09:45:02,390 INFO sqlalchemy.engine.Engine select current_schema()
-meeting_worker      | 2025-09-19 09:45:02,390 INFO sqlalchemy.engine.Engine [raw sql] {}
-meeting_worker      | 2025-09-19 09:45:02,391 INFO sqlalchemy.engine.Engine show standard_conforming_strings
-meeting_worker      | 2025-09-19 09:45:02,391 INFO sqlalchemy.engine.Engine [raw sql] {}
-meeting_worker      | [2025-09-19 09:45:02,391: INFO/MainProcess] show standard_conforming_strings
-meeting_worker      | [2025-09-19 09:45:02,391: INFO/MainProcess] [raw sql] {}
-meeting_worker      | [2025-09-19 09:45:02,392: INFO/MainProcess] BEGIN (implicit)
-meeting_worker      | 2025-09-19 09:45:02,392 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_worker      | 2025-09-19 09:45:02,418 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_worker      | FROM meetingjob
-meeting_worker      | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_worker      | 2025-09-19 09:45:02,418 INFO sqlalchemy.engine.Engine [generated in 0.00032s] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
-meeting_worker      | [2025-09-19 09:45:02,418: INFO/MainProcess] SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_worker      | FROM meetingjob
-meeting_worker      | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_worker      | [2025-09-19 09:45:02,418: INFO/MainProcess] [generated in 0.00032s] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
-meeting_worker      | 2025-09-19 09:45:02,467 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_worker      | 2025-09-19 09:45:02,467 INFO sqlalchemy.engine.Engine [generated in 0.00031s] {'status': 'transcribing', 'meetingjob_id': 46}
-meeting_worker      | [2025-09-19 09:45:02,467: INFO/MainProcess] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_worker      | [2025-09-19 09:45:02,467: INFO/MainProcess] [generated in 0.00031s] {'status': 'transcribing', 'meetingjob_id': 46}
-meeting_worker      | 2025-09-19 09:45:02,469 INFO sqlalchemy.engine.Engine COMMIT
-meeting_worker      | [2025-09-19 09:45:02,469: INFO/MainProcess] COMMIT
-meeting_worker      | [2025-09-19 09:45:02,473: INFO/MainProcess] Published update for job 'test_Hop TO 11092025_1758249897': transcribing
-meeting_api_server  | 2025-09-19 09:45:02,473 - INFO - app.services.websocket_manager - Broadcasting message to 1 client(s) for request_id 'test_Hop TO 11092025_1758249897'.
-meeting_worker      | [2025-09-19 09:45:02,505: INFO/MainProcess] Assembly complete. Dispatched transcription task for job 'test_Hop TO 11092025_1758249897'.
-meeting_worker      | [2025-09-19 09:45:02,516: INFO/MainProcess] Task assemble_audio_task[98da7e87-7fb4-4b20-86cf-3dc14806dd47] succeeded in 3.778674306347966s: None
+meeting_api_server  | 2025-09-19 14:18:26,003 - INFO - sqlalchemy.engine.Engine - [cached since 138.5s ago] {'meeting_job_id_1': 52, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 14:18:26,015 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-19 14:18:26,015 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:33372 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758266269/status?username=test_user_01 HTTP/1.1" 500 Internal Server Error
+meeting_api_server  | ERROR:    Exception in ASGI application
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+meeting_api_server  |     return await self.app(scope, receive, send)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
+meeting_api_server  |     await super().__call__(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
+meeting_api_server  |     await self.app(scope, receive, _send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
+meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
+meeting_api_server  |     await route.handle(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
+meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
+meeting_api_server  |     response = await f(request)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
+meeting_api_server  |     raw_response = await run_endpoint_function(
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
+meeting_api_server  |     return await dependant.call(**values)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 199, in get_meeting_status
+meeting_api_server  |     formatted_data = _format_job_status(job, db)
+meeting_api_server  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 55, in _format_job_status
+meeting_api_server  |     plain_transcript_data = [PlainSegment(**seg) for seg in transcription_entry.transcript_data]
+meeting_api_server  |                              ^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/pydantic/main.py", line 253, in __init__
+meeting_api_server  |     validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+meeting_api_server  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  | pydantic_core._pydantic_core.ValidationError: 3 validation errors for PlainSegment
+meeting_api_server  | text
+meeting_api_server  |   Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
+meeting_api_server  |     For further information visit https://errors.pydantic.dev/2.11/v/missing
+meeting_api_server  | start_time
+meeting_api_server  |   Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
+meeting_api_server  |     For further information visit https://errors.pydantic.dev/2.11/v/missing
+meeting_api_server  | end_time
+meeting_api_server  |   Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
+meeting_api_server  |     For further information visit https://errors.pydantic.dev/2.11/v/missing
+meeting_api_server  | 2025-09-19 14:18:26,027 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:18:26,027 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:18:26,028 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:18:26,028 - INFO - sqlalchemy.engine.Engine - [cached since 139.8s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:18:26,028 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:18:26,028 INFO sqlalchemy.engine.Engine [cached since 139.8s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:18:26,030 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 
+
+meeting_worker      | [2025-09-19 14:18:34,471: INFO/MainProcess] Published update for job 'test_Hop TO 11092025_1758266269': completed
+meeting_worker      | [2025-09-19 14:18:34,471: INFO/MainProcess] [Job ID: 52] Diarization and mapping completed successfully.
+meeting_worker      | [2025-09-19 14:18:34,474: INFO/MainProcess] Task run_diarization_task[60903288-1338-49c1-8914-31ad68c0e935] succeeded in 8.43097292818129s: None
+meeting_worker      | [2025-09-19 14:18:34,478: INFO/MainProcess] missed heartbeat from celery@fe7e2fac3ea3
+meeting_api_server  | 2025-09-19 14:28:26,050 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:28:26,050 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:28:26,051 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:28:26,051 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:28:26,051 - INFO - sqlalchemy.engine.Engine - [cached since 739.8s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:28:26,051 INFO sqlalchemy.engine.Engine [cached since 739.8s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:28:26,054 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-19 14:28:26,055 INFO sqlalchemy.engine.Engine [cached since 739.8s ago] {'request_id_1': 'test_Hop TO 11092025_1758266269'}
+meeting_api_server  | 2025-09-19 14:28:26,054 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-19 14:28:26,055 - INFO - sqlalchemy.engine.Engine - [cached since 739.8s ago] {'request_id_1': 'test_Hop TO 11092025_1758266269'}
+meeting_api_server  | 2025-09-19 14:28:26,057 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-19 14:28:26,057 - INFO - sqlalchemy.engine.Engine - [cached since 738.6s ago] {'meeting_job_id_1': 52, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 14:28:26,057 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-19 14:28:26,057 INFO sqlalchemy.engine.Engine [cached since 738.6s ago] {'meeting_job_id_1': 52, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 14:28:26,068 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-19 14:28:26,068 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:55786 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1758266269/status?username=test_user_01 HTTP/1.1" 500 Internal Server Error
+meeting_api_server  | ERROR:    Exception in ASGI application
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+meeting_api_server  |     return await self.app(scope, receive, send)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
+meeting_api_server  |     await super().__call__(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
+meeting_api_server  |     await self.app(scope, receive, _send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
+meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
+meeting_api_server  |     await route.handle(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
+meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
+meeting_api_server  |     response = await f(request)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
+meeting_api_server  |     raw_response = await run_endpoint_function(
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
+meeting_api_server  |     return await dependant.call(**values)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 199, in get_meeting_status
+meeting_api_server  |     formatted_data = _format_job_status(job, db)
+meeting_api_server  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 55, in _format_job_status
+meeting_api_server  |     plain_transcript_data = [PlainSegment(**seg) for seg in transcription_entry.transcript_data]
+meeting_api_server  |                              ^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/pydantic/main.py", line 253, in __init__
+meeting_api_server  |     validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)
+meeting_api_server  |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  | pydantic_core._pydantic_core.ValidationError: 3 validation errors for PlainSegment
+meeting_api_server  | text
+meeting_api_server  |   Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
+meeting_api_server  |     For further information visit https://errors.pydantic.dev/2.11/v/missing
+meeting_api_server  | start_time
+meeting_api_server  |   Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
+meeting_api_server  |     For further information visit https://errors.pydantic.dev/2.11/v/missing
+meeting_api_server  | end_time
+meeting_api_server  |   Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
+meeting_api_server  |     For further information visit https://errors.pydantic.dev/2.11/v/missing
+meeting_api_server  | 2025-09-19 14:28:26,079 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:28:26,079 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 14:28:26,080 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:28:26,080 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-09-19 14:28:26,080 INFO sqlalchemy.engine.Engine [cached since 739.8s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:28:26,080 - INFO - sqlalchemy.engine.Engine - [cached since 739.8s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-09-19 14:28:26,083 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-19 14:28:26,083 - INFO - sqlalchemy.engine.Engine - [cached since 739.8s ago] {'request_id_1': 'test_Hop TO 11092025_1758266269'}
+meeting_api_server  | 2025-09-19 14:28:26,083 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-19 14:28:26,083 INFO sqlalchemy.engine.Engine [cached since 739.8s ago] {'request_id_1': 'test_Hop TO 11092025_1758266269'}
+meeting_api_server  | 2025-09-19 14:28:26,085 - INFO - app.api.routes.meeting - Received request to generate 'topic' summary for job 'test_Hop TO 11092025_1758266269'.
+meeting_api_server  | 2025-09-19 14:28:26,086 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-19 14:28:26,086 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-19 14:28:26,086 INFO sqlalchemy.engine.Engine [cached since 738.6s ago] {'meeting_job_id_1': 52, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 14:28:26,086 - INFO - sqlalchemy.engine.Engine - [cached since 738.6s ago] {'meeting_job_id_1': 52, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 14:28:26,098 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-19 14:28:26,098 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:55798 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1758266269/summary?username=test_user_01 HTTP/1.1" 500 Internal Server Error
+meeting_api_server  | ERROR:    Exception in ASGI application
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+meeting_api_server  |     return await self.app(scope, receive, send)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
+meeting_api_server  |     await super().__call__(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
+meeting_api_server  |     await self.app(scope, receive, _send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
+meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
+meeting_api_server  |     await route.handle(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
+meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
+meeting_api_server  |     response = await f(request)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
+meeting_api_server  |     raw_response = await run_endpoint_function(
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
+meeting_api_server  |     return await dependant.call(**values)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 458, in generate_summary
+meeting_api_server  |     source_text = "\n".join([seg['text'] for seg in transcript_source])
+meeting_api_server  |                              ~~~^^^^^^^^
+meeting_api_server  | KeyError: 'text'
+meeting_api_server  | 2025-09-19 14:28:26,108 INFO sqlalchemy.engine.Engine BEGIN (implicit)
