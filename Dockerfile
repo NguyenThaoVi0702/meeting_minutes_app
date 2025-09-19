@@ -6,8 +6,8 @@ ENV TZ=Asia/Ho_Chi_Minh
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
-RUN pip config set global.index-url https://dso-nexus.vietinbank.vn/repository/itd_pypi/simple
-RUN pip config set global.trusted-host dso-nexus.vietinbank.vn
+RUN pip config set global.index-url ***
+RUN pip config set global.trusted-host ***
 
 #RUN apt-get update && apt-get install -y --no-install-recommends pandoc
 
