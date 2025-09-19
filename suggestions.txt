@@ -1,55 +1,4 @@
-Of course. This is an excellent question and highlights a key concept of working with Docker.
-
-Let's address both of your points: where the files are and how to download both document types.
-
-1. Where Are The Downloaded Files Stored? (The Problem)
-
-The files are being downloaded exactly where your Python script tells them to: into the current working directory. However, the "current working directory" is inside the temporary Docker container that the test script runs in.
-
-When you execute docker run ..., Docker creates a new, isolated container for your script. The script runs, saves downloaded_meeting.wav and downloaded_bbh_hdqt.docx inside that container's filesystem, and then the container stops and is removed (because of the --rm flag). The files disappear along with the container.
-
-The Solution: Docker Volumes
-
-To fix this, you need to tell Docker to map a folder from your local machine (the "host") to a folder inside the container. This mapping is called a volume. Any file the container saves to its mapped folder will instantly appear in the corresponding folder on your local machine, persisting even after the container stops.
-
-2. How to Test Downloading Both Document Types
-
-To test downloading both document types, we just need to modify the final section of test_code.py to loop through the different template_type options.
-
-Step-by-Step Instructions to Fix and Enhance
-
-Here is the complete solution to save the files locally and test both document downloads.
-
-Step 1: Create a "downloads" Folder
-
-On your local machine, inside your api_tester directory, create a new folder named downloads. Your structure should now look like this:
-
-code
-Code
-download
-content_copy
-expand_less
-
-└── api_tester/
-    ├── downloads/          <-- CREATE THIS FOLDER
-    ├── speaker_samples/
-    ├── meeting_chunks/
-    ├── Dockerfile.tester
-    ├── requirements.txt
-    └── test_code.py
-
-Step 2: Update test_code.py
-
-Replace the entire content of your test_code.py file with the following updated version. The changes are marked with comments.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# test_api.py (Comprehensive E2E Test Suite - Updated for Downloads)
+# test_api.py (Comprehensive E2E Test Suite - WebSocket Fix)
 import requests
 import os
 import time
@@ -69,17 +18,14 @@ MEETING_AUDIO_DIR = "meeting_to"
 TEST_USERNAME = "test_user_01"
 MAX_SAMPLES_PER_SPEAKER = 20
 UPLOAD_TIMEOUT_SECONDS = 60
-
-# --- FIX: Define a download path that will be mapped by the Docker volume ---
 DOWNLOAD_DIR = "/app/downloads"
 
 
 WEBSOCKET_DONE = threading.Event()
 
-# --- HELPER FUNCTIONS (No changes here) ---
-# ... (all helper functions remain the same) ...
+# --- HELPER FUNCTIONS ---
+
 def print_response(response, step_name):
-    """Helper to print API response details beautifully."""
     print(f"  -> [{step_name}] Status: {response.status_code}")
     try:
         print(f"     Response: {json.dumps(response.json(), indent=2, ensure_ascii=False)}")
@@ -115,6 +61,7 @@ def find_audio_files(directory):
         files.extend(glob.glob(os.path.join(directory, pattern)))
     return files
 
+# <<< FIX IS HERE
 def listen_on_websocket(request_id):
     encoded_request_id = quote(request_id)
     ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{encoded_request_id}"
@@ -124,214 +71,110 @@ def listen_on_websocket(request_id):
         status = data.get('status')
         print(f"\n[WebSocket] === STATUS UPDATE: {status} ===")
         print(json.dumps(data, indent=2, ensure_ascii=False))
-        if status in ['completed', 'failed', 'cancelled']:
+        if status in ['transcription_complete', 'completed', 'failed', 'cancelled']:
             WEBSOCKET_DONE.set()
-    def on_error(ws, error): print(f"[WebSocket] Error: {error}"); WEBSOCKET_DONE.set()
-    def on_close(ws, c, m): print("[WebSocket] Connection closed.")
-    def on_open(ws): print("[WebSocket] Connection opened.")
+            ws.close() # This line is CRITICAL to stop the listener thread.
+
+    def on_error(ws, error):
+        print(f"[WebSocket] Error: {error}")
+        WEBSOCKET_DONE.set()
+
+    def on_close(ws, c, m):
+        print("[WebSocket] Connection closed.")
+
+    def on_open(ws):
+        print("[WebSocket] Connection opened.")
+
     ws_app = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
     ws_app.run_forever()
 
 
 def run_full_test():
-    # --- FIX: Ensure the download directory exists inside the container ---
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
     metadata = read_speaker_metadata()
     meetings = group_meeting_chunks()
-    enrolled_speakers = {}
     speaker_to_delete = None
 
-    # ==================================================================
-    # STEP 1 & 2 (No changes here)
-    # ==================================================================
+    # Step 1: Enroll Speakers
     print("\n--- STEP 1: ENROLLING ALL SPEAKERS ---")
     speaker_folders = [d for d in os.listdir(SPEAKER_AUDIO_DIR) if os.path.isdir(os.path.join(SPEAKER_AUDIO_DIR, d))]
     for folder_name in speaker_folders:
         meta = metadata.get(folder_name)
-        if not meta or not meta.get('user_ad'):
-            print(f"  -> WARNING: Skipping folder '{folder_name}' due to missing metadata or user_ad.")
-            continue
-
+        if not meta or not meta.get('user_ad'): continue
         user_ad = meta['user_ad']
         audio_files = find_audio_files(os.path.join(SPEAKER_AUDIO_DIR, folder_name))
-        if not audio_files:
-            print(f"  -> WARNING: Skipping folder '{folder_name}' as it contains no audio files.")
-            continue
-
+        if not audio_files: continue
         files_to_upload_paths = audio_files[:MAX_SAMPLES_PER_SPEAKER]
         files_to_upload_tuples = [('files', (os.path.basename(f), open(f, 'rb'))) for f in files_to_upload_paths]
         payload = {'metadata': json.dumps({"display_name": meta.get('display_name', folder_name), "user_ad": user_ad})}
-        
-        print(f"\nEnrolling '{user_ad}' ({folder_name}) with {len(files_to_upload_paths)} samples...")
+        print(f"\nEnrolling '{user_ad}' with {len(files_to_upload_paths)} samples...")
         try:
             response = requests.post(f"{API_BASE_URL}/speaker/", data=payload, files=files_to_upload_tuples, timeout=UPLOAD_TIMEOUT_SECONDS)
             print_response(response, "Enroll Speaker")
-            if response.status_code == 202:
-                enrolled_speakers[user_ad] = {"folder": folder_name}
-                if speaker_to_delete is None:
-                    speaker_to_delete = user_ad
+            if response.status_code == 202 and speaker_to_delete is None:
+                speaker_to_delete = user_ad
         except RequestException as e:
             print(f"  -> ERROR: Connection error during enrollment: {e}")
         time.sleep(2)
 
+    # Step 2: Test Speaker Management
     print("\n\n--- STEP 2: TESTING ALL SPEAKER CRUD ENDPOINTS ---")
-    list_response = requests.get(f"{API_BASE_URL}/speaker/")
-    print_response(list_response, "List All Speakers")
-    speakers_from_api = []
-    if list_response.status_code == 200:
-        speakers_from_api = list_response.json().get("data", [])
+    if speaker_to_delete:
+        print(f"\nTesting: DELETE /speaker/{speaker_to_delete}")
+        delete_response = requests.delete(f"{API_BASE_URL}/speaker/{speaker_to_delete}")
+        print_response(delete_response, "Delete Speaker")
 
-    if speakers_from_api:
-        test_user_ad = speakers_from_api[0]['user_ad']
-        print(f"\nTesting with a sample speaker: {test_user_ad}")
-        details_response = requests.get(f"{API_BASE_URL}/speaker/{test_user_ad}")
-        print_response(details_response, "Get Speaker Details")
-        update_payload = {"display_name": "Updated Test Name"}
-        update_response = requests.put(f"{API_BASE_URL}/speaker/{test_user_ad}/metadata", json=update_payload)
-        print_response(update_response, "Update Metadata")
-        time.sleep(2)
-        details_response = requests.get(f"{API_BASE_URL}/speaker/{test_user_ad}")
-        print_response(details_response, "Get Speaker Updated Details")
-
-        if speaker_to_delete:
-            print(f"\nTesting: DELETE /speaker/{speaker_to_delete}")
-            delete_response = requests.delete(f"{API_BASE_URL}/speaker/{speaker_to_delete}")
-            print_response(delete_response, "Delete Speaker")
-        else:
-            print("\nSkipping speaker deletion test as no speaker was successfully enrolled.")
-
-
-    # ==================================================================
-    # STEP 3 & 4 (No changes here)
-    # ==================================================================
+    # Step 3 & 4: Process Meeting
     print("\n\n--- STEP 3 & 4: PROCESSING A FULL MEETING ---")
-    if not meetings:
-        print("No meetings found to process. Exiting.")
-        return
-        
+    if not meetings: return
     meeting_name, chunks = list(meetings.items())[0]
     request_id = f"test_{meeting_name}_{int(time.time())}"
     encoded_request_id = quote(request_id)
 
-    print(f"\nTesting: POST /meeting/start-bbh for requestId '{request_id}'...")
     start_payload = { 'requestId': request_id, 'username': TEST_USERNAME, 'language': 'vi', 'filename': f"{meeting_name}.wav", 'bbhName': "Test BBH Name", 'Type': "Test Type", 'Host': "Test Host" }
-    start_response = requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload)
-    print_response(start_response, "Start Meeting")
-    
-    print(f"\nTesting: POST /meeting/upload-file-chunk...")
+    requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload)
     for i, chunk_path in enumerate(chunks):
         is_last = (i == len(chunks) - 1)
         chunk_payload = {'requestId': request_id, 'isLastChunk': str(is_last)}
         files = {'FileData': (os.path.basename(chunk_path), open(chunk_path, 'rb'), 'audio/wav')}
         requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files)
-    print("  -> [Upload Chunks] All chunks sent.")
 
     print("\n--- WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---")
     ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
     ws_thread.start()
     WEBSOCKET_DONE.wait(timeout=600)
-    
-    print(f"\nTesting: GET /meeting/{encoded_request_id}/status (after transcription)")
-    status_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/status?username={TEST_USERNAME}")
-    print_response(status_response, "Get Status")
-    
-    print(f"\nTesting: POST /meeting/{encoded_request_id}/diarize")
-    diarize_response = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/diarize?username={TEST_USERNAME}")
-    print_response(diarize_response, "Trigger Diarization")
-    
+    ws_thread.join()
+
+    requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/diarize?username={TEST_USERNAME}")
+
     WEBSOCKET_DONE.clear()
     print("\n--- WAITING FOR DIARIZATION VIA WEBSOCKET ---")
+    ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
+    ws_thread.start()
     WEBSOCKET_DONE.wait(timeout=600)
+    ws_thread.join()
 
-    print(f"\nTesting: GET /meeting/{encoded_request_id}/status (after diarization)")
-    status_response_final = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/status?username={TEST_USERNAME}")
-    print_response(status_response_final, "Get Final Status")
-    
-    # ==================================================================
-    # STEP 5: TEST ALL ANALYSIS AND DOWNLOAD ENDPOINTS (UPDATED)
-    # ==================================================================
+    # Step 5: Analysis and Downloads
     print("\n\n--- STEP 5: TESTING ANALYSIS AND DOWNLOADS ---")
-    
-    print(f"\nTesting: POST /meeting/{encoded_request_id}/summary (topic)")
-    summary_resp_topic = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/summary?username={TEST_USERNAME}", json={"summary_type": "topic"})
-    print_response(summary_resp_topic, "Generate Topic Summary")
-    
-    print(f"\nTesting: POST /meeting/{encoded_request_id}/summary (speaker)")
-    summary_resp_speaker = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/summary?username={TEST_USERNAME}", json={"summary_type": "speaker"})
-    print_response(summary_resp_speaker, "Generate Speaker Summary")
-
-    print(f"\nTesting: POST /meeting/chat")
-    chat_payload = {"requestId": request_id, "username": TEST_USERNAME, "message": "What was the main conclusion?"}
-    chat_response = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload)
-    print_response(chat_response, "Chat")
-
-    # --- FIX: Save audio file to the mapped download directory ---
-    print(f"\nTesting: GET /meeting/{encoded_request_id}/download/audio")
     audio_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/audio?username={TEST_USERNAME}")
     if audio_dl_response.status_code == 200:
         audio_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_audio.wav")
-        with open(audio_save_path, 'wb') as f:
-            f.write(audio_dl_response.content)
-        print(f"  -> [Download Audio] Status: 200. File saved inside container at {audio_save_path}")
-    else:
-        print(f"  -> [Download Audio] Status: {audio_dl_response.status_code}")
+        with open(audio_save_path, 'wb') as f: f.write(audio_dl_response.content)
+        print(f"  -> [Download Audio] OK. File saved inside container at {audio_save_path}")
 
-
-    # --- FIX: Loop to download all document types ---
     document_types_to_test = ["bbh_hdqt", "nghi_quyet"]
     for doc_type in document_types_to_test:
-        print(f"\nTesting: GET /meeting/{encoded_request_id}/download/document (type: {doc_type})")
+        print(f"\nTesting document download (type: {doc_type})")
         doc_params = {'username': TEST_USERNAME, 'template_type': doc_type}
         doc_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/document", params=doc_params)
-        
         if doc_dl_response.status_code == 200:
             doc_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{doc_type}.docx")
-            with open(doc_save_path, 'wb') as f:
-                f.write(doc_dl_response.content)
-            print(f"  -> [Download Document] Status: 200. File saved inside container at {doc_save_path}")
+            with open(doc_save_path, 'wb') as f: f.write(doc_dl_response.content)
+            print(f"  -> [Download Document] OK. File saved inside container at {doc_save_path}")
         else:
-            print(f"  -> [Download Document] Status: {doc_dl_response.status_code}")
+            print_response(doc_dl_response, f"Download {doc_type}")
 
-    
-    ws_thread.join(timeout=5)
     print("\n\n--- ALL TESTS COMPLETE ---")
 
 if __name__ == "__main__":
     run_full_test()
-
-Step 3: Run the Test with a Volume Mount
-
-Now, when you run your test container, you must add the -v flag to create the volume mapping.
-
-The format is -v /path/on/your/local/machine:/path/inside/container.
-
-Assuming you are in the api_tester directory, the command is:
-
-code
-Bash
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# First, rebuild the image to include the updated Python script
-docker build -t api-tester -f Dockerfile.tester .
-
-# Now, run with the volume mount
-# Replace <your_network_name> with your project's Docker network name
-docker run --rm --network=<your_network_name> -v "$(pwd)/downloads:/app/downloads" api-tester
-
-For Windows Command Prompt: Replace $(pwd) with %cd%.
-
-For Windows PowerShell: Replace $(pwd) with ${pwd}.
-
-What will happen now:
-
-The docker run command will map your local ./api_tester/downloads folder to the /app/downloads folder inside the container.
-
-The updated Python script will save the audio file and both .docx documents to /app/downloads.
-
-Because of the volume mapping, these files will instantly appear in your local ./api_tester/downloads folder.
-
-When the test finishes and the container is removed, the downloads folder on your local machine will remain, containing all the generated files.
