@@ -1,30 +1,72 @@
-from celery import Celery
-from app.core.config import settings
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-09-19 09:44:58,732 INFO sqlalchemy.engine.Engine [generated in 0.00017s] {'pk_1': 46}
+meeting_api_server  | 2025-09-19 09:44:58,736 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-19 09:44:58,736 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_worker      | [2025-09-19 09:44:58,737: INFO/MainProcess] Task assemble_audio_task[98da7e87-7fb4-4b20-86cf-3dc14806dd47] received
+meeting_api_server  | INFO:     192.168.16.4:46694 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_worker      | [2025-09-19 09:44:58,737: INFO/MainProcess] [Task ID: 98da7e87-7fb4-4b20-86cf-3dc14806dd47] Assembling chunks for job 'test_Hop TO 11092025_1758249897'...
+meeting_api_server  | INFO:     ('192.168.16.4', 46696) - "WebSocket /api/v1/meeting/ws/test_Hop%20TO%2011092025_1758249897" [accepted]
+meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - app.api.routes.meeting - WebSocket connected for request_id 'test_Hop TO 11092025_1758249897'.
+meeting_api_server  | 2025-09-19 09:44:58,743 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 09:44:58,743 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-19 09:44:58,743 - INFO - sqlalchemy.engine.Engine - [cached since 1.211s ago] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
+meeting_api_server  | 2025-09-19 09:44:58,743 INFO sqlalchemy.engine.Engine [cached since 1.211s ago] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
+meeting_api_server  | 2025-09-19 09:44:58,747 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-19 09:44:58,747 INFO sqlalchemy.engine.Engine [generated in 0.00022s] {'meeting_job_id_1': 46, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 09:44:58,747 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-09-19 09:44:58,747 - INFO - sqlalchemy.engine.Engine - [generated in 0.00022s] {'meeting_job_id_1': 46, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-19 09:44:58,751 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-19 09:44:58,751 INFO sqlalchemy.engine.Engine [generated in 0.00021s] {'param_1': 46}
+meeting_api_server  | 2025-09-19 09:44:58,751 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | FROM diarizedtranscript
+meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
+meeting_api_server  | 2025-09-19 09:44:58,751 - INFO - sqlalchemy.engine.Engine - [generated in 0.00021s] {'param_1': 46}
+meeting_api_server  | INFO:     connection open
+meeting_api_server  | 2025-09-19 09:44:58,753 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-19 09:44:58,753 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_worker      | [2025-09-19 09:45:02,388: INFO/MainProcess] select pg_catalog.version()
+meeting_worker      | [2025-09-19 09:45:02,388: INFO/MainProcess] [raw sql] {}
+meeting_worker      | 2025-09-19 09:45:02,388 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+meeting_worker      | 2025-09-19 09:45:02,388 INFO sqlalchemy.engine.Engine [raw sql] {}
+meeting_worker      | [2025-09-19 09:45:02,390: INFO/MainProcess] select current_schema()
+meeting_worker      | [2025-09-19 09:45:02,390: INFO/MainProcess] [raw sql] {}
+meeting_worker      | 2025-09-19 09:45:02,390 INFO sqlalchemy.engine.Engine select current_schema()
+meeting_worker      | 2025-09-19 09:45:02,390 INFO sqlalchemy.engine.Engine [raw sql] {}
+meeting_worker      | 2025-09-19 09:45:02,391 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+meeting_worker      | 2025-09-19 09:45:02,391 INFO sqlalchemy.engine.Engine [raw sql] {}
+meeting_worker      | [2025-09-19 09:45:02,391: INFO/MainProcess] show standard_conforming_strings
+meeting_worker      | [2025-09-19 09:45:02,391: INFO/MainProcess] [raw sql] {}
+meeting_worker      | [2025-09-19 09:45:02,392: INFO/MainProcess] BEGIN (implicit)
+meeting_worker      | 2025-09-19 09:45:02,392 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_worker      | 2025-09-19 09:45:02,418 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_worker      | FROM meetingjob
+meeting_worker      | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_worker      | 2025-09-19 09:45:02,418 INFO sqlalchemy.engine.Engine [generated in 0.00032s] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
+meeting_worker      | [2025-09-19 09:45:02,418: INFO/MainProcess] SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_worker      | FROM meetingjob
+meeting_worker      | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_worker      | [2025-09-19 09:45:02,418: INFO/MainProcess] [generated in 0.00032s] {'request_id_1': 'test_Hop TO 11092025_1758249897'}
+meeting_worker      | 2025-09-19 09:45:02,467 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_worker      | 2025-09-19 09:45:02,467 INFO sqlalchemy.engine.Engine [generated in 0.00031s] {'status': 'transcribing', 'meetingjob_id': 46}
+meeting_worker      | [2025-09-19 09:45:02,467: INFO/MainProcess] UPDATE meetingjob SET status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_worker      | [2025-09-19 09:45:02,467: INFO/MainProcess] [generated in 0.00031s] {'status': 'transcribing', 'meetingjob_id': 46}
+meeting_worker      | 2025-09-19 09:45:02,469 INFO sqlalchemy.engine.Engine COMMIT
+meeting_worker      | [2025-09-19 09:45:02,469: INFO/MainProcess] COMMIT
+meeting_worker      | [2025-09-19 09:45:02,473: INFO/MainProcess] Published update for job 'test_Hop TO 11092025_1758249897': transcribing
+meeting_api_server  | 2025-09-19 09:45:02,473 - INFO - app.services.websocket_manager - Broadcasting message to 1 client(s) for request_id 'test_Hop TO 11092025_1758249897'.
+meeting_worker      | [2025-09-19 09:45:02,505: INFO/MainProcess] Assembly complete. Dispatched transcription task for job 'test_Hop TO 11092025_1758249897'.
+meeting_worker      | [2025-09-19 09:45:02,516: INFO/MainProcess] Task assemble_audio_task[98da7e87-7fb4-4b20-86cf-3dc14806dd47] succeeded in 3.778674306347966s: None
 
-celery_app = Celery(
-    "worker",
-    broker_url = settings.REDIS_URL,
-    backend = settings.REDIS_URL,
-    include=[
-        "app.worker.tasks"
-    ]  
-)
-
-celery_app.conf.broker_transport_options = {
-    'visibility_timeout': 3600,
-    'broker_heartbeat': 0
-}
-
-celery_app.conf.update(
-
-    task_acks_late=True,
-
-    worker_prefetch_multiplier=1,
-    result_serializer='json',
-    task_serializer='json',
-    accept_content=['json'],
-
-    timezone='UTC',
-    enable_utc=True
-
-)
