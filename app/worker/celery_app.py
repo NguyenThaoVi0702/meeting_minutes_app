@@ -5,7 +5,7 @@ celery_app = Celery(
     "worker",
     broker_url = settings.REDIS_URL,
     backend = settings.REDIS_URL,
-    include=[
+    include = [
         "app.worker.tasks"
     ]  
 )
@@ -14,6 +14,8 @@ celery_app.conf.broker_transport_options = {
     'visibility_timeout': 3600,
     'broker_heartbeat': 0
 }
+
+celery_app.conf.task_default_queue = 'gpu_tasks'
 
 celery_app.conf.update(
 
