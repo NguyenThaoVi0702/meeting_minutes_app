@@ -95,7 +95,7 @@ def run_transcription_task(self, job_id: int, audio_path: str, language: str):
     Celery task to perform transcription on an audio file.
     This task is routed to the 'gpu_tasks' queue.
     """
-    logger.info(f"Task received: run TRANSCRIPTION TASK - [Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
+    logger.info(f"Tak received: run TRANSCRIPTION TASK - [Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
     
     request_id_for_publish = None
     try:
