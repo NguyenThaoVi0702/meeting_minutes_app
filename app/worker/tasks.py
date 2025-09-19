@@ -17,6 +17,7 @@ from app.processing.enrollment import SpeakerEnrollment
 from app.processing.mapper import map_speaker_to_text
 from app.processing.transcription import Transcriber
 from app.worker.celery_app import celery_app
+from celery.signals import worker_process_init
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +25,27 @@ _transcriber_service: Optional[Transcriber] = None
 _diarization_service: Optional[SpeakerDiarization] = None
 _enrollment_service: Optional[SpeakerEnrollment] = None
 
+@worker_process_init.connect
+def on_worker_init(**kwargs):
+    global _transcriber_service, _diarization_service, _enrollment_service
+ 
+    _transcriber_service = Transcriber()
+    _diarization_service = SpeakerDiarization()
+    _enrollment_service = SpeakerEnrollment()
+
+    logger.info("All AI models loaded successfully for this worker process")
+
 def get_transcriber() -> Transcriber:
     global _transcriber_service
     if _transcriber_service is None:
-        logger.info("Initializing Transcriber service for this process...")
+        logger.warning("_transcriber_service was not pre-initialized. Initializing Transcriber service for this process...")
         _transcriber_service = Transcriber()
     return _transcriber_service
 
 def get_diarizer() -> SpeakerDiarization:
     global _diarization_service
     if _diarization_service is None:
-        logger.info("Initializing SpeakerDiarization service for this process...")
+        logger.warning("_diarization_service was not pre-initialized. Initializing SpeakerDiarization service for this process...")
         _diarization_service = SpeakerDiarization()
     return _diarization_service
 
@@ -42,7 +53,7 @@ def get_diarizer() -> SpeakerDiarization:
 def get_enrollment_service() -> SpeakerEnrollment:
     global _enrollment_service
     if _enrollment_service is None:
-        logger.info("Initializing SpeakerEnrollment service for this process...")
+        logger.warning("_enrollment_service was not pre-initialized. Initializing SpeakerEnrollment service for this process...")
         _enrollment_service = SpeakerEnrollment()
     return _enrollment_service
 
@@ -75,7 +86,7 @@ def publish_job_update(request_id: str, update_data: Dict[str, Any]):
 
 
 # ===================================================================
-#   Celery Task Definitions
+#   Celery Task Definitionsm,
 # ===================================================================
 
 @celery_app.task(bind=True, name="run_transcription_task")
@@ -84,7 +95,7 @@ def run_transcription_task(self, job_id: int, audio_path: str, language: str):
     Celery task to perform transcription on an audio file.
     This task is routed to the 'gpu_tasks' queue.
     """
-    logger.info(f"[Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
+    logger.info(f"Task received: run TRANSCRIPTION TASK - [Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
     
     request_id_for_publish = None
     try:
