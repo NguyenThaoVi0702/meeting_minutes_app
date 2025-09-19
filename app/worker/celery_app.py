@@ -10,6 +10,11 @@ celery_app = Celery(
     ]  
 )
 
+celery_app.conf.broker_transport_options = {
+    'visibility_timeout': 3600,
+    'broker_heartbeat': 0
+}
+
 celery_app.conf.update(
 
     task_acks_late=True,
@@ -19,7 +24,7 @@ celery_app.conf.update(
     task_serializer='json',
     accept_content=['json'],
 
-    timezone='Asia/Ho_Chi_Minh',
+    timezone='UTC',
     enable_utc=True
 
 )
