@@ -5,7 +5,7 @@ x-common-variables: &common-environment
   AZURE_OPENAI_ENDPOINT: "${AZURE_OPENAI_ENDPOINT}"
   AZURE_OPENAI_API_VERSION: "${AZURE_OPENAI_API_VERSION}"
   AZURE_OPENAI_DEPLOYMNENT_NAME: "gpt-4.1-GS"
-  LITE_LLM_API_KEY: "sk-ViUwPBWOrdINDxfldb69Fw"
+  LITE_LLM_API_KEY: *****
   LITE_LLM_BASE_URL: "https://ai-platform.vietinbank.vn/"
   LITE_LLM_MODEL_NAME: "gpt-4.1-GS"
   QDRANT_HOST: "10.43.128.107"
