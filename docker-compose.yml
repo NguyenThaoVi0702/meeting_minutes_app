@@ -1,5 +1,4 @@
 services:
-
   api:
     build:
       context: .
@@ -15,9 +14,6 @@ services:
     env_file: .env
     restart: unless-stopped
 
-  # -------------------------------------------------------------
-  #  GPU Worker: Executes heavy AI tasks
-  # -------------------------------------------------------------
   worker:
     build:
       context: .
@@ -28,18 +24,11 @@ services:
       --pool=solo 
       --concurrency=1
       -Q gpu_tasks
-    # environment:
-    #   - NVIDIA_VISIBLE_DEVICES=a11
-    #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-    #   - LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/lib/x86_64-linux-gnu
     volumes:
       - ./app:/code/app
       - ./shared_audio:/code/shared_audio
-      # - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
-      # - /usr/local/cuda-12.8/targets/x86_64-linux/lib:/usr/local/cuda/lib64
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64
       - /etc/localtime:/etc/localtime:ro
-
     env_file: .env
     restart: unless-stopped
     deploy:
@@ -50,21 +39,19 @@ services:
               count: 1
               capabilities: [gpu]
 
-  # -------------------------------------------------------------
-  #  CPU Worker
-  # -------------------------------------------------------------
-  # worker-cpu:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: meeting_cpu_worker
-  #   command: >
-  #     celery -A app.worker.celery_app worker -l info 
-  #     -Q cpu_tasks 
-  #     --concurrency=4
-  #   volumes:
-  #     - ./app:/code/app
-  #     - ./shared_audio:/code/shared_audio
-  #   env_file: .env
-  #   restart: unless-stopped
-
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meeting_flower
+    command: >
+      celery -A app.worker.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    volumes:
+      - ./app:/code/app
+      - ./shared_audio:/code/shared_audio
+    env_file: .env
+    restart: unless-stopped
+    depends_on:
+      - worker
