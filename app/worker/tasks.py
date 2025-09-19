@@ -28,7 +28,7 @@ _enrollment_service: Optional[SpeakerEnrollment] = None
 @worker_process_init.connect
 def on_worker_init(**kwargs):
     global _transcriber_service, _diarization_service, _enrollment_service
- 
+
     _transcriber_service = Transcriber()
     _diarization_service = SpeakerDiarization()
     _enrollment_service = SpeakerEnrollment()
@@ -86,16 +86,16 @@ def publish_job_update(request_id: str, update_data: Dict[str, Any]):
 
 
 # ===================================================================
-#   Celery Task Definitionsm,
+#   Celery Task Definitions
 # ===================================================================
 
-@celery_app.task(bind=True, name="run_transcription_task")
+@celery_app.task(bind=True, name="run_transcription_task", autoretry_for=(Exception,), retry_backoff=True)
 def run_transcription_task(self, job_id: int, audio_path: str, language: str):
     """
     Celery task to perform transcription on an audio file.
     This task is routed to the 'gpu_tasks' queue.
     """
-    logger.info(f"Tak received: run TRANSCRIPTION TASK - [Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
+    logger.info(f"[Job ID: {job_id}] Starting transcription for audio '{audio_path}' in '{language}'.")
     
     request_id_for_publish = None
     try:
@@ -144,7 +144,7 @@ def run_transcription_task(self, job_id: int, audio_path: str, language: str):
                 publish_job_update(job.request_id, {"status": "failed", "error_message": job.error_message})
         raise
 
-@celery_app.task(bind=True, name="run_diarization_task")
+@celery_app.task(bind=True, name="run_diarization_task", autoretry_for=(Exception,), retry_backoff=True)
 def run_diarization_task(self, job_id: int, audio_path: str):
     """
     Celery task to perform diarization and map speakers to an existing transcript.
@@ -218,7 +218,7 @@ def run_diarization_task(self, job_id: int, audio_path: str):
         raise
 
 
-@celery_app.task(bind=True, name="enroll_speaker_task")
+@celery_app.task(bind=True, name="enroll_speaker_task", autoretry_for=(Exception,), retry_backoff=True)
 def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metadata: dict):
     """
     Celery task to perform speaker enrollment in the background.
@@ -240,7 +240,7 @@ def enroll_speaker_task(self, user_ad: str, audio_sample_paths: List[str], metad
         raise
 
 
-@celery_app.task(bind=True, name="assemble_audio_task")
+@celery_app.task(bind=True, name="assemble_audio_task", autoretry_for=(Exception,), retry_backoff=True)
 def assemble_audio_task(self, request_id: str, language: str):
     """Assembles audio chunks and then triggers the transcription task."""
     logger.info(f"[Task ID: {self.request.id}] Assembling chunks for job '{request_id}'...")
@@ -274,7 +274,7 @@ def assemble_audio_task(self, request_id: str, language: str):
         publish_job_update(request_id, {"status": "transcribing"})
         for chunk_path in chunk_files: os.remove(chunk_path)
             
-        celery_app.send_task("run_transcription_task", args=[job_id_for_next_task, full_audio_path_for_next_task, language])
+        celery_app.send_task("run_transcription_task", args=[job_id_for_next_task, full_audio_path_for_next_task, language], queue="gpu_tasks")
         logger.info(f"Assembly complete. Dispatched transcription task for job '{request_id}'.")
     except Exception as e:
         logger.error(f"Assembly task failed for job '{request_id}': {e}", exc_info=True)
@@ -288,7 +288,7 @@ def assemble_audio_task(self, request_id: str, language: str):
         raise
 
 
-@celery_app.task(bind=True, name="add_samples_task")
+@celery_app.task(bind=True, name="add_samples_task", autoretry_for=(Exception,), retry_backoff=True)
 def add_samples_task(self, user_ad: str, new_audio_paths: List[str]):
     """
     Adds new voice samples to an existing speaker profile.
@@ -303,7 +303,7 @@ def add_samples_task(self, user_ad: str, new_audio_paths: List[str]):
         logger.error(f"[Task] Failed to add samples for '{user_ad}': {e}", exc_info=True)
         raise
 
-@celery_app.task(bind=True, name="update_metadata_task")
+@celery_app.task(bind=True, name="update_metadata_task", autoretry_for=(Exception,), retry_backoff=True)
 def update_metadata_task(self, user_ad: str, new_metadata: dict):
     """
     Updates a speaker's metadata. This is a CPU task because it only involves
