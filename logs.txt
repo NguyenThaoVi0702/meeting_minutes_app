@@ -1,77 +1,143 @@
-
-meeting_api_server  | INFO:     192.168.16.4:38180 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_api_server  | 2025-09-18 18:06:52,735 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,735 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,735 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:28:42,430 - INFO - sqlalchemy.engine.Engine - [cached since 1.083s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,430 INFO sqlalchemy.engine.Engine [cached since 1.083s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,435 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 18:28:42,435 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     192.168.16.4:50600 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 18:28:42,452 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,452 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,452 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 18:06:52,735 - INFO - sqlalchemy.engine.Engine - [cached since 1.075s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
-meeting_api_server  | 2025-09-18 18:06:52,735 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,452 - INFO - sqlalchemy.engine.Engine - [cached since 1.105s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,452 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 18:06:52,735 INFO sqlalchemy.engine.Engine [cached since 1.075s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
-meeting_api_server  | 2025-09-18 18:06:52,740 - INFO - sqlalchemy.engine.Engine - COMMIT
-meeting_api_server  | 2025-09-18 18:06:52,740 INFO sqlalchemy.engine.Engine COMMIT
-meeting_api_server  | INFO:     192.168.16.4:38190 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_api_server  | 2025-09-18 18:06:52,756 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,756 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,757 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,452 INFO sqlalchemy.engine.Engine [cached since 1.105s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,456 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-18 18:28:42,456 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | INFO:     192.168.16.4:50614 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 18:28:42,471 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,471 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,471 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,471 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 18:06:52,757 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,471 INFO sqlalchemy.engine.Engine [cached since 1.124s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 18:06:52,757 INFO sqlalchemy.engine.Engine [cached since 1.096s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
-meeting_api_server  | 2025-09-18 18:06:52,757 - INFO - sqlalchemy.engine.Engine - [cached since 1.096s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
-meeting_api_server  | 2025-09-18 18:06:52,762 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758193611'. Recording end time.
-meeting_api_server  | 2025-09-18 18:06:52,764 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_api_server  | 2025-09-18 18:06:52,764 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 11, 6, 52, 762741), 'status': 'assembling', 'meetingjob_id': 40}
-meeting_api_server  | 2025-09-18 18:06:52,764 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
-meeting_api_server  | 2025-09-18 18:06:52,764 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 11, 6, 52, 762741), 'status': 'assembling', 'meetingjob_id': 40}
-meeting_api_server  | 2025-09-18 18:06:52,766 - INFO - sqlalchemy.engine.Engine - COMMIT
-meeting_api_server  | 2025-09-18 18:06:52,766 INFO sqlalchemy.engine.Engine COMMIT
-meeting_api_server  | 2025-09-18 18:06:52,767 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758193611'. Triggering background assembly and transcription.
-meeting_api_server  | 2025-09-18 18:06:52,768 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,768 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,770 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | 2025-09-18 18:28:42,471 - INFO - sqlalchemy.engine.Engine - [cached since 1.124s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,475 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 18:28:42,475 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     192.168.16.4:50618 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 18:28:42,490 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,490 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,490 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:28:42,490 - INFO - sqlalchemy.engine.Engine - [cached since 1.143s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,490 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:28:42,490 INFO sqlalchemy.engine.Engine [cached since 1.143s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,494 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 18:28:42,494 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     192.168.16.4:50632 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | 2025-09-18 18:28:42,511 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,511 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,511 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:28:42,511 - INFO - sqlalchemy.engine.Engine - [cached since 1.164s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,511 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-18 18:28:42,511 INFO sqlalchemy.engine.Engine [cached since 1.164s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,516 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758194921'. Recording end time.
+meeting_api_server  | 2025-09-18 18:28:42,517 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-18 18:28:42,517 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 11, 28, 42, 516077), 'status': 'assembling', 'meetingjob_id': 42}
+meeting_api_server  | 2025-09-18 18:28:42,517 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET upload_finished_at=%(upload_finished_at)s, status=%(status)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-18 18:28:42,517 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'upload_finished_at': datetime.datetime(2025, 9, 18, 11, 28, 42, 516077), 'status': 'assembling', 'meetingjob_id': 42}
+meeting_api_server  | 2025-09-18 18:28:42,519 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-18 18:28:42,519 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-18 18:28:42,520 - INFO - app.api.routes.meeting - Last chunk received for 'test_Hop TO 11092025_1758194921'. Triggering background assembly and transcription.
+meeting_api_server  | 2025-09-18 18:28:42,521 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,521 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,523 INFO sqlalchemy.engine.Engine SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 18:06:52,771 - INFO - sqlalchemy.engine.Engine - [generated in 0.00022s] {'pk_1': 40}
-meeting_api_server  | 2025-09-18 18:06:52,770 INFO sqlalchemy.engine.Engine SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | 2025-09-18 18:28:42,523 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
-meeting_api_server  | 2025-09-18 18:06:52,771 INFO sqlalchemy.engine.Engine [generated in 0.00022s] {'pk_1': 40}
-meeting_api_server  | 2025-09-18 18:06:52,776 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 18:06:52,776 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:38204 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
-meeting_api_server  | INFO:     ('192.168.16.4', 38218) - "WebSocket /api/v1/meeting/ws/test_Hop%20TO%2011092025_1758193611" [accepted]
-meeting_api_server  | 2025-09-18 18:06:52,789 - INFO - app.api.routes.meeting - WebSocket connected for request_id 'test_Hop TO 11092025_1758193611'.
-meeting_api_server  | 2025-09-18 18:06:52,789 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,789 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-18 18:06:52,790 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,523 - INFO - sqlalchemy.engine.Engine - [generated in 0.00018s] {'pk_1': 42}
+meeting_api_server  | 2025-09-18 18:28:42,523 INFO sqlalchemy.engine.Engine [generated in 0.00018s] {'pk_1': 42}
+meeting_api_server  | 2025-09-18 18:28:42,528 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 18:28:42,528 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:50642 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 202 Accepted
+meeting_api_server  | INFO:     ('192.168.16.4', 50658) - "WebSocket /api/v1/meeting/ws/test_Hop%20TO%2011092025_1758194921" [accepted]
+meeting_api_server  | 2025-09-18 18:28:42,537 - INFO - app.api.routes.meeting - WebSocket connected for request_id 'test_Hop TO 11092025_1758194921'.
+meeting_api_server  | 2025-09-18 18:28:42,537 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,537 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-18 18:28:42,537 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 18:06:52,790 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,537 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
 meeting_api_server  | FROM meetingjob
+meeting_api_server  | 2025-09-18 18:28:42,537 INFO sqlalchemy.engine.Engine [cached since 1.191s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
 meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-18 18:06:52,790 - INFO - sqlalchemy.engine.Engine - [cached since 1.129s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
-meeting_api_server  | 2025-09-18 18:06:52,790 INFO sqlalchemy.engine.Engine [cached since 1.129s ago] {'request_id_1': 'test_Hop TO 11092025_1758193611'}
-meeting_api_server  | 2025-09-18 18:06:52,794 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,537 - INFO - sqlalchemy.engine.Engine - [cached since 1.191s ago] {'request_id_1': 'test_Hop TO 11092025_1758194921'}
+meeting_api_server  | 2025-09-18 18:28:42,542 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
 meeting_api_server  | FROM transcription
 meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 18:06:52,794 INFO sqlalchemy.engine.Engine [generated in 0.00024s] {'meeting_job_id_1': 40, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 18:06:52,794 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | 2025-09-18 18:28:42,542 INFO sqlalchemy.engine.Engine [generated in 0.00023s] {'meeting_job_id_1': 42, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 18:28:42,542 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.is_edited, transcription.created_at, transcription.updated_at
 meeting_api_server  | FROM transcription
 meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-09-18 18:06:52,794 - INFO - sqlalchemy.engine.Engine - [generated in 0.00024s] {'meeting_job_id_1': 40, 'language_1': 'vi'}
-meeting_api_server  | 2025-09-18 18:06:52,799 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | 2025-09-18 18:28:42,542 - INFO - sqlalchemy.engine.Engine - [generated in 0.00023s] {'meeting_job_id_1': 42, 'language_1': 'vi'}
+meeting_api_server  | 2025-09-18 18:28:42,546 - INFO - sqlalchemy.engine.Engine - SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
 meeting_api_server  | FROM diarizedtranscript
 meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 18:06:52,799 - INFO - sqlalchemy.engine.Engine - [generated in 0.00021s] {'param_1': 40}
-meeting_api_server  | 2025-09-18 18:06:52,799 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
+meeting_api_server  | 2025-09-18 18:28:42,546 - INFO - sqlalchemy.engine.Engine - [generated in 0.00020s] {'param_1': 42}
+meeting_api_server  | 2025-09-18 18:28:42,546 INFO sqlalchemy.engine.Engine SELECT diarizedtranscript.id AS diarizedtranscript_id, diarizedtranscript.meeting_job_id AS diarizedtranscript_meeting_job_id, diarizedtranscript.transcript_data AS diarizedtranscript_transcript_data, diarizedtranscript.is_edited AS diarizedtranscript_is_edited, diarizedtranscript.created_at AS diarizedtranscript_created_at, diarizedtranscript.updated_at AS diarizedtranscript_updated_at
 meeting_api_server  | FROM diarizedtranscript
 meeting_api_server  | WHERE %(param_1)s = diarizedtranscript.meeting_job_id
-meeting_api_server  | 2025-09-18 18:06:52,799 INFO sqlalchemy.engine.Engine [generated in 0.00021s] {'param_1': 40}
+meeting_api_server  | 2025-09-18 18:28:42,546 INFO sqlalchemy.engine.Engine [generated in 0.00020s] {'param_1': 42}
 meeting_api_server  | INFO:     connection open
-meeting_api_server  | 2025-09-18 18:06:52,802 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-18 18:06:52,802 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-18 18:28:42,549 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-18 18:28:42,549 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-18 18:28:46,201 - INFO - app.services.websocket_manager - Broadcasting message to 1 client(s) for request_id 'test_Hop TO 11092025_1758194921'.
+meeting_api_server  | 2025-09-19 00:28:02,216 - INFO - app.main - Running cleanup task for stale, incomplete jobs...
+meeting_api_server  | 2025-09-19 00:28:02,219 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 00:28:02,219 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 00:28:02,222 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.status IN (%(status_1_1)s, %(status_1_2)s, %(status_1_3)s, %(status_1_4)s) AND meetingjob.created_at < %(created_at_1)s
+meeting_api_server  | 2025-09-19 00:28:02,222 - INFO - sqlalchemy.engine.Engine - [generated in 0.00048s] {'created_at_1': datetime.datetime(2025, 9, 16, 17, 28, 2, 216620), 'status_1_1': 'uploading', 'status_1_2': 'assembling', 'status_1_3': 'transcribing', 'status_1_4': 'diarizing'}
+meeting_api_server  | 2025-09-19 00:28:02,222 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.status IN (%(status_1_1)s, %(status_1_2)s, %(status_1_3)s, %(status_1_4)s) AND meetingjob.created_at < %(created_at_1)s
+meeting_api_server  | 2025-09-19 00:28:02,222 INFO sqlalchemy.engine.Engine [generated in 0.00048s] {'created_at_1': datetime.datetime(2025, 9, 16, 17, 28, 2, 216620), 'status_1_1': 'uploading', 'status_1_2': 'assembling', 'status_1_3': 'transcribing', 'status_1_4': 'diarizing'}
+meeting_api_server  | 2025-09-19 00:28:02,225 - WARNING - app.main - Found stale job 'test_Hop TO 11092025_1758013675'. Setting status to 'failed'.
+meeting_api_server  | 2025-09-19 00:28:02,226 - WARNING - app.main - Found stale job 'test_Hop TO 11092025_1758013828'. Setting status to 'failed'.
+meeting_api_server  | 2025-09-19 00:28:02,226 - WARNING - app.main - Found stale job 'test_Hop TO 11092025_1758014560'. Setting status to 'failed'.
+meeting_api_server  | 2025-09-19 00:28:02,226 - WARNING - app.main - Found stale job 'test_Hop TO 11092025_1758016398'. Setting status to 'failed'.
+meeting_api_server  | 2025-09-19 00:28:02,228 INFO sqlalchemy.engine.Engine UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-19 00:28:02,228 INFO sqlalchemy.engine.Engine [generated in 0.00018s] [{'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 1}, {'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 2}, {'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 4}, {'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 5}]
+meeting_api_server  | 2025-09-19 00:28:02,228 - INFO - sqlalchemy.engine.Engine - UPDATE meetingjob SET status=%(status)s, error_message=%(error_message)s, updated_at=now() WHERE meetingjob.id = %(meetingjob_id)s
+meeting_api_server  | 2025-09-19 00:28:02,228 - INFO - sqlalchemy.engine.Engine - [generated in 0.00018s] [{'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 1}, {'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 2}, {'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 4}, {'status': 'failed', 'error_message': 'Job timed out and was cleaned up automatically.', 'meetingjob_id': 5}]
+meeting_api_server  | 2025-09-19 00:28:02,230 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-19 00:28:02,230 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-19 06:28:02,232 - INFO - app.main - Running cleanup task for stale, incomplete jobs...
+meeting_api_server  | 2025-09-19 06:28:02,235 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-19 06:28:02,235 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-19 06:28:02,236 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.status IN (%(status_1_1)s, %(status_1_2)s, %(status_1_3)s, %(status_1_4)s) AND meetingjob.created_at < %(created_at_1)s
+meeting_api_server  | 2025-09-19 06:28:02,236 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.status IN (%(status_1_1)s, %(status_1_2)s, %(status_1_3)s, %(status_1_4)s) AND meetingjob.created_at < %(created_at_1)s
+meeting_api_server  | 2025-09-19 06:28:02,236 INFO sqlalchemy.engine.Engine [cached since 2.16e+04s ago] {'created_at_1': datetime.datetime(2025, 9, 16, 23, 28, 2, 232819), 'status_1_1': 'uploading', 'status_1_2': 'assembling', 'status_1_3': 'transcribing', 'status_1_4': 'diarizing'}
+meeting_api_server  | 2025-09-19 06:28:02,236 - INFO - sqlalchemy.engine.Engine - [cached since 2.16e+04s ago] {'created_at_1': datetime.datetime(2025, 9, 16, 23, 28, 2, 232819), 'status_1_1': 'uploading', 'status_1_2': 'assembling', 'status_1_3': 'transcribing', 'status_1_4': 'diarizing'}
+meeting_api_server  | 2025-09-19 06:28:02,240 - INFO - app.main - No stale jobs found to clean up.
+meeting_api_server  | 2025-09-19 06:28:02,240 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-19 06:28:02,240 INFO sqlalchemy.engine.Engine ROLLBACK
