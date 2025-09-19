@@ -8,6 +8,7 @@ import json
 import threading
 import websocket
 from requests.exceptions import JSONDecodeError, RequestException
+from urllib.parse import quote
 
 # --- CONFIGURATION ---
 API_BASE_URL = "http://api:8072/api/v1"
@@ -61,7 +62,8 @@ def find_audio_files(directory):
     return files
 
 def listen_on_websocket(request_id):
-    ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{request_id}"
+    encoded_request_id = quote(request_id)
+    ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{encoded_request_id}"
     print(f"\n[WebSocket] Connecting to {ws_url}...")
     def on_message(ws, message):
         data = json.loads(message)
