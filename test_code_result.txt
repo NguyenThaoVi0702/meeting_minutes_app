@@ -1,230 +1,51 @@
-root@240a62b35800:/test_client# python3 test_api.py
-Loaded metadata for 7 speakers from CSV.
-Found 2 meetings to process.
-
---- STEP 1: ENROLLING ALL SPEAKERS ---
-
-Enrolling 'TAKEOS' (TV HDQT Takeo Shimotsu) with 1 samples...
-  -> [Enroll Speaker] Status: 202
-     Response: {
-  "success": true,
-  "message": "Enrollment for speaker 'takeos' has been accepted for processing."
-}
-
-Enrolling 'BINHTM' (CT HDQT Tran Minh Binh) with 20 samples...
-  -> [Enroll Speaker] Status: 409
-     Response: {
-  "detail": "Speaker with user_ad 'binhtm' already exists."
-}
-
-Enrolling 'ANHNV19' (TV HDQT Nguyen Van Anh) with 1 samples...
-  -> [Enroll Speaker] Status: 409
-     Response: {
-  "detail": "Speaker with user_ad 'anhnv19' already exists."
-}
-
-Enrolling 'IRIGUCHIK' (TV HDQT Koji Iriguchi) with 1 samples...
-  -> [Enroll Speaker] Status: 409
-     Response: {
-  "detail": "Speaker with user_ad 'iriguchik' already exists."
-}
-
-Enrolling 'HUANNT' (TV HDQT Nguyen The Huan) with 1 samples...
-  -> [Enroll Speaker] Status: 409
-     Response: {
-  "detail": "Speaker with user_ad 'huannt' already exists."
-}
-
-Enrolling 'DUONGCQ' (TV HDQT Cat Quang Duong) with 1 samples...
-  -> [Enroll Speaker] Status: 409
-     Response: {
-  "detail": "Speaker with user_ad 'duongcq' already exists."
-}
-
-Enrolling 'DUC.TM' (CVP HDQT Tran Minh Duc) with 1 samples...
-  -> [Enroll Speaker] Status: 409
-     Response: {
-  "detail": "Speaker with user_ad 'duc.tm' already exists."
-}
-
-
---- STEP 2: TESTING ALL SPEAKER CRUD ENDPOINTS ---
-
-Testing: GET /speaker/
-  -> [List All Speakers] Status: 200
-     Response: {
-  "success": true,
-  "message": "Successfully retrieved all speaker profiles.",
-  "data": [
-    {
-      "display_name": "Takeosimashi",
-      "user_ad": "huannt",
-      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "CVP HDQT Trần Minh Đức",
-      "user_ad": "duc.tm",
-      "enrolled_at_utc": "2025-09-16T10:31:02.082136",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "TV HDQT Koji Iriguchi",
-      "user_ad": "iriguchik",
-      "enrolled_at_utc": "2025-09-16T10:30:56.125636",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "CT HDQT Trần Minh Bình",
-      "user_ad": "binhtm",
-      "enrolled_at_utc": "2025-09-16T10:30:19.011222",
-      "num_enrollment_samples": 10
-    },
-    {
-      "display_name": "TV HDQT Cát Quang Dương",
-      "user_ad": "duongcq",
-      "enrolled_at_utc": "2025-09-17T03:26:36.926173",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "TV HDQT Shimotsu Takeo",
-      "user_ad": "takeos",
-      "enrolled_at_utc": "2025-09-19T02:44:53.310727",
-      "num_enrollment_samples": 1
-    },
-    {
-      "display_name": "TV HDQT Nguyễn Vân Anh",
-      "user_ad": "anhnv19",
-      "enrolled_at_utc": "2025-09-16T10:30:53.613820",
-      "num_enrollment_samples": 1
+      "id": 40,
+      "text": "bên các cấp Ban Lãnh Đạo để thực hiện việc tuyển dụng pháp nhân sự này thì đây là 2 nhóm công việc rất quan trọng và chúng em cũng nhấn mạnh lại đến các anh chị lưu ý và có các cam kết tiếp theo về việc đẩy mạnh tiến độ các công việc này. Thứ 2 là liên quan đến các khối",
+      "start_time": 1125.78,
+      "end_time": 1140.48
     }
   ]
 }
 
-Testing: GET /speaker/huannt
-  -> [Get Speaker Details] Status: 200
+Testing: GET /meeting/test_Hop TO 11092025_1758266269/status (after transcription)
+[WebSocket] Connection closed.
+  -> [Get Status] Status: 500
+     Response (non-JSON): Internal Server Error...
+
+Testing: POST /meeting/test_Hop TO 11092025_1758266269/diarize
+  -> [Trigger Diarization] Status: 202
      Response: {
-  "success": true,
-  "message": "Profile retrieved successfully",
-  "user_ad": "huannt",
-  "profile_details": {
-    "qdrant_point_id": "2c5e08b3-a028-4682-849a-4f871717f61b",
-    "payload": {
-      "display_name": "Takeosimashi",
-      "user_ad": "huannt",
-      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
-      "num_enrollment_samples": 1,
-      "search_terms": [
-        "ta",
-        "t",
-        "tak",
-        "takeosima",
-        "hu",
-        "takeosimas",
-        "takeosimashi",
-        "huan",
-        "takeosim",
-        "takeos",
-        "takeo",
-        "huann",
-        "huannt",
-        "takeosimash",
-        "take",
-        "takeosi",
-        "h",
-        "hua"
-      ]
-    },
-    "has_vector": true
-  }
+  "status": 202,
+  "message": "Diarization process started."
 }
 
-Testing: PUT /speaker/huannt/metadata
-  -> [Update Metadata] Status: 202
+--- WAITING FOR DIARIZATION VIA WEBSOCKET ---
+
+Testing: GET /meeting/test_Hop TO 11092025_1758266269/status (after diarization)
+  -> [Get Final Status] Status: 500
+     Response (non-JSON): Internal Server Error...
+
+
+--- STEP 5: TESTING ANALYSIS AND DOWNLOADS ---
+
+Testing: POST /meeting/test_Hop TO 11092025_1758266269/summary (topic)
+  -> [Generate Topic Summary] Status: 500
+     Response (non-JSON): Internal Server Error...
+
+Testing: POST /meeting/test_Hop TO 11092025_1758266269/summary (speaker)
+  -> [Generate Speaker Summary] Status: 200
      Response: {
-  "success": true,
-  "message": "Metadata update request has been accepted for processing."
-}
-  -> [Get Speaker Upodated Details] Status: 200
-     Response: {
-  "success": true,
-  "message": "Profile retrieved successfully",
-  "user_ad": "huannt",
-  "profile_details": {
-    "qdrant_point_id": "2c5e08b3-a028-4682-849a-4f871717f61b",
-    "payload": {
-      "display_name": "Takeosimashi",
-      "user_ad": "huannt",
-      "enrolled_at_utc": "2025-09-17T03:00:02.427725",
-      "num_enrollment_samples": 1,
-      "search_terms": [
-        "ta",
-        "t",
-        "tak",
-        "takeosima",
-        "hu",
-        "takeosimas",
-        "takeosimashi",
-        "huan",
-        "takeosim",
-        "takeos",
-        "takeo",
-        "huann",
-        "huannt",
-        "takeosimash",
-        "take",
-        "takeosi",
-        "h",
-        "hua"
-      ]
-    },
-    "has_vector": true
-  }
+  "request_id": "test_Hop TO 11092025_1758266269",
+  "summary_type": "speaker",
+  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT THEO NGƯỜI NÓI**\n**Chủ đề:** {bbh_name}\n**Loại cuộc họp:** {meeting_type}\n**Chủ trì:** {meeting_host}\n-------------------------------------------\n\n### Unknown_Speaker_3\n- Đề cập đến việc bà con thường xuyên nhận thông tin từ anh và sẽ được hưởng lợi từ đó.\n\n### Unknown_Speaker_1\n- Báo cáo tổng quan về các nhóm chỉ tiêu KIA và các sản phẩm, nhấn mạnh việc ứng dụng các phương pháp báo cáo mới giúp tỷ lệ giải ngân, chuyển đổi được cải thiện.\n- Đề xuất tiếp tục tăng cường quy mô để cải thiện chỉ tiêu S&A, dự kiến chỉ hoàn thành 7,7% vào cuối năm do thị trường cạnh tranh.\n- Nhấn mạnh tầm quan trọng của việc xác định tổ chức và phương pháp làm việc để đạt hiệu quả tốt hơn.\n\n### CT HDQT Trần Minh Bình\n- Đặt câu hỏi về kết quả và hiệu quả thực tế của các sáng kiến, nhấn mạnh không cần quan tâm quá trình mà quan trọng là kết quả cuối cùng.\n- Nhắc nhở về việc phải sát sao với thị trường cạnh tranh, yêu cầu các bộ phận nhận định rõ ràng và chủ động điều chỉnh để đạt mục tiêu.\n- Đề nghị các bộ phận sử dụng dashboard để theo dõi tiến độ sáng kiến, nhấn mạnh trách nhiệm của từng chủ nhiệm sáng kiến.\n- Đặt câu hỏi về thời gian cập nhật dữ liệu và yêu cầu các bộ phận cập nhật nhanh chóng.\n- Nhấn mạnh việc cần minh bạch, giám sát tiến độ và hiệu quả các sản phẩm chuyển đổi số ở mọi cấp độ.\n- Đề cập đến việc xử lý các vấn đề phát sinh, yêu cầu các bộ phận chủ động đưa ra giải pháp khi gặp khó khăn.\n\n### Unknown_Speaker_0\n- Báo cáo chi tiết về tiến độ các sáng kiến chuyển đổi số, các nhóm công việc đang triển khai, đặc biệt là các mô hình dự đoán khách hàng rời bỏ, các nền tảng quản lý mới và hệ thống IT.\n- Nhấn mạnh việc cần pilot các mô hình mới trước khi triển khai rộng, do có thể phát sinh vấn đề về phương pháp luận.\n- Báo cáo về các nhóm sáng kiến đã và đang triển khai, các nền tảng quản lý tiến độ (Dashport, Zira), giúp minh bạch hóa và theo dõi sát tiến độ từng sáng kiến, từng nhóm, từng cá nhân.\n- Đề cập các vấn đề chậm tiến độ ở các công việc liên tảng, đặc biệt là chuẩn hóa dữ liệu và năng lực nhân sự AI/data, nhấn mạnh cần đẩy nhanh tiến độ và có cam kết cụ thể.\n- Thông tin về các hệ thống quản lý chất lượng, cảnh báo tiến độ, các chỉ tiêu theo dõi, và việc các giám đốc chi nhánh có thể giám sát trực tiếp tiến độ thực hiện.\n- Đề xuất sử dụng các công cụ quản trị mới để tăng hiệu quả giám sát, cập nhật và xử lý các vấn đề phát sinh.\n- Báo cáo các khó khăn trong việc chuẩn hóa dữ liệu, tuyển dụng nhân sự data/AI, và yêu cầu các khối liên quan cam kết đẩy nhanh tiến độ.\n\n**LƯU Ý QUAN TRỌNG:** Chỉ trả về nội dung Markdown. TUYỆT ĐỐI KHÔNG bắt đầu câu trả lời bằng ```markdown hoặc các lời dẫn khác."
 }
 
-Testing: POST /speaker/huannt/samples
-  -> Skipping Add Sample test: Not enough audio files.
+Testing: POST /meeting/chat
+  -> [Chat] Status: 500
+     Response (non-JSON): Internal Server Error...
 
-Testing: DELETE /speaker/takeos
-  -> [Delete Speaker] Status: 200
-     Response: {
-  "success": true,
-  "message": "Profile for 'takeos' was successfully deleted."
-}
+Testing: GET /meeting/test_Hop TO 11092025_1758266269/download/audio
+  -> [Download Audio] Status: 200, Received: 36496044 bytes
 
-
---- STEP 3: PROCESSING A FULL MEETING ---
-
-Testing: POST /meeting/start-bbh for requestId 'test_Hop TO 11092025_1758249897'...
-  -> [Start Meeting] Status: 201
-     Response: {
-  "status": 201,
-  "message": "Meeting initialized. Ready for chunk uploads."
-}
-
-Testing: POST /meeting/upload-file-chunk...
-  -> [Upload Chunks] All chunks sent.
-
---- STEP 4: WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---
-
-[WebSocket] Connecting to ws://api:8072/api/v1/meeting/ws/test_Hop%20TO%2011092025_1758249897...
-[WebSocket] Connection opened.
-
-[WebSocket] === STATUS UPDATE: assembling ===
-{
-  "request_id": "test_Hop TO 11092025_1758249897",
-  "status": "assembling",
-  "bbh_name": "Test BBH Name",
-  "meeting_type": "Test Type",
-  "meeting_host": "Test Host",
-  "language": "vi",
-  "plain_transcript": null,
-  "diarized_transcript": null,
-  "error_message": null
-}
-
-[WebSocket] === STATUS UPDATE: transcribing ===
-{
-  "status": "transcribing"
-}
+Testing: GET /meeting/test_Hop TO 11092025_1758266269/download/document
+  -> [Download Document] Status: 500, Received: 21 bytes
 
