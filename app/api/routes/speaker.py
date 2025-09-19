@@ -101,45 +101,55 @@ async def enroll_new_speaker(
     and queues the heavy processing (embedding generation) to a background worker.
     """
     try:
-        metadata = SpeakerMetadataUpdate.model_validate_json(metadata_json)
-    except ValidationError as e:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid metadata JSON: {e}")
+        # Step 1: Validate incoming metadata
+        try:
+            metadata = SpeakerMetadataUpdate.model_validate_json(metadata_json)
+        except ValidationError as e:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Invalid metadata JSON: {e}")
 
-    user_ad = metadata.user_ad.lower().strip()
-    if not user_ad:
-         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="user_ad is a required field in metadata.")
+        user_ad = metadata.user_ad.lower().strip()
+        if not user_ad:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="user_ad is a required field in metadata.")
 
-    # Lightweight check to prevent duplicate requests
-    try:
+        # Step 2: Check for duplicate speaker in the vector database
         points, _ = qdrant_client.scroll(
             collection_name=settings.QDRANT_COLLECTION_NAME,
             scroll_filter=models.Filter(must=[models.FieldCondition(key="user_ad", match=models.MatchValue(value=user_ad))]),
             limit=1
         )
         if points:
+            # If a speaker exists, raise a specific 409 Conflict error
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Speaker with user_ad '{user_ad}' already exists.")
+
+        # Step 3: Save uploaded files
+        enrollment_dir = FilePath(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
+        os.makedirs(enrollment_dir, exist_ok=True)
+        
+        saved_paths = []
+        for file in files:
+            if not file.filename: continue
+            file_path = enrollment_dir / f"{uuid.uuid4()}_{file.filename}"
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            saved_paths.append(str(file_path))
+
+        if not saved_paths:
+            raise HTTPException(status_code=400, detail="No valid audio files were provided for enrollment.")
+
+        # Step 4: Dispatch the background task
+        celery_app.send_task("enroll_speaker_task", args=[user_ad, saved_paths, metadata.model_dump()],  queue="gpu_tasks")
+
+        return GenericSuccessResponse(message=f"Enrollment for speaker '{user_ad}' has been accepted for processing.")
+
+    except HTTPException:
+        # This will catch any HTTPException raised above (like 409, 422, 400)
+        # and re-raise it, preserving the original status code and detail.
+        raise
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Could not verify speaker existence: {e}")
-
-    # Save files to a permanent location for the worker to access
-    enrollment_dir = FilePath(settings.ENROLLMENT_SAMPLES_PATH) / user_ad
-    os.makedirs(enrollment_dir, exist_ok=True)
-    
-    saved_paths = []
-    for file in files:
-        if not file.filename: continue
-        file_path = enrollment_dir / f"{uuid.uuid4()}_{file.filename}"
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        saved_paths.append(str(file_path))
-
-    if not saved_paths:
-        raise HTTPException(status_code=400, detail="No valid audio files were provided for enrollment.")
-
-    celery_app.send_task("enroll_speaker_task", args=[user_ad, saved_paths, metadata.model_dump()])
-
-    return GenericSuccessResponse(message=f"Enrollment for speaker '{user_ad}' has been accepted for processing.")
-
+        # This is a catch-all for unexpected errors (e.g., cannot connect to Qdrant)
+        # and will correctly return a 503 Service Unavailable.
+        logger.error(f"Failed to enroll speaker '{metadata.user_ad if 'metadata' in locals() else 'unknown'}': {e}", exc_info=True)
+        raise HTTPException(status_code=503, detail=f"A service error occurred while trying to enroll the speaker: {e}")
 # ===================================================================
 #   Individual Speaker Resource Endpoints (Get, Update, Delete)
 # ===================================================================
@@ -185,7 +195,7 @@ async def update_speaker_metadata(
     """
     Accepts a request to update a speaker's metadata and queues it for background processing.
     """
-    celery_app.send_task("update_metadata_task", args=[user_ad, metadata.model_dump(exclude_unset=True)])
+    celery_app.send_task("update_metadata_task", args=[user_ad, metadata.model_dump(exclude_unset=True)],  queue="gpu_tasks")
     return GenericSuccessResponse(message="Metadata update request has been accepted for processing.")
 
 
@@ -219,7 +229,7 @@ async def add_voice_samples_to_profile(
     if not saved_paths:
         raise HTTPException(status_code=400, detail="No valid audio files were processed.")
 
-    celery_app.send_task("add_samples_task", args=[user_ad, saved_paths])
+    celery_app.send_task("add_samples_task", args=[user_ad, saved_paths],  queue="gpu_tasks")
     return GenericSuccessResponse(message=f"Request to add {len(saved_paths)} new sample(s) has been accepted.")
 
 
@@ -234,6 +244,7 @@ async def delete_speaker_profile(
     """
     Permanently deletes a speaker's profile from the vector database.
     """
+    user_ad = user_ad.lower()
     try:
         points, _ = qdrant_client.scroll(
             collection_name=settings.QDRANT_COLLECTION_NAME,
