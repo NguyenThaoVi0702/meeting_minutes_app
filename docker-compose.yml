@@ -53,6 +53,7 @@ services:
     volumes:
       - ./app:/code/app
       - ./shared_audio:/code/shared_audio
+      - /etc/localtime:/etc/localtime:ro
     env_file: .env
     restart: unless-stopped
     depends_on:
