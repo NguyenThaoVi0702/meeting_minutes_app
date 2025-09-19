@@ -150,7 +150,7 @@ async def upload_file_chunk(
         session.commit()
         logger.info(f"Last chunk received for '{requestId}'. Triggering background assembly and transcription.")
         
-        celery_app.send_task("assemble_audio_task", args=[requestId, job.language])
+        celery_app.send_task("assemble_audio_task", args=[requestId, job.language], queue="gpu_tasks")
         await websocket_manager.broadcast_to_job(requestId, {"status": "assembling"})
     else:
         session.add(job)
@@ -176,7 +176,7 @@ async def diarize_meeting(
     db.add(job)
     db.commit()
 
-    celery_app.send_task("run_diarization_task", args=[job.id, str(audio_file_path)])
+    celery_app.send_task("run_diarization_task", args=[job.id, str(audio_file_path)],  queue="gpu_tasks")
 
     await websocket_manager.broadcast_to_job(job.request_id, {"status": "diarizing"})
     
@@ -295,7 +295,7 @@ async def change_meeting_language(
             raise HTTPException(status_code=404, detail="Assembled audio file not found. Cannot re-transcribe.")
         
         job.status = "transcribing"
-        celery_app.send_task("run_transcription_task", args=[job.id, str(audio_file_path), new_language])
+        celery_app.send_task("run_transcription_task", args=[job.id, str(audio_file_path), new_language],  queue="gpu_tasks")
 
     db.commit()
     db.refresh(job)
