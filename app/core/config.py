@@ -64,10 +64,10 @@ class Settings(BaseSettings):
     # AI/ML Model Paths
     # --------------------------------------------------------------------------
     # Path to the Faster-Whisper model 
-    FASTER_WHISPER_MODEL_PATH: str = "/app/models/merged_model_ct2_dir"
+    FASTER_WHISPER_MODEL_PATH: str = os.path.join(BASE_DIR, "/app/models/merged_model_ct2_dir")
     
     # Path to the NeMo Rimecaster model
-    RIMECASTER_MODEL_PATH: str = "/app/models/rimecaster.nemo"
+    RIMECASTER_MODEL_PATH: str = os.path.join(BASE_DIR, "/app/models/rimecaster.nemo")
 
     # --------------------------------------------------------------------------
     # Vector Database Configuration (Qdrant)
