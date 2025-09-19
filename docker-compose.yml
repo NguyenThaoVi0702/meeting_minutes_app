@@ -24,6 +24,8 @@ services:
       --pool=solo 
       --concurrency=1
       -Q gpu_tasks
+    environment: 
+      - LD_LIBRARY_PATH=/usr/local/cuda/lib64
     volumes:
       - ./app:/code/app
       - ./shared_audio:/code/shared_audio
