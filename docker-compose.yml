@@ -11,6 +11,7 @@ services:
     volumes:
       - ./app:/code/app
       - ./shared_audio:/code/shared_audio
+      - /etc/localtime:/etc/localtime:ro
     env_file: .env
     restart: unless-stopped
 
@@ -26,6 +27,7 @@ services:
       celery -A app.worker.celery_app worker -l info 
       --pool=solo 
       --concurrency=1
+      -Q gpu_tasks
     # environment:
     #   - NVIDIA_VISIBLE_DEVICES=a11
     #   - NVIDIA_DRIVER_CAPABILITIES=compute,utility
@@ -36,6 +38,7 @@ services:
       # - /usr/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu
       # - /usr/local/cuda-12.8/targets/x86_64-linux/lib:/usr/local/cuda/lib64
       - /usr/local/cuda/lib64:/usr/local/cuda/lib64
+      - /etc/localtime:/etc/localtime:ro
 
     env_file: .env
     restart: unless-stopped
