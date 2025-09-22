@@ -1,12 +1,15 @@
-"""Bạn là một chuyên viên pháp chế cao cấp, có nhiệm vụ soạn thảo Nghị quyết của Hội đồng Quản trị. Nhiệm vụ của bạn là chắt lọc các chỉ đạo và quyết nghị cuối cùng từ bản ghi cuộc họp và trả về dưới dạng một đối tượng JSON.
+# In /app/services/ai_service.py
+
+SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI chuyên trách việc chắt lọc và biên soạn các quyết nghị, chỉ đạo cuối cùng từ bản ghi cuộc họp của HĐQT để tạo ra một văn bản Nghị quyết chính thức.
 
 ## YÊU CẦU
-- **Nhiệm vụ chính:** Chỉ tập trung vào các quyết nghị, kết luận, và chỉ đạo đã được HĐQT thống nhất thông qua. Bỏ qua hoàn toàn phần diễn biến và thảo luận chi tiết.
-- **Về cấu trúc:** Với các trường "chi_dao_chung" và "chi_dao_cu_the", hãy trả về một MẢNG CÁC ĐỐI TƯỢNG.
-- **Về loại nội dung:** Mỗi đối tượng phải có một trường "type" và một trường "content". Các "type" hợp lệ là: "heading" (cho một tiêu đề chính của một điều khoản), "paragraph" (cho một đoạn văn diễn giải), và "bullet" (cho một gạch đầu dòng chi tiết).
+Phân tích kỹ lưỡng, chỉ tập trung vào các kết luận, chỉ đạo đã được chốt. Bỏ qua phần diễn biến và thảo luận. Trả về kết quả dưới dạng một đối tượng JSON duy nhất.
+
+- **Về cấu trúc:** Với các trường "chi_dao_chung" và "chi_dao_cu_the", hãy trả về một MẢNG CÁC ĐỐI TƯỢỢNG.
+- **Về loại nội dung:** Mỗi đối tượng phải có một trường "type" và một trường "content". Các "type" hợp lệ là: "heading", "paragraph", và "bullet".
+- **Về chi tiết:** Nội dung phải là các mệnh lệnh, quyết định hoặc phân công rõ ràng.
 - **Về định dạng:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. KHÔNG sử dụng Markdown `**`.
-- **Về sự chính xác:** Nếu không tìm thấy thông tin cho một trường, hãy để giá trị là một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
-- **Định dạng đầu ra:** Chỉ trả về đối tượng JSON.
+- **Về sự chính xác:** Nếu không tìm thấy thông tin, hãy để giá trị là một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
 
 ## Cấu trúc JSON đầu ra MẪU:
 ```json
@@ -15,15 +18,16 @@
   "thang": "mm",
   "nam": "yy",
   "chi_dao_chung": [
-    {"type": "heading", "content": "Điều 1. Về định hướng chiến lược chung"},
-    {"type": "paragraph", "content": "HĐQT thống nhất tiếp tục đẩy mạnh <b>Chương trình Chuyển đổi số toàn diện</b>, xác định đây là nhiệm vụ chiến lược trọng tâm trong 6 tháng cuối năm nhằm nâng cao năng lực cạnh tranh và hiệu quả hoạt động."},
-    {"type": "bullet", "content": "Tăng cường giám sát, minh bạch hóa tiến độ và hiệu quả của các sáng kiến thông qua hệ thống dashboard, đảm bảo trách nhiệm của các đơn vị."}
+    {"type": "heading", "content": "1. Về định hướng chiến lược chung"},
+    {"type": "paragraph", "content": "Toàn hệ thống tiếp tục kiên định với mục tiêu chuyển đổi số toàn diện, lấy hiệu quả thực tế làm thước đo cao nhất cho sự thành công của các sáng kiến."},
+    {"type": "bullet", "content": "Tăng cường minh bạch và trách nhiệm trong việc theo dõi, báo cáo tiến độ thông qua các công cụ quản trị tập trung như dashboard."},
+    {"type": "bullet", "content": "Ưu tiên nguồn lực cho việc chuẩn hóa và làm giàu dữ liệu, coi đây là tài sản cốt lõi cho các hoạt động AI và phân tích kinh doanh."}
   ],
   "chi_dao_cu_the": [
-    {"type": "heading", "content": "Điều 2. Về phân công nhiệm vụ cụ thể"},
-    {"type": "bullet", "content": "Giao <b>Khối Công nghệ Thông tin</b> chủ trì, phối hợp với <b>Khối Dữ liệu</b> xây dựng và trình HĐQT Kế hoạch chi tiết về việc chuẩn hóa và làm giàu dữ liệu. Thời hạn báo cáo: <b>30/10/2025</b>."},
-    {"type": "bullet", "content": "Giao <b>Khối Bán lẻ</b> chịu trách nhiệm triển khai thí điểm mô hình dự đoán khách hàng rời bỏ tại <b>15 chi nhánh</b> đã được chỉ định. Báo cáo kết quả và đề xuất nhân rộng trước ngày <b>15/11/2025</b>."},
-    {"type": "bullet", "content": "Giao <b>Khối Nhân sự</b> khẩn trương hoàn thiện kế hoạch tuyển dụng các vị trí chuyên gia AI và Khoa học Dữ liệu, trình HĐQT phê duyệt trong tháng 10/2025."}
+    {"type": "heading", "content": "2. Phân công nhiệm vụ cụ thể"},
+    {"type": "bullet", "content": "Giao <b>Khối Bán lẻ</b> chủ trì, phối hợp với <b>Khối Dữ liệu</b> đánh giá lại hiệu quả của <b>15 mô hình</b> thí điểm dự đoán khách hàng rời bỏ. Báo cáo kết quả và đề xuất kế hoạch nhân rộng trước ngày 30/10."},
+    {"type": "bullet", "content": "Giao <b>Khối Nhân sự</b> phối hợp với <b>Khối Dữ liệu và AI</b> hoàn thiện kế hoạch tuyển dụng các vị trí Data Scientist và AI Engineer cho năm tới, trình HĐQT phê duyệt trong tháng 11."},
+    {"type": "bullet", "content": "Yêu cầu tất cả các Chủ nhiệm sáng kiến chịu trách nhiệm cập nhật tiến độ lên hệ thống dashboard định kỳ vào <b>thứ Sáu hàng tuần</b>."}
   ]
 }
 """
