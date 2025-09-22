@@ -1,7 +1,24 @@
-DROP TABLE IF EXISTS speakeractionlog CASCADE;
-DROP TABLE IF EXISTS chat_history CASCADE;
-DROP TABLE IF EXISTS summary CASCADE;
-DROP TABLE IF EXISTS diarizedtranscript CASCADE;
-DROP TABLE IF EXISTS transcription CASCADE;
-DROP TABLE IF EXISTS meetingjob CASCADE;
-DROP TABLE IF EXISTS "user" CASCADE;
+
+meeting_api_server  | 2025-09-22 11:04:02,917 - INFO - app.api.routes.meeting - ==================================================
+meeting_api_server  | 2025-09-22 11:04:02,917 - ERROR - app.services.document_generator - Failed to generate document for template 'nghi_quyet': DocxTemplate.__init__() got an unexpected keyword argument 'autoescape'
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/code/app/services/document_generator.py", line 30, in generate_templated_document
+meeting_api_server  |     doc = DocxTemplate(template_path, autoescape=True)
+meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  | TypeError: DocxTemplate.__init__() got an unexpected keyword argument 'autoescape'
+meeting_api_server  | 2025-09-22 11:04:02,918 - ERROR - app.api.routes.meeting - Error during document generation: An unexpected error occurred during document generation.
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/code/app/services/document_generator.py", line 30, in generate_templated_document
+meeting_api_server  |     doc = DocxTemplate(template_path, autoescape=True)
+meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  | TypeError: DocxTemplate.__init__() got an unexpected keyword argument 'autoescape'
+meeting_api_server  |
+meeting_api_server  | During handling of the above exception, another exception occurred:
+meeting_api_server  |
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 654, in generate_and_download_document
+meeting_api_server  |     document_buffer = generate_templated_document(template_type, llm_json_response)
+meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/services/document_generator.py", line 53, in generate_templated_document
+meeting_api_server  |     raise RuntimeError("An unexpected error occurred during document generation.")
+meeting_api_server  | RuntimeError: An unexpected error occurred during document generation.
