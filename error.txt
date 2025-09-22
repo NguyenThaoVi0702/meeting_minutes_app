@@ -1,282 +1,53 @@
-Thank you for sharing the updated results and logs. The issue you described—where the test script appears to get "stuck"—is primarily due to a validation error in the `GET /meeting/{request_id}/status` endpoint, which returns a 500 Internal Server Error. However, the good news is that the backend workflow (transcription and diarization) is now completing successfully, as evidenced by the logs. The problem lies in the test script's interaction with the `/status` endpoint and its WebSocket handling. Let’s analyze the issue, explain why the `/status` endpoint is failing, and provide a fix to ensure the test script completes without hanging.
-
----
-
-## Analysis of the Current State
-
-### What’s Working
-- **Transcription**: The `run_transcription_task` completes successfully, as shown in the logs:
-  - `[2025-09-19 14:18:25,971: INFO/MainProcess] [Job ID: 52] Transcription completed and saved successfully.`
-  - The `MeetingJob` status is updated to `transcription_complete`, and the transcript data is saved in the `transcription` table.
-  - WebSocket broadcasts the `transcription_complete` status to the client.
-- **Diarization**: The `POST /meeting/{request_id}/diarize` endpoint works correctly:
-  - Status 202 response: `"Diarization process started."`
-  - The `run_diarization_task` runs, processes 571 segments, identifies 71 known and 500 unknown segments, clusters into 4 groups, maps 74 speaker segments to 3845 words, and creates 55 diarized segments.
-  - The `MeetingJob` status updates to `completed`, and a `DiarizedTranscript` is saved.
-  - Logs confirm: `[2025-09-19 14:18:34,471: INFO/MainProcess] [Job ID: 52] Diarization and mapping completed successfully.`
-- **Queue Configuration**: Your updates to set `gpu_tasks` as the default queue and explicitly specify it in `send_task` calls (in `tasks.py`, `speaker.py`, and `meeting.py`) ensure tasks are routed correctly to the `meeting_worker` (listening to `-Q gpu_tasks`).
-- **WebSocket**: The WebSocket (`/ws/{request_id}`) broadcasts updates correctly (`transcription_complete` and `completed`), and the test script receives them (though it closes after `transcription_complete` due to your previous fix).
-
-### What’s Failing
-- **GET /status Endpoint (500 Error)**:
-  - The test script’s `GET /api/v1/meeting/test_Hop%20TO%2011092025_1758266269/status` fails with a 500 Internal Server Error due to a Pydantic validation error in `/app/api/routes/meeting.py`:
-    ```python
-    pydantic_core._pydantic_core.ValidationError: 3 validation errors for PlainSegment
-    text
-      Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
-    start_time
-      Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
-    end_time
-      Field required [type=missing, input_value={'end': 0.16, 'word': 'bác', 'start': 0.0}, input_type=dict]
-    ```
-  - **Cause**: The `_format_job_status` function in `meeting.py` tries to convert `transcription_entry.transcript_data` (JSONB from the DB) into a list of `PlainSegment` objects, but the data structure doesn’t match. The DB stores word-level segments (e.g., `{"word": "bác", "start": 0.0, "end": 0.16}`), while `PlainSegment` expects sentence-level fields (`id`, `text`, `start_time`, `end_time`).
-  - **Impact**: The test script’s status check fails, causing it to hang or abort early, even though diarization proceeds (triggered by `POST /diarize`).
-
-- **Test Script Behavior**:
-  - The test script (`test_code.py`) closes the WebSocket after receiving `transcription_complete` (per your previous fix: `if status in ['transcription_complete', 'completed', 'failed', 'cancelled']`).
-  - It then calls `GET /status`, which fails (500), likely causing the script to exit or hang (depending on error handling).
-  - Despite the `/status` failure, `POST /diarize` succeeds, and diarization completes in the background, but the test may not wait for the `completed` status via WebSocket (due to premature exit or incorrect wait logic).
-
-### Why the Test Appears "Stuck"
-- The test script likely has a second WebSocket wait (after `POST /diarize`) expecting the `completed` status, but:
-  - If the script aborts after the 500 error from `/status`, it never reaches the second wait.
-  - Alternatively, the WebSocket closes too early, missing the `completed` broadcast (`[2025-09-19 14:18:34,471: INFO/MainProcess] Published update for job 'test_Hop TO 11092025_1758266269': completed`).
-  - The test’s timeout (e.g., `WEBSOCKET_DONE.wait(timeout=600)`) may be too short, or error handling after the 500 causes it to hang indefinitely.
-
-### Root Cause Summary
-- **Primary Issue**: The `GET /status` endpoint fails due to a Pydantic validation mismatch between the DB’s word-level `transcript_data` and the expected `PlainSegment` schema.
-- **Secondary Issue**: The test script’s logic doesn’t robustly handle the 500 error or WebSocket closure, causing it to hang or exit before confirming `completed`.
-- **Backend**: Fully functional—transcription and diarization complete, and updates are broadcast.
-
----
-
-## Fixing the Issue
-
-### Step 1: Fix the `GET /status` Endpoint
-The Pydantic validation error occurs in `_format_job_status` when converting `transcription.transcript_data` to `PlainSegment`. The DB stores word-level data (from transcription), but `PlainSegment` expects sentence-level data (like `DiarizedTranscript`).
-
-1. **Inspect `PlainSegment` Model**:
-   - In `/app/api/models.py`, `PlainSegment` is likely defined as:
-     ```python
-     class PlainSegment(BaseModel):
-         id: int
-         text: str
-         start_time: float
-         end_time: float
-     ```
-   - The DB’s `transcription.transcript_data` has word-level segments (e.g., `{"word": "bác", "start": 0.0, "end": 0.16}`), causing the validation error.
-
-2. **Modify `_format_job_status`**:
-   - Update `/app/api/routes/meeting.py` to handle word-level data differently or skip `PlainSegment` for transcription data before diarization.
-   - Proposed fix: Add a new model for word-level segments and adjust `_format_job_status`:
-     ```python
-     # In /app/api/models.py
-     from pydantic import BaseModel
-
-     class WordSegment(BaseModel):
-         word: str
-         start: float
-         end: float
-
-     class PlainSegment(BaseModel):  # Existing
-         id: int
-         text: str
-         start_time: float
-         end_time: float
-     ```
-   - Update `_format_job_status` in `/app/api/routes/meeting.py`:
-     ```python
-     def _format_job_status(job: MeetingJob, db: Session):
-         response_data = {
-             "request_id": job.request_id,
-             "status": job.status,
-             "meeting_type": job.meeting_type,
-             "language": job.language,
-             "created_at": job.created_at,
-             "updated_at": job.updated_at,
-             "error_message": job.error_message,
-             "plain_transcript": None,
-             "diarized_transcript": None,
-         }
-         if job.status in ["transcription_complete", "diarizing", "completed"]:
-             transcription_entry = db.exec(
-                 select(Transcription)
-                 .where(Transcription.meeting_job_id == job.id)
-                 .where(Transcription.language == job.language)
-             ).first()
-             if transcription_entry:
-                 # Use WordSegment for transcription data
-                 response_data["plain_transcript"] = [
-                     WordSegment(**seg) for seg in transcription_entry.transcript_data
-                 ]
-         if job.status == "completed":
-             diarized_entry = db.exec(
-                 select(DiarizedTranscript).where(DiarizedTranscript.meeting_job_id == job.id)
-             ).first()
-             if diarized_entry:
-                 response_data["diarized_transcript"] = [
-                     PlainSegment(**seg) for seg in diarized_entry.transcript_data
-                 ]
-         return response_data
-     ```
-   - **Changes**:
-     - Use `WordSegment` for `transcription.transcript_data` (word-level, with `word`, `start`, `end`).
-     - Keep `PlainSegment` for `diarized_transcript.transcript_data` (sentence-level, with `id`, `text`, `start_time`, `end_time`).
-     - Only process `diarized_transcript` when status is `completed`.
-
-3. **Copy Updated Files**:
-   - Save changes to `models.py` and `meeting.py`.
-   - Copy to container:
-     ```bash
-     docker cp models.py meeting_api_server:/code/app/api/models.py
-     docker cp meeting.py meeting_api_server:/code/app/api/routes/meeting.py
-     ```
-   - Restart API:
-     ```bash
-     docker-compose restart api
-     ```
-
-4. **Test the Endpoint**:
-   - Manually test `GET /status`:
-     ```bash
-     curl -v "http://localhost:8072/api/v1/meeting/test_Hop%20TO%2011092025_1758266269/status?username=test_user_01"
-     ```
-   - Expect a 200 response with `plain_transcript` containing `WordSegment` objects (e.g., `[{"word": "bác", "start": 0.0, "end": 0.16}, ...]`).
-
-### Step 2: Fix the Test Script
-The test script (`test_code.py`) needs to handle the `/status` failure and WebSocket logic robustly to avoid hanging.
-
-1. **Update WebSocket Listener**:
-   - The script closes the WebSocket after `transcription_complete`, which is correct (per your earlier fix), but ensure it waits for `completed` after triggering diarization.
-   - Modify `run_full_test` to handle `/status` errors and add a second WebSocket listener for diarization:
-     ```python
-     import json
-     import threading
-     import websocket
-     import requests
-     from concurrent.futures import ThreadPoolExecutor
-
-     WEBSOCKET_DONE = threading.Event()
-
-     def listen_on_websocket(request_id, expected_statuses):
-         ws_url = f"ws://localhost:8072/api/v1/meeting/ws/{request_id}"
-         ws = websocket.WebSocketApp(
-             ws_url,
-             on_message=lambda ws, msg: on_message(ws, msg, expected_statuses),
-             on_error=lambda ws, err: print(f"[WebSocket] Error: {err}"),
-             on_close=lambda ws, code, reason: print("[WebSocket] Connection closed.")
-         )
-         ws.run_forever()
-
-     def on_message(ws, message, expected_statuses):
-         data = json.loads(message)
-         status = data.get('status')
-         print(f"\n[WebSocket] === STATUS UPDATE: {status} ===")
-         print(json.dumps(data, indent=2, ensure_ascii=False))
-         if status in expected_statuses:
-             WEBSOCKET_DONE.set()
-             ws.close()
-
-     def run_full_test():
-         base_url = "http://localhost:8072/api/v1/meeting"
-         request_id = "test_Hop TO 11092025_1758266269"
-         username = "test_user_01"
-
-         # Start meeting
-         response = requests.post(f"{base_url}/start-bbh", json={"request_id": request_id, "username": username, "meeting_type": "Hop TO", "language": "vi"})
-         print(f"[Start Meeting] Status: {response.status_code}\nResponse: {response.json()}")
-
-         # Upload chunks (simplified)
-         # ... (your existing chunk upload logic) ...
-
-         # Wait for transcription
-         WEBSOCKET_DONE.clear()
-         ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id, ['transcription_complete', 'failed', 'cancelled']))
-         ws_thread.start()
-         WEBSOCKET_DONE.wait(timeout=600)
-         ws_thread.join()
-
-         # Get status
-         try:
-             response = requests.get(f"{base_url}/{request_id}/status?username={username}")
-             print(f"[Get Status] Status: {response.status_code}\nResponse: {response.json()}")
-         except requests.exceptions.RequestException as e:
-             print(f"[Get Status] Failed: {e}")
-
-         # Trigger diarization
-         response = requests.post(f"{base_url}/{request_id}/diarize?username={username}")
-         print(f"[Trigger Diarization] Status: {response.status_code}\nResponse: {response.json()}")
-
-         # Wait for diarization completion
-         WEBSOCKET_DONE.clear()
-         ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id, ['completed', 'failed', 'cancelled']))
-         ws_thread.start()
-         WEBSOCKET_DONE.wait(timeout=600)
-         ws_thread.join()
-
-         # Get final status
-         try:
-             response = requests.get(f"{base_url}/{request_id}/status?username={username}")
-             print(f"[Final Status] Status: {response.status_code}\nResponse: {response.json()}")
-         except requests.exceptions.RequestException as e:
-             print(f"[Final Status] Failed: {e}")
-
-     if __name__ == "__main__":
-         run_full_test()
-     ```
-   - **Changes**:
-     - Parameterize `listen_on_websocket` to accept `expected_statuses`.
-     - Add error handling for `/status` requests.
-     - Add a second WebSocket wait for `completed` after diarization.
-     - Join threads to ensure cleanup.
-
-2. **Copy and Run Test**:
-   - Save as `test_code.py` and copy:
-     ```bash
-     docker cp test_code.py meeting_api_server:/test_client/test_code.py
-     ```
-   - Run:
-     ```bash
-     docker exec -it meeting_api_server python3 /test_client/test_code.py
-     ```
-
-### Step 3: Verify with Flower
-- Access Flower at `http://localhost:5555` (or `http://<your-server-ip>:5555`).
-- **Tasks Tab**:
-  - Confirm `run_transcription_task` and `run_diarization_task` complete with `SUCCESS`.
-  - Check for `run_diarization_task` (ID: `60903288-1338-49c1-8914-31ad68c0e935`) with 8.43s runtime.
-- **Workers Tab**: Ensure `meeting_worker` is processing `gpu_tasks`.
-- If diarization fails (e.g., Qdrant or model issues), Flower will show the error.
-
-### Step 4: Test and Validate
-- Run the updated test:
-  ```bash
-  docker exec -it meeting_api_server python3 /test_client/test_code.py
-  ```
-- Check logs:
-  ```bash
-  docker logs meeting_worker
-  docker logs meeting_api_server
-  docker logs meeting_flower
-  ```
-- Expected output:
-  - `[Get Status] Status: 200` with `plain_transcript` containing `WordSegment` objects.
-  - `[Trigger Diarization] Status: 202`.
-  - Second WebSocket wait completes on `completed` status.
-  - `[Final Status] Status: 200` with `diarized_transcript` containing `PlainSegment` objects (e.g., `[{"id": 39, "text": "...", "start_time": 1095.64, "end_time": 1125.56}, ...]`).
-- If still stuck, share the test script’s console output and updated logs.
-
----
-
-## Additional Notes
-- **Why `/status` Failed**: The transcription data’s word-level structure (from Faster-Whisper) doesn’t match `PlainSegment`, which expects diarized (sentence-level) data. The fix separates these schemas.
-- **Test Script Robustness**: The updated script handles errors and waits for both `transcription_complete` and `completed`, matching the backend’s state machine.
-- **Performance**: Diarization took ~8.4s for 571 segments, which is reasonable, but monitor GPU memory if scaling to larger audio files.
-- **Clock Drift**: The Flower warning (`Substantial drift ...`) is minor (due to GPU load). If persistent, sync host/container time with NTP or increase Celery’s heartbeat interval:
-  ```bash
-  # In docker-compose.yml for worker
-  command: >
-    celery -A app.worker.celery_app worker -l info --pool=solo --concurrency=1 -Q gpu_tasks --heartbeat-interval=60
-  ```
-
-If the fix doesn’t resolve the issue or new errors arise (e.g., diarization fails, test still hangs), share the test script output and logs. I can refine the solution further!
+ting_api_server  |
+meeting_api_server  | During handling of the above exception, another exception occurred:
+meeting_api_server  |
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+meeting_api_server  |     return await self.app(scope, receive, send)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
+meeting_api_server  |     await super().__call__(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
+meeting_api_server  |     await self.app(scope, receive, _send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
+meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
+meeting_api_server  |     await route.handle(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
+meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
+meeting_api_server  |     response = await f(request)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
+meeting_api_server  |     raw_response = await run_endpoint_function(
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
+meeting_api_server  |     return await dependant.call(**values)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 625, in generate_and_download_document
+meeting_api_server  |     local_tz = ZoneInfo("Asian/Ho_Chi_Minh")
+meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/lib/python3.12/zoneinfo/_common.py", line 24, in load_tzdata
+meeting_api_server  |     raise ZoneInfoNotFoundError(f"No time zone found with key {key}")
+meeting_api_server  | zoneinfo._common.ZoneInfoNotFoundError: 'No time zone found with key Asian/Ho_Chi_Minh'
