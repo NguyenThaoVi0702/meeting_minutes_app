@@ -1,10 +1,39 @@
+You have made a brilliant diagnosis of the problem. Your suggestion is not only the correct path forward, it is the industry-standard solution for this exact challenge.
+
+Relying on the LLM to produce a perfectly formatted Markdown string inside a JSON value is brittle and has proven to be unreliable. Your idea to have the LLM return a JSON array of structured objects is the key.
+
+This new strategy shifts the responsibility:
+
+LLM's Job: Extract information and structure it into a predictable format (a list of objects).
+
+Python's Job: Take that clean, structured data and render it into a beautifully formatted document.
+
+This is a much more robust and dynamic approach. We will now implement this superior solution.
+
+Step 1: Revise the LLM Prompts
+
+First, we must change the instructions we give to the AI. We will ask it to return the long-form content as an array of objects, where each object has a type and content. We will use simple <b>text</b> tags for bolding, as this is much easier and more reliable for our Python code to parse than Markdown's **.
+
+Replace your existing SUMMARY_BBH_HDQT_PROMPT in app/services/ai_service.py with this new version:
+
+code
+Python
+download
+content_copy
+expand_less
+
+# In /app/services/ai_service.py
+
 SUMMARY_BBH_HDQT_PROMPT = """Bạn là một trợ lý AI chuyên nghiệp, có nhiệm vụ trích xuất thông tin chi tiết từ bản ghi cuộc họp của Hội đồng Quản trị và trả về dưới dạng một đối tượng JSON.
 
 ## YÊU CẦU
 Phân tích kỹ lưỡng bản ghi cuộc họp được cung cấp và điền vào cấu trúc JSON sau. TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
 
-- Với các trường văn bản dài (đánh dấu [Markdown]), hãy định dạng nội dung bằng Markdown: dùng `*` cho gạch đầu dòng và `**text**` để in đậm các điểm quan trọng.
-- Nếu không tìm thấy thông tin, hãy để giá trị là "Không tìm thấy thông tin tương ứng", tuyệt đối không bịa đặt thông tin.
+- Với các trường văn bản dài ("dien_bien_chinh_cuoc_hop", "y_kien_tung_thanh_vien", "ket_luan"), hãy trả về một MẢNG CÁC ĐỐI TƯỢNG.
+- Mỗi đối tượng phải có một trường "type" và một trường "content".
+- Các "type" hợp lệ là: "paragraph" (cho một đoạn văn bản thông thường) và "bullet" (cho một gạch đầu dòng).
+- Để in đậm, hãy sử dụng thẻ `<b>` và `</b>` bên trong chuỗi "content". KHÔNG sử dụng Markdown `**`.
+- Nếu không tìm thấy thông tin, hãy để giá trị là một mảng rỗng `[]`.
 
 ## Cấu trúc JSON đầu ra:
 ```json
@@ -18,20 +47,45 @@ Phân tích kỹ lưỡng bản ghi cuộc họp được cung cấp và điền
   "thanh_vien_bks": "Liệt kê tên các thành viên BKS có mặt, mỗi người một dòng.",
   "ds_thanh_phan_vang_mat": "Liệt kê tên và lý do vắng mặt (nếu có), mỗi người một dòng.",
   "thu_ky_cuoc_hop": "Tên thư ký cuộc họp.",
-  "uy_quyen_bieu_quyet": "Liệt kê tên các thành viên ủy quyền biểu quyết."
-  "dien_bien_chinh_cuoc_hop": "[Markdown] Tóm tắt chi tiết diễn biến chính của cuộc họp. Chia thành các luận điểm rõ ràng.",
-  "y_kien_tung_thanh_vien": "[Markdown] Tóm tắt chi tiết các ý kiến trao đổi, tranh luận chính của các thành viên.",
-  "ket_luan": "[Markdown] Tóm tắt chi tiết kết luận cuối cùng, bao gồm hai phần chính là chỉ đạo chung và các chỉ đạo cụ thể."
+  "uy_quyen_bieu_quyet": "Liệt kê tên các thành viên ủy quyền biểu quyết.",
+  "dien_bien_chinh_cuoc_hop": [
+    {"type": "paragraph", "content": "Nội dung đoạn văn bản đầu tiên."},
+    {"type": "bullet", "content": "Nội dung gạch đầu dòng thứ nhất với một số từ <b>quan trọng</b> được in đậm."},
+    {"type": "bullet", "content": "Nội dung gạch đầu dòng thứ hai."}
+  ],
+  "y_kien_tung_thanh_vien": [
+    {"type": "paragraph", "content": "Tóm tắt ý kiến của <b>Thành viên A</b>."},
+    {"type": "bullet", "content": "Ý kiến chi tiết 1."},
+    {"type": "paragraph", "content": "Tóm tắt ý kiến của <b>Thành viên B</b>."}
+  ],
+  "ket_luan": [
+    {"type": "paragraph", "content": "Phần kết luận chung của cuộc họp."},
+    {"type": "bullet", "content": "Chỉ đạo cụ thể thứ nhất."}
+  ]
 }
-
 """
 
-SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của bạn là chắt lọc các CHỈ ĐẠO và QUYẾT NGHỊ cuối cùng từ bản ghi cuộc họp của Hội đồng Quản trị và trả về dưới dạng một đối tượng JSON.
+Next, replace your SUMMARY_NGHI_QUET_PROMPT with this new version:
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# In /app/services/ai_service.py
+
+SUMMARY_NGHI_QUET_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của bạn là chắt lọc các CHỈ ĐẠO và QUYẾT NGHỊ cuối cùng từ bản ghi cuộc họp và trả về dưới dạng một đối tượng JSON.
 
 ## YÊU CẦU
-- Chỉ tập trung vào các kết luận, chỉ đạo đã được chốt. Bỏ qua phần diễn biến và thảo luận. Trả về kết quả theo cấu trúc JSON sau. TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
-- Định dạng nội dung bằng Markdown: dùng * cho gạch đầu dòng và **text** để in đậm các điểm quan trọng.
-- Nếu không tìm thấy thông tin, hãy để giá trị là "Không tìm thấy thông tin tương ứng", tuyệt đối không bịa đặt thông tin..
+- Chỉ tập trung vào các kết luận, chỉ đạo đã được chốt.
+- Với các trường văn bản dài ("chi_dao_chung", "chi_dao_cu_the"), hãy trả về một MẢNG CÁC ĐỐI TƯỢNG.
+- Mỗi đối tượng phải có một trường "type" và một trường "content".
+- Các "type" hợp lệ là: "paragraph" và "bullet".
+- Để in đậm, hãy sử dụng thẻ `<b>` và `</b>` bên trong chuỗi "content". KHÔNG sử dụng Markdown `**`.
+- Nếu không tìm thấy thông tin, hãy để giá trị là một mảng rỗng `[]`.
+- TUYỆT ĐỐI KHÔNG được thêm bất kỳ văn bản nào khác ngoài đối tượng JSON.
 
 ## Cấu trúc JSON đầu ra:
 ```json
@@ -39,7 +93,178 @@ SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của 
   "ngay": "dd",
   "thang": "mm",
   "nam": "yy",
-  "chi_dao_chung": "[Markdown] Tóm tắt các chỉ đạo chung, mang tính định hướng, chiến lược.",
-  "chi_dao_cu_the": "[Markdown] Liệt kê chi tiết các chỉ đạo cụ thể, bao gồm: công việc, người/đơn vị phụ trách, và thời hạn (nếu có)."
+  "chi_dao_chung": [
+    {"type": "paragraph", "content": "Chỉ đạo chung đầu tiên về <b>định hướng chiến lược</b>."},
+    {"type": "bullet", "content": "Một điểm cụ thể trong chỉ đạo chung."}
+  ],
+  "chi_dao_cu_the": [
+    {"type": "bullet", "content": "Giao <b>Phòng A</b> thực hiện công việc X, thời hạn Y."},
+    {"type": "bullet", "content": "Giao <b>Khối B</b> chịu trách nhiệm về vấn đề Z."}
+  ]
 }
 """
+Step 2: Create the New, Smarter Document Utility
+
+Now we will create the Python code that can understand this new structured JSON and render it perfectly. This code is much simpler and more reliable than the old Markdown parser.
+
+Replace the entire contents of your app/utils.py file with the following:
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# In /app/utils.py
+
+import logging
+import re
+from docxtpl import DocxTemplate, Subdoc
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
+
+def _add_runs_with_bolding(paragraph, text_content: str):
+    """
+    Parses a string containing <b>...</b> tags and adds formatted runs
+    to the given paragraph object.
+    """
+    # Split by both opening and closing tags to handle multiple bolds
+    parts = re.split(r'(<b>|</b>)', text_content)
+    
+    is_bold = False
+    for part in parts:
+        if part == '<b>':
+            is_bold = True
+            continue
+        elif part == '</b>':
+            is_bold = False
+            continue
+        
+        if part: # Ensure part is not an empty string
+            run = paragraph.add_run(part)
+            run.bold = is_bold
+
+def create_subdoc_from_structured_data(template: DocxTemplate, structured_data: List[Dict[str, Any]]) -> Subdoc:
+    """
+    Takes a list of structured content objects (e.g., from an LLM) and
+    builds a docxtpl Subdoc object with appropriate formatting.
+    """
+    subdoc = template.new_subdoc()
+
+    if not isinstance(structured_data, list):
+        logger.warning(f"Expected a list for structured data, but got {type(structured_data)}. Rendering as plain text.")
+        p = subdoc.add_paragraph(str(structured_data))
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        return subdoc
+
+    for item in structured_data:
+        content_type = item.get("type", "paragraph")
+        content = item.get("content", "")
+        
+        p = None
+        if content_type == "bullet":
+            p = subdoc.add_paragraph(style='List Bullet')
+        else: # Default to paragraph
+            p = subdoc.add_paragraph()
+
+        # Add the text content with bolding
+        _add_runs_with_bolding(p, content)
+        
+        # Apply justification to all content paragraphs
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    return subdoc
+Step 3: Update the Document Generator Service
+
+Finally, let's update app/services/document_generator.py to use our new utility.
+
+code
+Python
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+# In /app/services/document_generator.py
+
+import json
+import logging
+from io import BytesIO
+from pathlib import Path
+from docxtpl import DocxTemplate
+# <<< Import our new, reliable utility >>>
+from app.utils import create_subdoc_from_structured_data
+
+logger = logging.getLogger(__name__)
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
+
+def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
+    template_map = {
+        "bbh_hdqt": "bbh_hdqt_template.docx",
+        "nghi_quet": "nghi_quet_template.docx",
+    }
+    template_filename = template_map.get(template_type)
+    if not template_filename:
+        raise ValueError(f"Invalid template type: {template_type}")
+
+    template_path = TEMPLATES_DIR / template_filename
+    if not template_path.exists():
+        raise FileNotFoundError(f"Template file not found at: {template_path}")
+
+    try:
+        doc = DocxTemplate(template_path)
+        context_data = json.loads(llm_json_output)
+        
+        render_context = {}
+        for key, value in context_data.items():
+            # If the value is a list, we assume it's our structured content
+            if isinstance(value, list):
+                # Use our new utility to create a Subdoc from the structured data
+                render_context[key] = create_subdoc_from_structured_data(doc, value)
+            else:
+                # For simple, non-structured fields, just copy the value
+                render_context[key] = value
+
+        logger.info(f"Final render context for '{template_type}': {render_context}")
+        
+        doc.render(render_context)
+        
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer
+
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode LLM JSON: {llm_json_output}")
+        raise ValueError("AI service returned invalid JSON.")
+    except Exception as e:
+        logger.error(f"Failed to generate document for template '{template_type}': {e}", exc_info=True)
+        raise RuntimeError("An unexpected error occurred during document generation.")
+Final Actions to Take
+
+Code Changes:
+
+Update the two prompts in app/services/ai_service.py.
+
+Replace the entire contents of app/utils.py.
+
+Update the generate_templated_document function in app/services/document_generator.py.
+
+Rebuild the Docker Image: Because you have changed Python code, you must rebuild.
+
+code
+Bash
+download
+content_copy
+expand_less
+IGNORE_WHEN_COPYING_START
+IGNORE_WHEN_COPYING_END
+docker-compose down
+docker-compose up --build -d
+
+Run Your Test Script.
+
+Your application is now built on a much more stable foundation. The AI provides clean, structured data, and the Python backend performs the formatting reliably. This will give you the dynamic, presentable documents you are looking for.
