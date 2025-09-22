@@ -1,53 +1,66 @@
-ting_api_server  |
+meeting_api_server  | 2025-09-22 14:37:38,054 - ERROR - app.services.document_generator - Failed to generate document for template 'bbh_hdqt': expected token 'end of print statement', got 'sub'
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/code/app/services/document_generator.py", line 51, in generate_templated_document
+meeting_api_server  |     doc.render(render_context)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 486, in render
+meeting_api_server  |     xml_src = self.build_xml(context, jinja_env)
+meeting_api_server  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 433, in build_xml
+meeting_api_server  |     xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
+meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 319, in render_xml_part
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 309, in render_xml_part
+meeting_api_server  |     template = Template(src_xml)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1214, in __new__
+meeting_api_server  |     return env.from_string(source, template_class=cls)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1111, in from_string
+meeting_api_server  |     return cls.from_code(self, self.compile(source), gs, None)
+meeting_api_server  |                                ^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 771, in compile
+meeting_api_server  |     self.handle_exception(source=source_hint)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 942, in handle_exception
+meeting_api_server  |     raise rewrite_traceback_stack(source=source)
+meeting_api_server  |   File "<unknown>", line 18, in template
+meeting_api_server  | jinja2.exceptions.TemplateSyntaxError: expected token 'end of print statement', got 'sub'
+meeting_api_server  | 2025-09-22 14:37:38,056 - ERROR - app.api.routes.meeting - Error during document generation: An unexpected error occurred during document generation.
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/code/app/services/document_generator.py", line 51, in generate_templated_document
+meeting_api_server  |     doc.render(render_context)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 486, in render
+meeting_api_server  |     xml_src = self.build_xml(context, jinja_env)
+meeting_api_server  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 433, in build_xml
+meeting_api_server  |     xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
+meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 319, in render_xml_part
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 309, in render_xml_part
+meeting_api_server  |     template = Template(src_xml)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1214, in __new__
+meeting_api_server  |     return env.from_string(source, template_class=cls)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1111, in from_string
+meeting_api_server  |     return cls.from_code(self, self.compile(source), gs, None)
+meeting_api_server  |                                ^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 771, in compile
+meeting_api_server  |     self.handle_exception(source=source_hint)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 942, in handle_exception
+meeting_api_server  |     raise rewrite_traceback_stack(source=source)
+meeting_api_server  |   File "<unknown>", line 18, in template
+meeting_api_server  | jinja2.exceptions.TemplateSyntaxError: expected token 'end of print statement', got 'sub'
+meeting_api_server  |
 meeting_api_server  | During handling of the above exception, another exception occurred:
 meeting_api_server  |
 meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-meeting_api_server  |     return await self.app(scope, receive, send)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
-meeting_api_server  |     await super().__call__(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
-meeting_api_server  |     await self.app(scope, receive, _send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
-meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
-meeting_api_server  |     await route.handle(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
-meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 625, in generate_and_download_document
-meeting_api_server  |     local_tz = ZoneInfo("Asian/Ho_Chi_Minh")
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/lib/python3.12/zoneinfo/_common.py", line 24, in load_tzdata
-meeting_api_server  |     raise ZoneInfoNotFoundError(f"No time zone found with key {key}")
-meeting_api_server  | zoneinfo._common.ZoneInfoNotFoundError: 'No time zone found with key Asian/Ho_Chi_Minh'
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 654, in generate_and_download_document
+meeting_api_server  |     document_buffer = generate_templated_document(template_type, llm_json_response)
+meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/services/document_generator.py", line 64, in generate_templated_document
+meeting_api_server  |     raise RuntimeError("An unexpected error occurred during document generation.")
+meeting_api_server  | RuntimeError: An unexpected error occurred during document generation.
+meeting_api_server  | 2025-09-22 14:37:38,058 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-22 14:37:38,058 INFO sqlalchemy.engine.Engine ROLLBACK
