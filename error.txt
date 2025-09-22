@@ -1,66 +1,14 @@
-meeting_api_server  | 2025-09-22 14:37:38,054 - ERROR - app.services.document_generator - Failed to generate document for template 'bbh_hdqt': expected token 'end of print statement', got 'sub'
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 51, in generate_templated_document
-meeting_api_server  |     doc.render(render_context)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 486, in render
-meeting_api_server  |     xml_src = self.build_xml(context, jinja_env)
-meeting_api_server  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 433, in build_xml
-meeting_api_server  |     xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
-meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 319, in render_xml_part
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 309, in render_xml_part
-meeting_api_server  |     template = Template(src_xml)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1214, in __new__
-meeting_api_server  |     return env.from_string(source, template_class=cls)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1111, in from_string
-meeting_api_server  |     return cls.from_code(self, self.compile(source), gs, None)
-meeting_api_server  |                                ^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 771, in compile
-meeting_api_server  |     self.handle_exception(source=source_hint)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 942, in handle_exception
-meeting_api_server  |     raise rewrite_traceback_stack(source=source)
-meeting_api_server  |   File "<unknown>", line 18, in template
-meeting_api_server  | jinja2.exceptions.TemplateSyntaxError: expected token 'end of print statement', got 'sub'
-meeting_api_server  | 2025-09-22 14:37:38,056 - ERROR - app.api.routes.meeting - Error during document generation: An unexpected error occurred during document generation.
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 51, in generate_templated_document
-meeting_api_server  |     doc.render(render_context)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 486, in render
-meeting_api_server  |     xml_src = self.build_xml(context, jinja_env)
-meeting_api_server  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 433, in build_xml
-meeting_api_server  |     xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
-meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 319, in render_xml_part
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 309, in render_xml_part
-meeting_api_server  |     template = Template(src_xml)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1214, in __new__
-meeting_api_server  |     return env.from_string(source, template_class=cls)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1111, in from_string
-meeting_api_server  |     return cls.from_code(self, self.compile(source), gs, None)
-meeting_api_server  |                                ^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 771, in compile
-meeting_api_server  |     self.handle_exception(source=source_hint)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 942, in handle_exception
-meeting_api_server  |     raise rewrite_traceback_stack(source=source)
-meeting_api_server  |   File "<unknown>", line 18, in template
-meeting_api_server  | jinja2.exceptions.TemplateSyntaxError: expected token 'end of print statement', got 'sub'
-meeting_api_server  |
-meeting_api_server  | During handling of the above exception, another exception occurred:
-meeting_api_server  |
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 654, in generate_and_download_document
-meeting_api_server  |     document_buffer = generate_templated_document(template_type, llm_json_response)
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 64, in generate_templated_document
-meeting_api_server  |     raise RuntimeError("An unexpected error occurred during document generation.")
-meeting_api_server  | RuntimeError: An unexpected error occurred during document generation.
-meeting_api_server  | 2025-09-22 14:37:38,058 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | 2025-09-22 14:37:38,058 INFO sqlalchemy.engine.Engine ROLLBACK
+Điều 1. Chỉ đạo về hoạt động kinh doanh của NHCT
+1.1.	Chỉ đạo chung
+**1.1. Chỉ đạo chung**
+
+- **Tiếp tục đẩy mạnh chương trình chuyển đổi số** trên toàn hệ thống, tập trung vào việc theo dõi tiến độ, chất lượng và hiệu quả các sáng kiến chuyển đổi số.
+- **Tăng cường giám sát, minh bạch hóa tiến độ thực hiện các sáng kiến** thông qua hệ thống dashboard/dash pop, đảm bảo các khối, phòng ban, chi nhánh đều cập nhật và chịu trách nhiệm về tiến độ các công việc được giao.
+- **Tập trung cải thiện các chỉ tiêu kinh doanh trọng yếu** (KPI, KIA, MRI, NDA...) và nâng cao hiệu quả hoạt động, đặc biệt trong bối cảnh cạnh tranh cao và thị trường biến động.
+- **Nhấn mạnh vai trò của các đơn vị phụ trách dữ liệu và AI** trong việc chuẩn hóa, chuyển hóa dữ liệu, xây dựng năng lực và tuyển dụng nhân sự phù hợp để đáp ứng yêu cầu chuyển đổi số.
+1.2. 	Các chỉ đạo, định hướng cụ thể
+**1.2. Các chỉ đạo, định hướng cụ thể**
+
+- **Triển khai đánh giá lại các mô hình, sáng kiến chuyển đổi số:**
+  - Phân tích, đánh giá lại các mô hình đã triển khai tại khối 2, 3 và các sáng kiến USA để xác định các điểm mạnh/yếu, chất lượng và tiến độ triển khai. 
+  - **Đơn vị phụ trách:** Các khối nghiệp vụ liên quan, phối hợp với các nhóm 
