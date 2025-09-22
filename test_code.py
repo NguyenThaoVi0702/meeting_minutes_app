@@ -174,8 +174,23 @@ def run_full_test():
     # STEP 5: ANALYSIS AND DOWNLOADS (Primary Workflow)
     # ==================================================================
     print("\n\n--- STEP 5: TESTING ANALYSIS AND DOWNLOADS ---")
-    # ... (This step remains the same)
+    audio_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/audio?username={TEST_USERNAME}")
+    if audio_dl_response.status_code == 200:
+        audio_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_audio.wav")
+        with open(audio_save_path, 'wb') as f: f.write(audio_dl_response.content)
+        print(f"  -> [Download Audio] OK. File saved inside container at {audio_save_path}")
 
+    document_types_to_test = ["bbh_hdqt", "nghi_quyet"]
+    for doc_type in document_types_to_test:
+        print(f"\nTesting document download (type: {doc_type})")
+        doc_params = {'username': TEST_USERNAME, 'template_type': doc_type}
+        doc_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/document", params=doc_params)
+        if doc_dl_response.status_code == 200:
+            doc_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{doc_type}.docx")
+            with open(doc_save_path, 'wb') as f: f.write(doc_dl_response.content)
+            print(f"  -> [Download Document] OK. File saved inside container at {doc_save_path}")
+        else:
+            print_response(doc_dl_response, f"Download {doc_type}")
     # ==================================================================
     # STEP 6: TEST EDITING, LANGUAGE CHANGE, AND SIDE EFFECTS
     # ==================================================================
