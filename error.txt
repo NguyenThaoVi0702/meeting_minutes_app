@@ -1,66 +1,98 @@
-# /app/utils.py
+# In /app/utils.py
 
 import logging
 import re
-from io import BytesIO
-
+import markdown
+from bs4 import BeautifulSoup
 from docxtpl import DocxTemplate, Subdoc
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 logger = logging.getLogger(__name__)
 
+# --- NEW, MORE ROBUST UTILITY FUNCTIONS ---
+
+def _process_inline_formatting(paragraph, contents):
+    """
+    Processes a list of BeautifulSoup contents (strings and tags) into
+    formatted docx runs within a single paragraph.
+    This version is robust and can handle leftover Markdown **bold** syntax
+    within plain text strings.
+    """
+    for item in contents:
+        # If the item is a standard HTML tag for formatting
+        if hasattr(item, 'name') and item.name:
+            if item.name in ['strong', 'b']:
+                run = paragraph.add_run(item.get_text(strip=True))
+                run.bold = True
+            elif item.name in ['em', 'i']:
+                run = paragraph.add_run(item.get_text(strip=True))
+                run.italic = True
+            else: # Fallback for other tags
+                paragraph.add_run(item.get_text(strip=True))
+        
+        # If the item is just a string, check it for leftover Markdown
+        elif isinstance(item, str):
+            # Split the string by the bold markers `**`
+            parts = re.split(r'(\*\*.*?\*\*)', item)
+            for part in parts:
+                if not part:
+                    continue
+                # If the part is bold, strip the markers and add as a bold run
+                if part.startswith('**') and part.endswith('**'):
+                    run = paragraph.add_run(part[2:-2])
+                    run.bold = True
+                # Otherwise, add as a regular run
+                else:
+                    paragraph.add_run(part)
 
 def markdown_to_subdoc(template: DocxTemplate, md_text: str) -> Subdoc:
     """
-    Converts a Markdown string into a docxtpl Subdoc object with precise control
-    over formatting and alignment.
-
-    Supports:
-    - Paragraphs (justified)
-    - Bullet points (using 'List Bullet' style, justified)
-    - Bold text (`**text**`) within any line.
+    Converts a Markdown string into a docxtpl Subdoc object, preserving
+    structure and applying specific formatting like justification.
     """
+    # Convert markdown to a clean HTML string
+    html = markdown.markdown(md_text.strip(), extensions=['extra'])
+    
+    # Parse the HTML
+    soup = BeautifulSoup(html, 'html.parser')
+
     # Create a new subdocument from the main template
     subdoc = template.new_subdoc()
-    
-    # Sanitize and split the text into lines
-    clean_text = md_text.strip()
-    
-    for line in clean_text.split('\n'):
-        stripped_line = line.strip()
-        if not stripped_line:
-            continue # Skip empty lines
 
-        # Determine the paragraph type and set its base properties
-        if stripped_line.startswith(('* ', '- ')):
-            # This is a bullet point
-            p = subdoc.add_paragraph(style='List Bullet')
-            p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            content = stripped_line[2:] # Get text after '* ' or '- '
-        else:
-            # This is a standard paragraph or a heading-like line
+    # Iterate through the top-level HTML tags
+    for element in soup.contents:
+        if not hasattr(element, 'name') or not element.name:
+            continue
+
+        p = None # Initialize paragraph variable
+
+        if element.name in ['h1', 'h2', 'h3', 'h4']:
+            level = int(element.name[1:])
+            p = subdoc.add_heading(level=level)
+            _process_inline_formatting(p, element.contents)
+            # <<< NO justification for headings >>>
+
+        elif element.name == 'p':
             p = subdoc.add_paragraph()
-            # We assume lines that are also bolded are headings and should be left-aligned
-            if stripped_line.startswith('**') and stripped_line.endswith('**'):
-                 p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            else:
-                 p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            content = stripped_line
-        
-        # --- Process Inline Formatting (Bold Text) ---
-        # Split the line by the bold markers `**` to handle mixed formatting
-        parts = re.split(r'(\*\*.*?\*\*)', content)
-        
-        for part in parts:
-            if not part:
-                continue
-            
-            # If the part is bold, strip the markers and add it as a bold run
-            if part.startswith('**') and part.endswith('**'):
-                run = p.add_run(part[2:-2])
-                run.bold = True
-            # Otherwise, add it as a regular, non-bold run
-            else:
-                run = p.add_run(part)
+            _process_inline_formatting(p, element.contents)
+            # <<< SET justification for paragraphs >>>
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
 
+        elif element.name == 'ul':
+            for li in element.find_all('li', recursive=False):
+                p = subdoc.add_paragraph(style='List Bullet')
+                _process_inline_formatting(p, li.contents)
+                # <<< SET justification for list items >>>
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        
+        elif element.name == 'ol':
+            for i, li in enumerate(element.find_all('li', recursive=False)):
+                # Manually create the numbered list item text
+                p = subdoc.add_paragraph()
+                # We add the number as a separate run to avoid formatting issues
+                p.add_run(f"{i+1}.\t")
+                _process_inline_formatting(p, li.contents)
+                # <<< SET justification for list items >>>
+                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                
     return subdoc
