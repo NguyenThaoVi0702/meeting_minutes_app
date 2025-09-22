@@ -1,14 +1,66 @@
-Điều 1. Chỉ đạo về hoạt động kinh doanh của NHCT
-1.1.	Chỉ đạo chung
-**1.1. Chỉ đạo chung**
+# /app/utils.py
 
-- **Tiếp tục đẩy mạnh chương trình chuyển đổi số** trên toàn hệ thống, tập trung vào việc theo dõi tiến độ, chất lượng và hiệu quả các sáng kiến chuyển đổi số.
-- **Tăng cường giám sát, minh bạch hóa tiến độ thực hiện các sáng kiến** thông qua hệ thống dashboard/dash pop, đảm bảo các khối, phòng ban, chi nhánh đều cập nhật và chịu trách nhiệm về tiến độ các công việc được giao.
-- **Tập trung cải thiện các chỉ tiêu kinh doanh trọng yếu** (KPI, KIA, MRI, NDA...) và nâng cao hiệu quả hoạt động, đặc biệt trong bối cảnh cạnh tranh cao và thị trường biến động.
-- **Nhấn mạnh vai trò của các đơn vị phụ trách dữ liệu và AI** trong việc chuẩn hóa, chuyển hóa dữ liệu, xây dựng năng lực và tuyển dụng nhân sự phù hợp để đáp ứng yêu cầu chuyển đổi số.
-1.2. 	Các chỉ đạo, định hướng cụ thể
-**1.2. Các chỉ đạo, định hướng cụ thể**
+import logging
+import re
+from io import BytesIO
 
-- **Triển khai đánh giá lại các mô hình, sáng kiến chuyển đổi số:**
-  - Phân tích, đánh giá lại các mô hình đã triển khai tại khối 2, 3 và các sáng kiến USA để xác định các điểm mạnh/yếu, chất lượng và tiến độ triển khai. 
-  - **Đơn vị phụ trách:** Các khối nghiệp vụ liên quan, phối hợp với các nhóm 
+from docxtpl import DocxTemplate, Subdoc
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+logger = logging.getLogger(__name__)
+
+
+def markdown_to_subdoc(template: DocxTemplate, md_text: str) -> Subdoc:
+    """
+    Converts a Markdown string into a docxtpl Subdoc object with precise control
+    over formatting and alignment.
+
+    Supports:
+    - Paragraphs (justified)
+    - Bullet points (using 'List Bullet' style, justified)
+    - Bold text (`**text**`) within any line.
+    """
+    # Create a new subdocument from the main template
+    subdoc = template.new_subdoc()
+    
+    # Sanitize and split the text into lines
+    clean_text = md_text.strip()
+    
+    for line in clean_text.split('\n'):
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue # Skip empty lines
+
+        # Determine the paragraph type and set its base properties
+        if stripped_line.startswith(('* ', '- ')):
+            # This is a bullet point
+            p = subdoc.add_paragraph(style='List Bullet')
+            p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            content = stripped_line[2:] # Get text after '* ' or '- '
+        else:
+            # This is a standard paragraph or a heading-like line
+            p = subdoc.add_paragraph()
+            # We assume lines that are also bolded are headings and should be left-aligned
+            if stripped_line.startswith('**') and stripped_line.endswith('**'):
+                 p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+            else:
+                 p.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+            content = stripped_line
+        
+        # --- Process Inline Formatting (Bold Text) ---
+        # Split the line by the bold markers `**` to handle mixed formatting
+        parts = re.split(r'(\*\*.*?\*\*)', content)
+        
+        for part in parts:
+            if not part:
+                continue
+            
+            # If the part is bold, strip the markers and add it as a bold run
+            if part.startswith('**') and part.endswith('**'):
+                run = p.add_run(part[2:-2])
+                run.bold = True
+            # Otherwise, add it as a regular, non-bold run
+            else:
+                run = p.add_run(part)
+
+    return subdoc
