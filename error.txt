@@ -1,16 +1,90 @@
-1. 	Diễn biến chính cuộc họp
-Cuộc họp tập trung đánh giá tiến độ và chất lượng triển khai các sáng kiến chuyển đổi số, đặc biệt là các dự án liên quan đến các khối nghiệp vụ, khách hàng và các sản phẩm mới.
-Các sáng kiến chuyển đổi số đang được triển khai tại nhiều khối, với 108 sáng kiến được theo dõi tiến độ và chất lượng trên hệ thống dashboard.
-Một số sáng kiến bị chậm tiến độ hoặc chưa đạt chỉ tiêu, đặc biệt ở các khối AI, Data, bán lẻ và doanh nghiệp.
-Các nhóm sáng kiến về khách hàng rời bỏ và chuẩn hóa dữ liệu đang được triển khai thí điểm tại nhiều chi nhánh.
-Các hệ thống quản trị, dashboard và báo cáo tiến độ được cập nhật liên tục để hỗ trợ giám sát minh bạch và kịp thời các sáng kiến.
-Một số vấn đề về tuyển dụng nhân sự và chuẩn hóa năng lực cho các vị trí AI, Data vẫn chưa hoàn thành, ảnh hưởng đến tiến độ chung.
+# In /app/services/ai_service.py
 
-2. 	Ý kiến trao đổi của các thành viên dự họp
-Ý kiến của đại diện nhóm triển khai chuyển đổi số:
-Đã ghi nhận các ý kiến thực tế về việc cần pilot mô hình trước khi triển khai rộng để phát hiện và điều chỉnh các phương pháp luận chưa phù hợp.
-Các sáng kiến về khách hàng rời bỏ đang được triển khai thí điểm tại 15 chi nhánh trên 7 khu vực, dự kiến mở rộng trong tháng 10.
-Ý kiến của đại diện khối Data và AI:
-Công tác chuẩn hóa năng lực và tuyển dụng nhân sự cho các vị trí AI, Data vẫn chưa hoàn thành, cần đẩy nhanh tiến độ để đáp ứng yêu cầu chuyển đổi số.
-Ý kiến của đại diện quản lý chất lượng:
-Các hệ thống quản trị, dashboard đã giúp minh bạch hóa tiến độ và chất lượng các sáng kiến, tuy nhiên cần tăng cường nhập liệu và cập nhật thường xuyên để đảm bảo dữ liệu chính xác.
+SUMMARY_BBH_HDQT_PROMPT = """Bạn là một Thư ký Hội đồng Quản trị cực kỳ kinh nghiệm và cẩn thận, có nhiệm vụ biên soạn một biên bản họp chi tiết, chuyên nghiệp và có cấu trúc rõ ràng từ bản ghi thô.
+
+## YÊU CẦU
+Phân tích sâu bản ghi cuộc họp và trả về một đối tượng JSON duy nhất.
+
+- **Về cấu trúc:** Với các trường văn bản dài ("dien_bien_chinh_cuoc_hop", "y_kien_tung_thanh_vien", "ket_luan"), hãy trả về một MẢNG CÁC ĐỐI TƯỢNG.
+- **Về loại nội dung:** Mỗi đối tượng phải có một trường "type" và một trường "content". Các "type" hợp lệ là: "heading" (cho một tiêu đề chính), "paragraph" (cho một đoạn văn diễn giải), và "bullet" (cho một gạch đầu dòng chi tiết).
+- **Về chi tiết:** Nội dung phải chi tiết, súc tích. Trích dẫn các số liệu, tên, và các điểm dữ liệu quan trọng được đề cập. Đừng chỉ liệt kê, hãy nhóm các ý liên quan lại với nhau.
+- **Về định dạng:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. KHÔNG sử dụng Markdown `**`.
+- **Về sự chính xác:** Nếu không tìm thấy thông tin, hãy để giá trị là một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
+
+## Cấu trúc JSON đầu ra MẪU:
+```json
+{
+  "start_time": "HH:mm",
+  "end_time": "HH:mm",
+  "ngay": "dd",
+  "thang": "mm",
+  "nam": "yy",
+  "ds_thanh_vien_hdqt": "...",
+  "thanh_vien_bks": "...",
+  "ds_thanh_phan_vang_mat": "...",
+  "thu_ky_cuoc_hop": "...",
+  "uy_quyen_bieu_quyet": "...",
+  "dien_bien_chinh_cuoc_hop": [
+    {"type": "heading", "content": "1. Đánh giá chung về Chương trình Chuyển đổi số"},
+    {"type": "paragraph", "content": "Cuộc họp tập trung đánh giá tiến độ và chất lượng của <b>108 sáng kiến</b> chuyển đổi số đang được theo dõi trên hệ thống dashboard. Chủ tịch HĐQT nhấn mạnh tầm quan trọng của việc theo dõi sát sao, minh bạch và hiệu quả thực tế thay vì chỉ tập trung vào quy trình."},
+    {"type": "bullet", "content": "Ghi nhận một số sáng kiến đang bị chậm tiến độ, đặc biệt là các sáng kiến thuộc khối <b>AI, Data, và Bán lẻ</b>."},
+    {"type": "bullet", "content": "Dự án về mô hình dự đoán khách hàng rời bỏ đang được triển khai thí điểm tại <b>15 chi nhánh</b> và dự kiến mở rộng trong tháng 10."},
+    {"type": "heading", "content": "2. Các vấn đề về Nền tảng và Nhân sự"},
+    {"type": "paragraph", "content": "Các khó khăn chính được xác định liên quan đến việc chuẩn hóa dữ liệu và năng lực nhân sự. Đây là các yếu tố cốt lõi ảnh hưởng đến tiến độ chung của toàn chương trình."},
+    {"type": "bullet", "content": "Công tác tuyển dụng nhân sự cho các vị trí <b>AI và Data Scientist</b> vẫn chưa hoàn thành theo kế hoạch."}
+  ],
+  "y_kien_tung_thanh_vien": [
+    {"type": "heading", "content": "Ý kiến từ Nhóm Triển khai Chuyển đổi số"},
+    {"type": "bullet", "content": "Đề xuất cần có giai đoạn <b>thí điểm (pilot)</b> cho tất cả các mô hình mới trước khi triển khai trên diện rộng để sớm phát hiện các vấn đề về phương pháp luận."}
+  ],
+  "ket_luan": [
+    {"type": "heading", "content": "Chỉ đạo chung"},
+    {"type": "bullet", "content": "Tiếp tục đẩy mạnh chương trình chuyển đổi số trên toàn hệ thống, tập trung vào <b>hiệu quả cuối cùng</b>."},
+    {"type": "heading", "content": "Chỉ đạo cụ thể"},
+    {"type": "bullet", "content": "Giao <b>Khối Dữ liệu và AI</b> khẩn trương hoàn thành việc chuẩn hóa năng lực và kế hoạch tuyển dụng, báo cáo lại trong cuộc họp tiếp theo."}
+  ]
+}
+"""
+
++++++++++++++++++++++++
+
+# In /app/utils.py
+
+def create_subdoc_from_structured_data(template: DocxTemplate, structured_data: List[Dict[str, Any]]) -> Subdoc:
+    """
+    Takes a list of structured content objects (e.g., from an LLM) and
+    builds a docxtpl Subdoc object with appropriate formatting.
+    """
+    subdoc = template.new_subdoc()
+
+    if not isinstance(structured_data, list):
+        # ... (error handling code remains the same)
+        logger.warning(f"Expected a list for structured data, but got {type(structured_data)}. Rendering as plain text.")
+        p = subdoc.add_paragraph(str(structured_data))
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        return subdoc
+
+    for item in structured_data:
+        content_type = item.get("type", "paragraph")
+        content = item.get("content", "")
+        
+        p = None
+        # <<< ADD THIS NEW BLOCK to handle headings >>>
+        if content_type == "heading":
+            # We'll use Heading 3 style as a default for sub-headings
+            p = subdoc.add_heading(level=3)
+        
+        elif content_type == "bullet":
+            p = subdoc.add_paragraph(style='List Bullet')
+        
+        else: # Default to paragraph
+            p = subdoc.add_paragraph()
+
+        # Add the text content with bolding
+        _add_runs_with_bolding(p, content)
+        
+        # Apply justification ONLY to non-headings
+        if content_type != "heading":
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    return subdoc
