@@ -47,7 +47,7 @@ class Transcriber:
                 beam_size=5,
                 language=language,
                 word_timestamps=True,  
-                vad_filter=True,
+                vad_filter=False,
                 vad_parameters=dict(min_silence_duration_ms=500),
             )
 
