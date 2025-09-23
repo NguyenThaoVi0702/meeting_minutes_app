@@ -1,61 +1,43 @@
-2025-09-22 11:13:13,673 - INFO - app.api.routes.meeting - ==================================================
-meeting_api_server  | 2025-09-22 11:13:13,769 - ERROR - app.services.document_generator - Failed to generate document for template 'bbh_hdqt': Encountered unknown tag 'ds_thanh_vien_hdqt'.
+
+meeting_api_server  | INFO:     192.168.16.4:59972 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
+meeting_api_server  | 2025-09-23 08:30:17,643 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/scroll "HTTP/1.1 200 OK"
+meeting_api_server  | INFO:     192.168.16.4:41130 - "POST /api/v1/speaker/ HTTP/1.1" 409 Conflict
+meeting_api_server  | 2025-09-23 08:30:19,665 - INFO - httpx - HTTP Request: POST http://10.43.128.107:7333/collections/meeting_speakers/points/search "HTTP/1.1 400 Bad Request"
+meeting_api_server  | 2025-09-23 08:30:19,666 - ERROR - app.api.routes.speaker - Failed during speaker search for query 'TV': Unexpected Response: 400 (Bad Request)
+meeting_api_server  | Raw response content:
+meeting_api_server  | b'{"status":{"error":"Wrong input: Vector dimension error: expected dim: 768, got 512"},"time":0.00086475}'
 meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 43, in generate_templated_document
-meeting_api_server  |     doc.render(render_context, jinja_env)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 486, in render
-meeting_api_server  |     xml_src = self.build_xml(context, jinja_env)
-meeting_api_server  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 433, in build_xml
-meeting_api_server  |     xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
-meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 319, in render_xml_part
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 307, in render_xml_part
-meeting_api_server  |     template = jinja_env.from_string(src_xml)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1111, in from_string
-meeting_api_server  |     return cls.from_code(self, self.compile(source), gs, None)
-meeting_api_server  |                                ^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 771, in compile
-meeting_api_server  |     self.handle_exception(source=source_hint)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 942, in handle_exception
-meeting_api_server  |     raise rewrite_traceback_stack(source=source)
-meeting_api_server  |   File "<unknown>", line 18, in template
-meeting_api_server  | jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'ds_thanh_vien_hdqt'.
-meeting_api_server  | 2025-09-22 11:13:13,770 - ERROR - app.api.routes.meeting - Error during document generation: An unexpected error occurred during document generation.
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 43, in generate_templated_document
-meeting_api_server  |     doc.render(render_context, jinja_env)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 486, in render
-meeting_api_server  |     xml_src = self.build_xml(context, jinja_env)
-meeting_api_server  |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 433, in build_xml
-meeting_api_server  |     xml = self.render_xml_part(xml, self.docx._part, context, jinja_env)
-meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 319, in render_xml_part
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docxtpl/template.py", line 307, in render_xml_part
-meeting_api_server  |     template = jinja_env.from_string(src_xml)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 1111, in from_string
-meeting_api_server  |     return cls.from_code(self, self.compile(source), gs, None)
-meeting_api_server  |                                ^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 771, in compile
-meeting_api_server  |     self.handle_exception(source=source_hint)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/jinja2/environment.py", line 942, in handle_exception
-meeting_api_server  |     raise rewrite_traceback_stack(source=source)
-meeting_api_server  |   File "<unknown>", line 18, in template
-meeting_api_server  | jinja2.exceptions.TemplateSyntaxError: Encountered unknown tag 'ds_thanh_vien_hdqt'.
-meeting_api_server  |
-meeting_api_server  | During handling of the above exception, another exception occurred:
-meeting_api_server  |
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 654, in generate_and_download_document
-meeting_api_server  |     document_buffer = generate_templated_document(template_type, llm_json_response)
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 55, in generate_templated_document
-meeting_api_server  |     raise RuntimeError("An unexpected error occurred during document generation.")
-meeting_api_server  | RuntimeError: An unexpected error occurred during document generation.
-meeting_api_server  | 2025-09-22 11:13:13,772 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-22 11:13:13,772 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  |   File "/code/app/api/routes/speaker.py", line 70, in search_speaker_profiles
+meeting_api_server  |     search_results = qdrant_client.search(
+meeting_api_server  |                      ^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/qdrant_client/qdrant_client.py", line 376, in search
+meeting_api_server  |     return self._client.search(
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/qdrant_client/qdrant_remote.py", line 523, in search
+meeting_api_server  |     search_result = self.http.search_api.search_points(
+meeting_api_server  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/qdrant_client/http/api/search_api.py", line 936, in search_points
+meeting_api_server  |     return self._build_for_search_points(
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/qdrant_client/http/api/search_api.py", line 487, in _build_for_search_points
+meeting_api_server  |     return self.api_client.request(
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/qdrant_client/http/api_client.py", line 95, in request
+meeting_api_server  |     return self.send(request, type_)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/qdrant_client/http/api_client.py", line 130, in send
+meeting_api_server  |     raise UnexpectedResponse.for_response(response)
+meeting_api_server  | qdrant_client.http.exceptions.UnexpectedResponse: Unexpected Response: 400 (Bad Request)
+meeting_api_server  | Raw response content:
+meeting_api_server  | b'{"status":{"error":"Wrong input: Vector dimension error: expected dim: 768, got 512"},"time":0.00086475}'
+
+
+ng_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-23 08:32:06,607 INFO sqlalchemy.engine.Engine [cached since 106.7s ago] {'request_id_1': 'test_cancel_1758591126'}
+meeting_api_server  | 2025-09-23 08:32:06,607 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-23 08:32:06,607 - INFO - sqlalchemy.engine.Engine - [cached since 106.7s ago] {'request_id_1': 'test_cancel_1758591126'}
+meeting_api_server  | 2025-09-23 08:32:06,609 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-09-23 08:32:06,609 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:50392 - "GET /api/v1/meeting/test_cancel_1758591126/status?username=test_user_01 HTTP/1.1" 404 Not Found
