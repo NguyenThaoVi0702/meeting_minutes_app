@@ -1,4 +1,5 @@
-# test_api.py (Comprehensive E2E Test Suite - Full Coverage)
+
+
 import requests
 import os
 import time
@@ -18,7 +19,7 @@ MEETING_AUDIO_DIR = "meeting_to"
 TEST_USERNAME = "test_user_01"
 MAX_SAMPLES_PER_SPEAKER = 20
 UPLOAD_TIMEOUT_SECONDS = 60
-DOWNLOAD_DIR = "/app/downloads"
+DOWNLOAD_DIR = "/test_client/downloads"
 
 
 WEBSOCKET_DONE = threading.Event()
