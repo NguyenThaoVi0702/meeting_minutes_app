@@ -1,328 +1,678 @@
+import json
 import logging
-import re
-from typing import Optional, List, Dict, Any
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+from datetime import timezone
+from zoneinfo import ZoneInfo
 
-from openai import AsyncOpenAI, OpenAIError
+from fastapi import (
+    APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status,
+    WebSocket, WebSocketDisconnect
+)
+from fastapi.responses import FileResponse, StreamingResponse
+from pydub import AudioSegment, exceptions as pydub_exceptions
+from sqlmodel import Session, select
+
+from app.api.deps import (
+    get_cancellable_job, get_db_session, get_job_ready_for_diarization,
+    get_job_with_any_transcript, get_job_with_completed_diarization,
+    get_or_create_user, get_owned_job_from_path
+)
 from app.core.config import settings
+from app.db.base import engine
+from app.db.models import ChatHistory, MeetingJob, Summary, Transcription, User
+from app.schemas.meeting import (
+    ChatRequest, ChatResponse, LanguageChangeRequest, MeetingInfoUpdateRequest,
+    MeetingJobResponseWrapper, MeetingStatusResponse, PlainSegment,
+    PlainTranscriptUpdateRequest, SummaryRequest, SummaryResponse
+)
+from app.services.ai_service import ai_service
+from app.services.document_generator import generate_templated_document
+from app.services.websocket_manager import websocket_manager
+# --- FIX 1: REMOVE direct task imports, import the app itself ---
+from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
+router = APIRouter()
+
+
 
 # ===================================================================
-#   AI Response Cleaning Utility
+#   Helper Functions & Core Workflow
 # ===================================================================
 
-def _clean_ai_response(text: str) -> str:
-    """
-    Cleans raw LLM output by removing common wrapping artifacts like Markdown
-    code fences (e.g., ```json, ```markdown) and introductory phrases.
-    """
-    if not text:
-        return ""
-    text = text.strip()
-
-    fence_pattern = r'^\s*```(?:\w+)?\s*\n(.*?)\n\s*```\s*$'
-    match = re.search(fence_pattern, text, re.DOTALL)
-    if match:
-        cleaned_text = match.group(1).strip()
-        logger.debug("Removed Markdown fence wrapper from AI response.")
-        return cleaned_text
-
-
-    if text.lower().startswith(('markdown\n', 'json\n')):
-        cleaned_text = text.split('\n', 1)[1].lstrip()
-        logger.debug("Removed leading keyword from AI response.")
-        return cleaned_text
-
-    return text
-
-# ===================================================================
-#   System Prompts for Different AI Tasks
-# ===================================================================
-
-# --- Prompts for Summarization ---
-
-SUMMARY_BY_TOPIC_PROMPT = """Bạn là một Trợ lý AI chuyên nghiệp, nhiệm vụ của bạn là tạo ra một biên bản họp CHUẨN CHỈNH, RÕ RÀNG và ĐỊNH HƯỚNG HÀNH ĐỘNG từ một bản ghi hội thoại thô.
-
-## Bối cảnh cuộc họp
-- **Chủ đề:** {bbh_name}
-- **Loại cuộc họp:** {meeting_type}
-- **Chủ trì:** {meeting_host}
-
-## Yêu cầu
-Từ nội dung cuộc họp, hãy xử lý và trình bày theo định dạng Markdown sau. Tập trung vào việc làm sạch văn bản, loại bỏ từ đệm, và cấu trúc lại thông tin một cách logic.
-
-**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**
-**Chủ đề:** {bbh_name}
-**Loại cuộc họp:** {meeting_type}
-**Chủ trì:** {meeting_host}
--------------------------------------------
-
-### I. Nội dung thảo luận
-*   **Chủ đề 1:** [Tóm tắt nội dung chính của chủ đề, các luồng ý kiến, và chi tiết quan trọng]
-*   **Chủ đề 2:** [Tóm tắt nội dung chính của chủ đề, các luồng ý kiến, và chi tiết quan trọng]
-    *   [Chi tiết phụ 1]
-    *   [Chi tiết phụ 2]
-
-### II. Các vấn đề & Giải pháp
-*   **Vấn đề:** [Mô tả vấn đề được nêu ra]
-    *   **Giải pháp đề xuất:** [Mô tả giải pháp]
-*   **Vấn đề:** [Mô tả vấn đề khác]
-
-### III. Kết luận & Quyết định
-*   [Kết luận 1 đã được thống nhất]
-*   [Quyết định 2 được chủ trì chốt lại]
-
-### IV. Phân công nhiệm vụ (Action Items)
-- **[Tên người/đơn vị phụ trách]:** [Mô tả công việc cụ thể], thời hạn: [dd/mm/yyyy hoặc "chưa xác định"].
-- **[Tên người/đơn vị phụ trách]:** [Mô tả công việc cụ thể], thời hạn: [dd/mm/yyyy hoặc "chưa xác định"].
-
-**LƯU Ý QUAN TRỌNG:** Chỉ trả về nội dung Markdown. TUYỆT ĐỐI KHÔNG bắt đầu câu trả lời bằng ```markdown hoặc các lời dẫn khác.
-"""
-
-SUMMARY_BY_SPEAKER_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của bạn là phân tích bản ghi hội thoại và tóm tắt ý chính của TỪNG NGƯỜI NÓI.
-
-## Bối cảnh cuộc họp
-- **Chủ đề:** {bbh_name}
-- **Loại cuộc họp:** {meeting_type}
-- **Chủ trì:** {meeting_host}
-
-## Yêu cầu
-Với mỗi người nói trong bản ghi, hãy tổng hợp tất cả các phát biểu của họ và chắt lọc thành các ý chính (quan điểm, đề xuất, câu hỏi, nhiệm vụ được giao).
-
-**BIÊN BẢN HỌP TÓM TẮT THEO NGƯỜI NÓI**
-**Chủ đề:** {bbh_name}
-**Loại cuộc họp:** {meeting_type}
-**Chủ trì:** {meeting_host}
--------------------------------------------
-
-### [Tên Người Nói 1]
-- [Ý chính tóm tắt thứ nhất của người nói 1]
-- [Ý chính tóm tắt thứ hai của người nói 1]
-
-### [Tên Người Nói 2]
-- [Quan điểm hoặc đề xuất chính của người nói 2]
-- [Câu hỏi quan trọng đã nêu]
-
-### [Unknown_Speaker_0]
-- [Nội dung chính do người nói không xác định đóng góp]
-
-**LƯU Ý QUAN TRỌNG:** Chỉ trả về nội dung Markdown. TUYỆT ĐỐI KHÔNG bắt đầu câu trả lời bằng ```markdown hoặc các lời dẫn khác.
-"""
-
-SUMMARY_ACTION_ITEMS_PROMPT = """Bạn là một trợ lý AI chuyên trích xuất các NHIỆM VỤ CẦN THỰC HIỆN (Action Items) từ biên bản họp.
-
-## Bối cảnh cuộc họp
-- **Chủ đề:** {bbh_name}
-
-## Yêu cầu
-Đọc kỹ nội dung cuộc họp và chỉ trích xuất các thông tin liên quan đến việc phân công nhiệm vụ. Phân tích các cụm từ như "giao cho", "phụ trách", "sẽ làm", "cần hoàn thành", "deadline là", v.v.
-
-Trình bày kết quả dưới dạng danh sách Markdown theo cấu trúc sau:
-
-**DANH SÁCH NHIỆM VỤ (ACTION ITEMS)**
-**Chủ đề:** {bbh_name}
--------------------------------------------
-
-- **Nhiệm vụ:** [Mô tả cụ thể công việc cần làm]
-  - **Người phụ trách:** [Tên người hoặc đơn vị được giao]
-  - **Thời hạn:** [dd/mm/yyyy hoặc "Chưa xác định"]
-
-- **Nhiệm vụ:** [Mô tả cụ thể công việc tiếp theo]
-  - **Người phụ trách:** [Tên người hoặc đơn vị được giao]
-  - **Thời hạn:** [dd/mm/yyyy hoặc "Chưa xác định"]
-
-Nếu không có nhiệm vụ nào được phân công, hãy trả về: "Không có nhiệm vụ nào được phân công trong cuộc họp."
-
-**LƯU Ý QUAN TRỌNG:** Chỉ trả về nội dung Markdown. TUYỆT ĐỐI KHÔNG bắt đầu câu trả lời bằng ```markdown.
-"""
-
-SUMMARY_DECISION_LOG_PROMPT = """Bạn là một trợ lý AI chuyên ghi lại các QUYẾT ĐỊNH và KẾT LUẬN quan trọng đã được thống nhất trong cuộc họp.
-
-## Bối cảnh cuộc họp
-- **Chủ đề:** {bbh_name}
-
-## Yêu cầu
-Đọc kỹ nội dung cuộc họp và chỉ trích xuất những điểm đã được chốt lại, các quyết định cuối cùng, hoặc các phương án đã được thống nhất lựa chọn. Bỏ qua các phần thảo luận chung.
-
-Trình bày kết quả dưới dạng danh sách Markdown theo cấu trúc sau:
-
-**NHẬT KÝ QUYẾT ĐỊNH (DECISION LOG)**
-**Chủ đề:** {bbh_name}
--------------------------------------------
-
-- **Quyết định:** [Mô tả quyết định đã được thông qua. Ví dụ: Phê duyệt triển khai hệ thống XYZ.]
-  - **Lý do/Bối cảnh:** [Tóm tắt ngắn gọn lý do dẫn đến quyết định (nếu có).]
-  - **Người quyết định/thống nhất:** [Chủ trì, hoặc ghi "Tập thể" nếu là quyết định chung.]
-
-- **Quyết định:** [Mô tả quyết định tiếp theo.]
-  - **Lý do/Bối cảnh:** [Tóm tắt ngắn gọn.]
-  - **Người quyết định/thống nhất:** [Tên người hoặc vai trò.]
-
-Nếu không có quyết định nào được đưa ra, hãy trả về: "Không có quyết định cuối cùng nào được ghi nhận trong cuộc họp."
-
-**LƯU Ý QUAN TRỌNG:** Chỉ trả về nội dung Markdown. TUYỆT ĐỐI KHÔNG bắt đầu câu trả lời bằng ```markdown.
-"""
-
-SUMMARY_BBH_HDQT_PROMPT = """Bạn là một Thư ký Hội đồng Quản trị cực kỳ kinh nghiệm và cẩn thận, có nhiệm vụ biên soạn một biên bản họp chi tiết, chuyên nghiệp và có cấu trúc rõ ràng từ bản ghi thô.
-
-## YÊU CẦU
-Phân tích sâu bản ghi cuộc họp và trả về một đối tượng JSON duy nhất.
-
-- **Về cấu trúc:** Với các trường văn bản dài ("dien_bien_chinh_cuoc_hop", "y_kien_tung_thanh_vien", "ket_luan"), hãy trả về một MẢNG CÁC ĐỐI TƯỢNG.
-- **Về loại nội dung:** Mỗi đối tượng phải có một trường "type" và một trường "content". Các "type" hợp lệ là: "paragraph" (cho một đoạn văn diễn giải), và "bullet" (cho một gạch đầu dòng chi tiết).
-- **Về chi tiết:** Nội dung phải chi tiết, súc tích. Trích dẫn các số liệu, tên, và các điểm dữ liệu quan trọng được đề cập. Đừng chỉ liệt kê, hãy nhóm các ý liên quan lại với nhau.
-- **Về định dạng:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. KHÔNG sử dụng Markdown `**`.
-- **Về sự chính xác:** Nếu không tìm thấy thông tin, hãy để giá trị là  `Chưa tìm thấy thông tin phù hợp`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
-
-## Cấu trúc JSON đầu ra MẪU:
-```json
-{
-  "start_time": "HH:mm",
-  "end_time": "HH:mm",
-  "ngay": "dd",
-  "thang": "mm",
-  "nam": "yy",
-  "ds_thanh_vien_hdqt": "Liệt kê tên các thành viên HĐQT có mặt, mỗi người một dòng.",
-  "thanh_vien_bks": "Liệt kê tên các thành viên BKS có mặt, mỗi người một dòng.",
-  "ds_thanh_phan_vang_mat": "Liệt kê tên và lý do vắng mặt (nếu có), mỗi người một dòng.",
-  "thu_ky_cuoc_hop": "Tên thư ký cuộc họp.",
-  "uy_quyen_bieu_quyet": "Liệt kê tên các thành viên Ủy viên biểu quyết có mặt, mỗi người một dòng.",
-  "dien_bien_chinh_cuoc_hop": [
-    {"type": "paragraph", "content": "Cuộc họp tập trung đánh giá tiến độ và chất lượng của <b>108 sáng kiến</b> chuyển đổi số đang được theo dõi trên hệ thống dashboard. Chủ tịch HĐQT nhấn mạnh tầm quan trọng của việc theo dõi sát sao, minh bạch và hiệu quả thực tế thay vì chỉ tập trung vào quy trình."},
-    {"type": "bullet", "content": "Ghi nhận một số sáng kiến đang bị chậm tiến độ, đặc biệt là các sáng kiến thuộc khối <b>AI, Data, và Bán lẻ</b>."},
-    {"type": "bullet", "content": "Dự án về mô hình dự đoán khách hàng rời bỏ đang được triển khai thí điểm tại <b>15 chi nhánh</b> và dự kiến mở rộng trong tháng 10."},
-    {"type": "heading", "content": "2. Các vấn đề về Nền tảng và Nhân sự"},
-    {"type": "paragraph", "content": "Các khó khăn chính được xác định liên quan đến việc chuẩn hóa dữ liệu và năng lực nhân sự. Đây là các yếu tố cốt lõi ảnh hưởng đến tiến độ chung của toàn chương trình."},
-    {"type": "bullet", "content": "Công tác tuyển dụng nhân sự cho các vị trí <b>AI và Data Scientist</b> vẫn chưa hoàn thành theo kế hoạch."}
-  ],
-  "y_kien_tung_thanh_vien": [
-    {"type": "bullet", "content": "Đề xuất cần có giai đoạn <b>thí điểm (pilot)</b> cho tất cả các mô hình mới trước khi triển khai trên diện rộng để sớm phát hiện các vấn đề về phương pháp luận."}
-  ],
-  "ket_luan": [
-    {"type": "bullet", "content": "Tiếp tục đẩy mạnh chương trình chuyển đổi số trên toàn hệ thống, tập trung vào <b>hiệu quả cuối cùng</b>."},
-    {"type": "heading", "content": "Chỉ đạo cụ thể"},
-    {"type": "bullet", "content": "Giao <b>Khối Dữ liệu và AI</b> khẩn trương hoàn thành việc chuẩn hóa năng lực và kế hoạch tuyển dụng, báo cáo lại trong cuộc họp tiếp theo."}
-  ]
-}
-"""
-
-SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI chuyên trách việc chắt lọc và biên soạn các quyết nghị, chỉ đạo cuối cùng từ bản ghi cuộc họp của HĐQT để tạo ra một văn bản Nghị quyết chính thức.
-
-## YÊU CẦU
-Phân tích kỹ lưỡng, chỉ tập trung vào các kết luận, chỉ đạo đã được chốt. Bỏ qua phần diễn biến và thảo luận. Trả về kết quả dưới dạng một đối tượng JSON duy nhất.
-
-- **Về cấu trúc:** Với các trường "chi_dao_chung" và "chi_dao_cu_the", hãy trả về một MẢNG CÁC ĐỐI TƯỢỢNG.
-- **Về loại nội dung:** Mỗi đối tượng phải có một trường "type" và một trường "content". Các "type" hợp lệ là: "paragraph", và "bullet".
-- **Về chi tiết:** Nội dung phải là các mệnh lệnh, quyết định hoặc phân công rõ ràng.
-- **Về định dạng:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. KHÔNG sử dụng Markdown `**`.
-- **Về sự chính xác:** Nếu không tìm thấy thông tin, hãy để giá trị là  `Chưa tìm thấy thông tin phù hợp`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
-
-## Cấu trúc JSON đầu ra MẪU:
-```json
-{
-  "ngay": "dd",
-  "thang": "mm",
-  "nam": "yy",
-  "chi_dao_chung": [
-    {"type": "paragraph", "content": "Toàn hệ thống tiếp tục kiên định với mục tiêu chuyển đổi số toàn diện, lấy hiệu quả thực tế làm thước đo cao nhất cho sự thành công của các sáng kiến."},
-    {"type": "bullet", "content": "Tăng cường minh bạch và trách nhiệm trong việc theo dõi, báo cáo tiến độ thông qua các công cụ quản trị tập trung như dashboard."},
-    {"type": "bullet", "content": "Ưu tiên nguồn lực cho việc chuẩn hóa và làm giàu dữ liệu, coi đây là tài sản cốt lõi cho các hoạt động AI và phân tích kinh doanh."}
-  ],
-  "chi_dao_cu_the": [
-    {"type": "bullet", "content": "Giao <b>Khối Bán lẻ</b> chủ trì, phối hợp với <b>Khối Dữ liệu</b> đánh giá lại hiệu quả của <b>15 mô hình</b> thí điểm dự đoán khách hàng rời bỏ. Báo cáo kết quả và đề xuất kế hoạch nhân rộng trước ngày 30/10."},
-    {"type": "bullet", "content": "Giao <b>Khối Nhân sự</b> phối hợp với <b>Khối Dữ liệu và AI</b> hoàn thiện kế hoạch tuyển dụng các vị trí Data Scientist và AI Engineer cho năm tới, trình HĐQT phê duyệt trong tháng 11."},
-    {"type": "bullet", "content": "Yêu cầu tất cả các Chủ nhiệm sáng kiến chịu trách nhiệm cập nhật tiến độ lên hệ thống dashboard định kỳ vào <b>thứ Sáu hàng tuần</b>."}
-  ]
-}
-"""
-
-
-# --- Prompt for Chat ---
-
-CHAT_SYSTEM_PROMPT = """Bạn là Genie, một trợ lý AI của VietinBank. Nhiệm vụ của bạn là trả lời các câu hỏi của người dùng về nội dung một cuộc họp dựa trên các thông tin được cung cấp, bao gồm: bản ghi hội thoại đầy đủ và bản tóm tắt.
-
-Quy tắc ứng xử:
-- Luôn giữ thái độ chuyên nghiệp, lịch sự.
-- Trả lời bằng tiếng Việt.
-- Dựa hoàn toàn vào thông tin được cung cấp. Nếu không tìm thấy câu trả lời trong văn bản, hãy nói rằng "Thông tin này không có trong nội dung cuộc họp."
-- Không bịa đặt hoặc suy diễn thông tin.
-"""
-
-# ===================================================================
-#   Main AI Service Class
-# ===================================================================
-
-class AIService:
-
-    def __init__(self):
-        """Initializes the asynchronous OpenAI client."""
-        self.client = AsyncOpenAI(
-            api_key=settings.LITE_LLM_API_KEY,
-            base_url=settings.LITE_LLM_BASE_URL
+def _format_job_status(job: MeetingJob, db: Session) -> dict:
+    """Packages a MeetingJob object into the standard API response schema."""
+    plain_transcript_data = None
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
         )
-        self.model_name = settings.LITE_LLM_MODEL_NAME
-        logger.info("AIService initialized with AsyncOpenAI client.")
+    ).first()
 
-    def _get_system_prompt_for_task(self, task: str) -> str:
-        """Retrieves the appropriate system prompt based on the task type."""
-        prompts = {
-            "topic": SUMMARY_BY_TOPIC_PROMPT,
-            "speaker": SUMMARY_BY_SPEAKER_PROMPT,
-            "action_items": SUMMARY_ACTION_ITEMS_PROMPT,
-            "decision_log": SUMMARY_DECISION_LOG_PROMPT,
-            "summary_bbh_hdqt": SUMMARY_BBH_HDQT_PROMPT,
-            "summary_nghi_quyet": SUMMARY_NGHI_QUYET_PROMPT,
-            "chat": CHAT_SYSTEM_PROMPT,
-        }
-        prompt = prompts.get(task)
-        if not prompt:
-            logger.error(f"Unknown AI task requested: {task}")
-            raise ValueError(f"Unknown AI task: {task}")
-        return prompt
+    if transcription_entry and transcription_entry.transcript_data:
+        plain_transcript_data = [PlainSegment(**seg) for seg in transcription_entry.transcript_data]
 
-    async def get_response(self, task: str, user_message: str, context: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Generates a response from the LLM for a given task and context.
-        """
-        if context is None:
-            context = {}
+    response = MeetingStatusResponse(
+        request_id=job.request_id,
+        status=job.status,
+        bbh_name=job.bbh_name,
+        meeting_type=job.meeting_type,
+        meeting_host=job.meeting_host,
+        language=job.language,
+        plain_transcript=plain_transcript_data,
+        diarized_transcript=job.diarized_transcript.transcript_data if job.diarized_transcript else None,
+        error_message=job.error_message
+    )
+    return response.model_dump()
 
+
+
+# ===================================================================
+#   Core Meeting Workflow Endpoints
+# ===================================================================
+
+@router.post("/start-bbh", status_code=status.HTTP_201_CREATED, summary="Initialize a new meeting session")
+async def start_bbh(
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_or_create_user),
+    requestId: str = Form(...),
+    language: str = Form("vi"),
+    filename: str = Form(...),
+    bbhName: str = Form(...),
+    Type: str = Form(...),
+    Host: str = Form(...),
+):
+    """
+    Initializes a meeting job record in the database and creates a
+    dedicated directory for storing incoming audio chunks.
+    """
+    logger.info(f"Initializing job '{requestId}' by user '{current_user.username}'.")
+    if session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first():
+        raise HTTPException(status_code=409, detail=f"Meeting job with requestId '{requestId}' already exists.")
+
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
+    os.makedirs(session_dir, exist_ok=True)
+
+    job = MeetingJob(
+        request_id=requestId,
+        user_id=current_user.id,
+        language=language,
+        original_filename=filename,
+        bbh_name=bbhName,
+        meeting_type=Type,
+        meeting_host=Host,
+        status="uploading"
+    )
+    session.add(job)
+    session.commit()
+    return {"status": 201, "message": "Meeting initialized. Ready for chunk uploads."}
+
+
+@router.post("/upload-file-chunk", status_code=status.HTTP_202_ACCEPTED, summary="Upload a single audio chunk")
+async def upload_file_chunk(
+    #background_tasks: BackgroundTasks,
+    session: Session = Depends(get_db_session),
+    requestId: str = Form(...),
+    isLastChunk: bool = Form(...),
+    FileData: UploadFile = File(...),
+):
+    """
+    Receives an audio chunk, saves it, and if it's the last chunk,
+    triggers a background task to assemble the audio and start transcription.
+    """
+    job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Meeting job not found.")
+    if job.status != "uploading":
+        raise HTTPException(status_code=400, detail=f"Cannot upload chunks when job status is '{job.status}'.")
+
+    if not job.upload_started_at:
+        job.upload_started_at = datetime.utcnow()
+        logger.info(f"First chunk received for '{requestId}'. Recording start time.")
+
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
+    chunk_path = session_dir / FileData.filename
+    
+    try:
+        with open(chunk_path, "wb") as buffer:
+            shutil.copyfileobj(FileData.file, buffer)
+    except IOError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save chunk file: {e}")
+
+    if isLastChunk:
+        job.status = "assembling"
+        job.upload_finished_at = datetime.utcnow()
+        logger.info(f"Last chunk received for '{requestId}'. Recording end time.")
+
+        session.add(job)
+        session.commit()
+        logger.info(f"Last chunk received for '{requestId}'. Triggering background assembly and transcription.")
+        
+        celery_app.send_task("assemble_audio_task", args=[requestId, job.language], queue="gpu_tasks")
+        await websocket_manager.broadcast_to_job(requestId, {"status": "assembling"})
+    else:
+        session.add(job)
+        session.commit()
+
+    return {"status": 202, "message": f"Chunk '{FileData.filename}' accepted."}
+
+
+@router.post("/{request_id}/diarize", status_code=status.HTTP_202_ACCEPTED, summary="Trigger speaker diarization")
+async def diarize_meeting(
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_job_ready_for_diarization)
+):
+    """
+    Triggers the speaker diarization and mapping process for a meeting that
+    has a completed transcription.
+    """
+    audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
+    if not audio_file_path.exists():
+        raise HTTPException(status_code=404, detail="Assembled audio file not found. Please re-upload.")
+
+    job.status = "diarizing"
+    db.add(job)
+    db.commit()
+
+    celery_app.send_task("run_diarization_task", args=[job.id, str(audio_file_path)],  queue="gpu_tasks")
+
+    await websocket_manager.broadcast_to_job(job.request_id, {"status": "diarizing"})
+    
+    return {"status": 202, "message": "Diarization process started."}
+
+# ===================================================================
+#   Real-time Status and Management Endpoints
+# ===================================================================
+
+@router.get("/{request_id}/status", response_model=MeetingJobResponseWrapper, summary="Get current meeting status")
+async def get_meeting_status(
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Retrieves the complete current status of a meeting job, including any
+    available transcripts. Ideal for initial page loads.
+    """
+    db.add(job)
+    formatted_data = _format_job_status(job, db)
+    return MeetingJobResponseWrapper(data=formatted_data)
+
+
+@router.websocket("/ws/{request_id}")
+async def websocket_endpoint(websocket: WebSocket, request_id: str):
+    """
+    Establishes a WebSocket connection for receiving real-time updates
+    about a meeting job's status.
+    """
+    await websocket.accept()
+    
+    if request_id not in websocket_manager.active_connections:
+        websocket_manager.active_connections[request_id] = []
+    websocket_manager.active_connections[request_id].append(websocket)
+    logger.info(f"WebSocket connected for request_id '{request_id}'.")
+
+    try:
+        with Session(engine) as session:
+            job = session.exec(select(MeetingJob).where(MeetingJob.request_id == request_id)).first()
+            if job:
+                initial_status = _format_job_status(job, session)
+                await websocket.send_json(initial_status)
+
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for request_id '{request_id}'.")
+    finally:
+        websocket_manager.disconnect(websocket, request_id)
+
+@router.patch("/{request_id}/info", response_model=MeetingJobResponseWrapper, summary="Update meeting metadata")
+async def update_meeting_info(
+    update_data: MeetingInfoUpdateRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Updates editable meeting metadata (name, type, host) at any time.
+    """
+    db.add(job)
+    update_dict = update_data.model_dump(exclude_unset=True)
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No update data provided.")
+        
+    for key, value in update_dict.items():
+        setattr(job, key, value)
+    
+    db.commit()
+    db.refresh(job)
+
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(message="Meeting info updated successfully.", data=updated_status)
+
+
+# ===================================================================
+#   Editing, Language, and Cancellation Endpoints
+# ===================================================================
+
+@router.post("/{request_id}/language", response_model=MeetingJobResponseWrapper, summary="Change meeting language")
+async def change_meeting_language(
+    language_request: LanguageChangeRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Changes the active language of the meeting. If a transcript for the new
+    language doesn't exist, it triggers a new transcription task.
+    """
+    db.add(job)
+    new_language = language_request.language
+    if job.language == new_language:
+        return MeetingJobResponseWrapper(data=_format_job_status(job, db), message="Language is already set to the requested one.")
+
+    cached_transcript = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == new_language
+        )
+    ).first()
+
+    job.language = new_language
+    
+    if cached_transcript:
+        logger.info(f"Found cached transcript for language '{new_language}' for job '{job.request_id}'.")
+        # Clear diarizatio result
+        if job.diarized_transcript:
+             db.delete(job.diarized_transcript)
+        job.status = "transcription_complete"
+    else:
+        logger.info(f"No cached transcript for '{new_language}'. Triggering new transcription task for job '{job.request_id}'.")
+        audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
+        if not audio_file_path.exists():
+            raise HTTPException(status_code=404, detail="Assembled audio file not found. Cannot re-transcribe.")
+        
+        job.status = "transcribing"
+        celery_app.send_task("run_transcription_task", args=[job.id, str(audio_file_path), new_language],  queue="gpu_tasks")
+
+    db.commit()
+    db.refresh(job)
+
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(message=f"Language changed to '{new_language}'.", data=updated_status)
+
+
+@router.put(
+    "/{request_id}/transcript/plain",
+    response_model=MeetingJobResponseWrapper,
+    summary="Update the plain (non-diarized) transcript"
+)
+async def update_plain_transcript(
+    update_request: PlainTranscriptUpdateRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Overwrites the current plain transcript with user-provided edits.
+    **IMPORTANT**: Submitting a new transcript will PERMANENTLY DELETE any existing diarized transcript
+    and all previously generated summaries for this meeting, as they will be
+    based on outdated information. The job status will revert to
+    'transcription_complete', requiring diarization to be run again.
+    """
+    db.add(job)
+    logger.info(f"Received request to update plain transcript for job '{job.request_id}'.")
+
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+
+    if not transcription_entry:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No active transcript found for language '{job.language}'. Cannot update."
+        )
+
+    # Invalidate and delete all downstream data that depends on this transcript
+    logger.warning(f"Invalidating downstream data for job '{job.request_id}' due to transcript edit.")
+
+
+    if job.diarized_transcript:
+        logger.info(f"Deleting stale diarized transcript for job '{job.request_id}'.")
+        db.delete(job.diarized_transcript)
+        # Revert status 
+        job.status = "transcription_complete"
+
+    # Delete all associated summaries
+    if job.summaries:
+        logger.info(f"Deleting {len(job.summaries)} stale summaries for job '{job.request_id}'.")
+        for summary in job.summaries:
+            db.delete(summary)
+    
+    # Delete chat history as it may refer to old text. 
+    if job.chat_history:
+        logger.info(f"Deleting {len(job.chat_history)} stale chat history entries for job '{job.request_id}'.")
+        for chat_entry in job.chat_history:
+            db.delete(chat_entry)
+
+    new_transcript_data = [seg.model_dump() for seg in update_request.segments]
+    transcription_entry.transcript_data = new_transcript_data
+    transcription_entry.is_edited = True # Mark this transcript as user-modified
+
+    db.add(transcription_entry)
+    db.add(job) 
+    db.commit()
+    db.refresh(job)
+
+    logger.info(f"Successfully updated transcript for job '{job.request_id}'.")
+    updated_status = _format_job_status(job, db)
+    await websocket_manager.broadcast_to_job(job.request_id, updated_status)
+
+    return MeetingJobResponseWrapper(
+        message="Transcript updated successfully. All dependent data like diarization and summaries have been cleared.",
+        data=updated_status
+    )
+
+
+@router.delete("/{request_id}/cancel", status_code=status.HTTP_200_OK, summary="Cancel an ongoing meeting")
+async def cancel_meeting(
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_cancellable_job)
+):
+    """
+    Allows a user to cancel a meeting that is still in the 'uploading' or
+    'assembling' phase. This deletes the job record and all associated files.
+    """
+    logger.info(f"Received cancellation request for job '{job.request_id}'.")
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / job.request_id
+    if session_dir.exists():
         try:
-            system_prompt = self._get_system_prompt_for_task(task)
+            shutil.rmtree(session_dir)
+            logger.info(f"Removed temporary directory: {session_dir}")
+        except OSError as e:
+            logger.error(f"Error removing directory {session_dir} during cancellation: {e}")
 
-            # Format the prompt with meeting info if it's a summarization task
-            if task.startswith("summary") and "meeting_info" in context:
-                system_prompt = system_prompt.format(**context["meeting_info"])
+    db.delete(job)
+    db.commit()
 
-            messages = [{"role": "system", "content": system_prompt}]
+    await websocket_manager.broadcast_to_job(job.request_id, {"status": "cancelled", "message": "The meeting has been cancelled."})
 
-            # Add conversation history if available (for chat task)
-            if "history" in context and context["history"]:
-                messages.extend(context["history"])
+    return {"status": 200, "message": "Meeting successfully cancelled."}
 
-            messages.append({"role": "user", "content": user_message})
 
-            logger.info(f"Sending request to LLM for task '{task}' with model '{self.model_name}'.")
+# ===================================================================
+#   Analysis, Chat, and Download Endpoints
+# ===================================================================
 
-            response = await self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                temperature=0.2,  
-                timeout=120,
+@router.post(
+    "/{request_id}/summary",
+    response_model=SummaryResponse,
+    summary="Generate a meeting summary"
+)
+async def generate_summary(
+    summary_request: SummaryRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path) 
+):
+    """
+    Generates a summary for the meeting based on the requested type.
+    - 'topic', 'action_items', 'decision_log' require a completed transcript.
+    - 'speaker' requires a completed, speaker-separated transcript.
+
+    If a summary of the same type already exists, it will be overwritten.
+    """
+    db.add(job)
+    summary_type = summary_request.summary_type
+    logger.info(f"Received request to generate '{summary_type}' summary for job '{job.request_id}'.")
+
+   
+    if summary_type == "speaker":
+        if not job.diarized_transcript:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A 'speaker' summary requires a completed speaker-separated transcript. Please run diarization first."
             )
+        transcript_source = job.diarized_transcript.transcript_data
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
+    else:
+        
+        transcription_entry = db.exec(
+            select(Transcription).where(
+                Transcription.meeting_job_id == job.id,
+                Transcription.language == job.language
+            )
+        ).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A summary requires a completed transcript. Please ensure transcription is complete."
+            )
+        
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
 
-            raw_response_text = response.choices[0].message.content
-            cleaned_response = _clean_ai_response(raw_response_text)
-            
-            logger.info(f"Successfully received and cleaned response for task '{task}'.")
-            return cleaned_response
+   
+    try:
+        meeting_info = {
+            "bbh_name": job.bbh_name,
+            "meeting_type": job.meeting_type,
+            "meeting_host": job.meeting_host,
+        }
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
+    except Exception as e:
+        logger.error(f"AI service failed during summary generation for job '{job.request_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
 
-        except OpenAIError as e:
-            logger.error(f"OpenAI API error during task '{task}': {e}", exc_info=True)
-            raise RuntimeError(f"Failed to get response from AI service: {e}")
-        except Exception as e:
-            logger.error(f"An unexpected error occurred in AIService for task '{task}': {e}", exc_info=True)
-            raise RuntimeError(f"An unexpected error occurred: {e}")
+    
+    existing_summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
+
+    if existing_summary:
+        logger.info(f"Updating existing '{summary_type}' summary for job '{job.request_id}'.")
+        existing_summary.summary_content = summary_content
+        summary_to_return = existing_summary
+    else:
+        logger.info(f"Creating new '{summary_type}' summary for job '{job.request_id}'.")
+        new_summary = Summary(
+            meeting_job_id=job.id,
+            summary_type=summary_type,
+            summary_content=summary_content
+        )
+        db.add(new_summary)
+        summary_to_return = new_summary
+    
+    db.commit()
+    db.refresh(summary_to_return)
+
+    return SummaryResponse(
+        request_id=job.request_id,
+        summary_type=summary_to_return.summary_type,
+        summary_content=summary_to_return.summary_content
+    )
 
 
-ai_service = AIService()
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    summary="Chat about the meeting content"
+)
+async def chat_with_meeting(
+    chat_request: ChatRequest,
+    db: Session = Depends(get_db_session)
+):
+    """
+    Handles conversational queries about a completed meeting. It uses the
+    transcript, summaries, and recent conversation history as context.
+    """
+    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Meeting job not found.")
+    
+    
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+    if not transcription_entry:
+        raise HTTPException(status_code=400, detail="Cannot chat without a completed transcript.")
+    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
+
+    
+    summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
+    summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
+
+    
+    chat_history_db = db.exec(
+        select(ChatHistory)
+        .where(ChatHistory.meeting_job_id == job.id)
+        .order_by(ChatHistory.created_at.desc())
+        .limit(settings.LIMIT_TURN * 2) 
+    ).all()
+    
+    chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
+
+    
+    full_context_for_llm = (
+        f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" +
+        "\n\n".join(summary_texts)
+    )
+
+    
+    try:
+        assistant_response = await ai_service.get_response(
+            task="chat",
+            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
+            context={"history": chat_history_formatted}
+        )
+    except Exception as e:
+        logger.error(f"AI service failed during chat for job '{job.request_id}': {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+    
+    user_message_entry = ChatHistory(
+        meeting_job_id=job.id,
+        role="user",
+        message=chat_request.message
+    )
+    assistant_message_entry = ChatHistory(
+        meeting_job_id=job.id,
+        role="assistant",
+        message=assistant_response
+    )
+    db.add(user_message_entry)
+    db.add(assistant_message_entry)
+    db.commit()
+
+    return ChatResponse(response=assistant_response)
+
+
+@router.get("/{request_id}/download/audio", summary="Download the original audio file")
+async def download_audio_file(
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    """
+    Provides a direct download of the fully assembled meeting audio file.
+    """
+    logger.info(f"Request to download audio for job '{job.request_id}'.")
+    audio_file_path = Path(settings.SHARED_AUDIO_PATH) / job.request_id / f"{Path(job.original_filename).stem}_full.wav"
+
+    if not audio_file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Assembled audio file not found. It may not have been processed yet."
+        )
+
+    safe_filename = f"Meeting_Audio_{job.bbh_name.replace(' ', '_')}.wav"
+    
+    return FileResponse(
+        path=audio_file_path,
+        media_type='audio/wav',
+        filename=safe_filename
+    )
+
+
+@router.get("/{request_id}/download/document", summary="Generate and download a formal meeting document")
+async def generate_and_download_document(
+    job: MeetingJob = Depends(get_job_with_any_transcript),
+    template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"], description="The type of document template to use."),
+    db: Session = Depends(get_db_session)
+):
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
+
+    local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+
+    start_time_utc_naive = job.upload_started_at
+    end_time_utc_naive = job.upload_finished_at
+
+    start_time_local = None
+    if start_time_utc_naive:
+        start_time_local = start_time_utc_naive.replace(tzinfo=timezone.utc).astimezone(local_tz)
+
+    end_time_local = None
+    if end_time_utc_naive:
+        end_time_local = end_time_utc_naive.replace(tzinfo=timezone.utc).astimezone(local_tz)
+
+    meeting_date_str = start_time_local.strftime('%d/%m/%Y') if start_time_local else "N/A"
+    start_time_str = start_time_local.strftime('%H:%M') if start_time_local else "N/A"
+    end_time_str = end_time_local.strftime('%H:%M') if end_time_local else "N/A"
+    
+    
+    context_header = (
+        f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+        f"- Ngày họp: {meeting_date_str}\n"
+        f"- Giờ bắt đầu: {start_time_str}\n"
+        f"- Giờ kết thúc: {end_time_str}\n\n"
+        f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
+    )
+    full_llm_input = context_header + transcript_text
+    
+    try:
+        task_name = f"summary_{template_type}"
+        llm_json_response = await ai_service.get_response(task=task_name, user_message=full_llm_input)
+
+        logger.info("="*50)
+        logger.info(F"RAW RESPONSE FROM AI for template '{template_type}':")
+        logger.info(llm_json_response)
+        logger.info("="*50)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to get data from AI service: {e}")
+
+    
+    try:
+        document_buffer = generate_templated_document(template_type, llm_json_response)
+    except Exception as e:
+        logger.error(f"Error during document generation: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
+
+    filename = f"{template_type}_{job.bbh_name.replace(' ', '_')}.docx"
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    
+    return StreamingResponse(
+        document_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers
+    )
