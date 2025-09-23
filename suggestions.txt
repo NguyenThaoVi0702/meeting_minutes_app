@@ -1,229 +1,45 @@
-Yes, absolutely. The solution you've found is an excellent and significantly more powerful way to handle this problem. It is a superior approach to the RichText method we discussed previously.
+# ==================================================================
+# STEP 5: ANALYSIS AND DOWNLOADS (Primary Workflow)
+# ==================================================================
+print("\n\n--- STEP 5: TESTING ANALYSIS AND DOWNLOADS ---")
 
-Let's break down why this solution is better and then I will provide the step-by-step instructions to integrate it perfectly into your existing project.
+# --- NEW: Loop to test ALL summary types ---
+summary_types_to_test = ["topic", "speaker", "action_items", "decision_log"]
+print(f"\nTesting all {len(summary_types_to_test)} summary endpoints...")
 
-Why This Subdoc Solution is Superior
+for summary_type in summary_types_to_test:
+    print(f"\nTesting: POST /meeting/{encoded_request_id}/summary (type: {summary_type})")
+    summary_payload = {"summary_type": summary_type}
+    summary_response = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/summary?username={TEST_USERNAME}", json=summary_payload)
+    print_response(summary_response, f"Generate '{summary_type}' Summary")
+    # Add a small delay to avoid overwhelming the AI service if it has rate limits
+    time.sleep(1)
 
-The code you provided uses a Subdoc (Sub-document) object from docxtpl. This is fundamentally different and more capable than a RichText object.
+# --- Test Chat Endpoint (remains the same) ---
+print(f"\nTesting: POST /meeting/chat")
+chat_payload = {"requestId": request_id, "username": TEST_USERNAME, "message": "What were the main conclusions and who is responsible for what?"}
+chat_response = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload)
+print_response(chat_response, "Chat")
 
-RichText: Is designed to format the text within a single paragraph. It's great for making a word bold or italic inside a sentence.
-
-Subdoc: Is a complete, mini .docx document in memory. It can contain multiple paragraphs, headings, lists, and even tables. When you render it into your template, it inserts this entire block of content, preserving all its structure.
-
-The workflow it uses (Markdown -> HTML -> BeautifulSoup -> Subdoc) is a very robust and standard way to parse structured text and is far more reliable for complex content than trying to handle it with regular expressions.
-
-The most powerful feature, as noted in the code you found, is that it can inherit the base styling from the placeholder in your template. This means a user could change the font and alignment for the entire content block just by editing the style of the {{ placeholder }} in the Word document, which is a fantastic feature.
-
-How to Integrate This Solution Into Your Project
-
-We will implement this by creating a new utility module and then updating your document generator to use it.
-
-Step 1: Add New Dependencies
-
-This solution requires two new libraries. Add the following lines to your requirements.txt file:
-
-code
-Code
-download
-content_copy
-expand_less
-
-# In requirements.txt (add these two lines)
-markdown
-beautifulsoup4
-Step 2: Create a New Markdown Processing Module
-
-The provided code is a reusable utility. Let's place it in its own file for good organization.
-
-Create a new file: app/utils.py and add the new functions for markdown processing.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# In /app/utils.py
-
-import logging
-import re
-from io import BytesIO
-
-# --- Add these new imports ---
-import markdown
-from bs4 import BeautifulSoup
-from docxtpl import DocxTemplate, RichText, Subdoc
-from docx.shared import Pt
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-# -----------------------------
-
-logger = logging.getLogger(__name__)
+# --- Test Download Endpoints (remains the same) ---
+print(f"\nTesting: GET /meeting/{encoded_request_id}/download/audio")
+audio_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/audio?username={TEST_USERNAME}")
+if audio_dl_response.status_code == 200:
+    audio_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_audio.wav")
+    with open(audio_save_path, 'wb') as f: f.write(audio_dl_response.content)
+    print(f"  -> [Download Audio] OK. File saved inside container at {audio_save_path}")
+else:
+    print(f"  -> [Download Audio] FAILED with status: {audio_dl_response.status_code}")
 
 
-# --- New, powerful markdown-to-subdoc converter ---
-
-def _process_inline_formatting(paragraph, contents):
-    """Processes inline HTML tags like <strong> and <em> into docx runs."""
-    for item in contents:
-        if isinstance(item, str):
-            paragraph.add_run(item)
-        elif item.name in ['strong', 'b']:
-            run = paragraph.add_run(item.get_text())
-            run.bold = True
-        elif item.name in ['em', 'i']:
-            run = paragraph.add_run(item.get_text())
-            run.italic = True
-        else: # Fallback for other tags
-            paragraph.add_run(item.get_text())
-
-
-def markdown_to_subdoc(template: DocxTemplate, md_text: str) -> Subdoc:
-    """
-    Converts a Markdown string into a docxtpl Subdoc object, preserving
-    structure like headings, paragraphs, and lists.
-    """
-    # Convert markdown to a clean HTML string
-    html = markdown.markdown(md_text.strip(), extensions=['extra'])
-    
-    # Parse the HTML
-    soup = BeautifulSoup(html, 'html.parser')
-
-    # Create a new subdocument from the main template
-    subdoc = template.new_subdoc()
-
-    # Iterate through the top-level HTML tags
-    for element in soup.contents:
-        if not hasattr(element, 'name') or not element.name:
-            continue
-
-        if element.name in ['h1', 'h2', 'h3', 'h4']:
-            level = int(element.name[1:])
-            p = subdoc.add_heading(level=level)
-            _process_inline_formatting(p, element.contents)
-
-        elif element.name == 'p':
-            p = subdoc.add_paragraph()
-            _process_inline_formatting(p, element.contents)
-
-        elif element.name == 'ul':
-            for li in element.find_all('li', recursive=False):
-                # For unordered lists, use the 'List Bullet' style
-                p = subdoc.add_paragraph(style='List Bullet')
-                _process_inline_formatting(p, li.contents)
-        
-        elif element.name == 'ol':
-            for i, li in enumerate(element.find_all('li', recursive=False)):
-                # For ordered lists, we manually add the number and use a paragraph style
-                p = subdoc.add_paragraph()
-                p.add_run(f"{i+1}.\t") # Add number and a tab
-                _process_inline_formatting(p, li.contents)
-
-    return subdoc
-# --- End of new utility ---
-
-# The old add_markdown_to_doc and create_meeting_minutes_doc_buffer can now be removed if they are no longer used elsewhere.
-Step 3: Update the Document Generator Service
-
-Now, we'll rewrite app/services/document_generator.py to use our powerful new utility. This makes the generator code much cleaner.
-
-code
-Python
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-# In /app/services/document_generator.py
-
-import json
-import logging
-from io import BytesIO
-from pathlib import Path
-
-from docxtpl import DocxTemplate
-# <<< Import our new, powerful utility >>>
-from app.utils import markdown_to_subdoc
-
-logger = logging.getLogger(__name__)
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
-
-def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
-    """
-    Generates a DOCX file from a template and JSON data from an LLM,
-    using a subdoc to render complex Markdown content.
-    """
-    template_map = {
-        "bbh_hdqt": "bbh_hdqt_template.docx",
-        "nghi_quyet": "nghi_quyet_template.docx",
-    }
-    template_filename = template_map.get(template_type)
-    if not template_filename:
-        raise ValueError(f"Invalid template type: {template_type}")
-
-    template_path = TEMPLATES_DIR / template_filename
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template file not found at: {template_path}")
-
-    try:
-        # Load the template once
-        doc = DocxTemplate(template_path)
-        
-        # Load the data from the AI
-        context_data = json.loads(llm_json_output)
-        
-        render_context = {}
-        for key, value in context_data.items():
-            # Check if the value is a string that contains our Markdown flag
-            if isinstance(value, str) and "[Markdown]" in value:
-                markdown_content = value.replace("[Markdown]", "").strip()
-                
-                # <<< THIS IS THE KEY CHANGE >>>
-                # Use our new utility to convert the markdown into a Subdoc
-                render_context[key] = markdown_to_subdoc(doc, markdown_content)
-            else:
-                # For simple, non-markdown fields, just copy the value
-                render_context[key] = value
-
-        logger.info(f"Final render context for '{template_type}': {render_context}")
-        
-        # Render the context into the template
-        doc.render(render_context)
-        
-        # Save the result to an in-memory buffer
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-
-    except json.JSONDecodeError:
-        logger.error(f"Failed to decode LLM JSON: {llm_json_output}")
-        raise ValueError("AI service returned invalid JSON.")
-    except Exception as e:
-        logger.error(f"Failed to generate document for template '{template_type}': {e}", exc_info=True)
-        raise RuntimeError("An unexpected error occurred during document generation.")
-Step 4: Final Actions
-
-Update Your Templates: Ensure that in your .docx files, the placeholders for the rich content are using the standard syntax:
-
-{{ main_progress }}
-
-{{ conclusion }}
-
-{{ general_directives }}
-
-NOT {{r ... }}.
-
-Rebuild Your Docker Image: Since you've changed requirements.txt, you must rebuild your Docker image for the changes to take effect.
-
-code
-Bash
-download
-content_copy
-expand_less
-IGNORE_WHEN_COPYING_START
-IGNORE_WHEN_COPYING_END
-docker-compose down
-docker-compose up --build -d
-
-Now, when you run your test, the new, more sophisticated document generation pipeline will be used. It will correctly parse the Markdown from the AI and render it as a multi-paragraph, fully-formatted block inside your documents, solving the "blank placeholder" issue for good.
+document_types_to_test = ["bbh_hdqt", "nghi_quyet"]
+for doc_type in document_types_to_test:
+    print(f"\nTesting document download (type: {doc_type})")
+    doc_params = {'username': TEST_USERNAME, 'template_type': doc_type}
+    doc_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/document", params=doc_params)
+    if doc_dl_response.status_code == 200:
+        doc_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{doc_type}.docx")
+        with open(doc_save_path, 'wb') as f: f.write(doc_dl_response.content)
+        print(f"  -> [Download Document] OK. File saved inside container at {doc_save_path}")
+    else:
+        print_response(doc_dl_response, f"Download {doc_type}")
