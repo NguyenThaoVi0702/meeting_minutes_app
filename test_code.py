@@ -1,5 +1,3 @@
-
-
 import requests
 import os
 import time
@@ -15,11 +13,11 @@ from urllib.parse import quote
 API_BASE_URL = "http://api:8072/api/v1"
 SPEAKER_METADATA_PATH = "speaker_metadata.csv"
 SPEAKER_AUDIO_DIR = "speaker_audio"
-MEETING_AUDIO_DIR = "meeting_to"
+MEETING_AUDIO_DIR = "ING"
 TEST_USERNAME = "test_user_01"
 MAX_SAMPLES_PER_SPEAKER = 20
 UPLOAD_TIMEOUT_SECONDS = 60
-DOWNLOAD_DIR = "/test_client/downloads"
+DOWNLOAD_DIR = "downloads"
 
 
 WEBSOCKET_DONE = threading.Event()
@@ -86,6 +84,7 @@ def run_full_test():
     enrolled_speakers = {}
     speaker_to_delete = None
 
+    
     # ==================================================================
     # STEP 1: ENROLL SPEAKERS
     # ==================================================================
@@ -125,6 +124,7 @@ def run_full_test():
             print(f"\nTesting: DELETE /speaker/{speaker_to_delete}")
             delete_response = requests.delete(f"{API_BASE_URL}/speaker/{speaker_to_delete}")
             print_response(delete_response, "Delete Speaker")
+    
 
     # ==================================================================
     # STEP 3 & 4: PROCESS A FULL MEETING
@@ -139,7 +139,7 @@ def run_full_test():
     encoded_request_id = quote(request_id)
 
     # Start meeting
-    start_payload = { 'requestId': request_id, 'username': TEST_USERNAME, 'language': 'vi', 'filename': f"{meeting_name}.wav", 'bbhName': "Initial BBH Name", 'Type': "Initial Type", 'Host': "Initial Host" }
+    start_payload = { 'requestId': request_id, 'username': TEST_USERNAME, 'language': 'en', 'filename': f"{meeting_name}.wav", 'bbhName': "Initial BBH Name", 'Type': "Initial Type", 'Host': "Initial Host" }
     requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload)
 
     # Test Update Meeting Info Endpoint
@@ -156,12 +156,41 @@ def run_full_test():
         requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files)
 
     # Wait for transcription
+    # Wait for transcription
     print("\n--- WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---")
     ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
     ws_thread.start()
     WEBSOCKET_DONE.wait(timeout=600)
     ws_thread.join()
 
+    # <<< START OF NEW CODE BLOCK >>>
+
+    # Get the status to extract the plain transcript
+    print(f"\nFetching status to display full transcript text...")
+    status_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/status?username={TEST_USERNAME}")
+    
+    if status_response.status_code == 200:
+        try:
+            response_data = status_response.json()
+            segments = response_data.get('data', {}).get('plain_transcript')
+            
+            if segments and isinstance(segments, list):
+                # Use a list comprehension to get the 'text' from each segment and join them
+                full_transcript_text = "\n".join([seg['text'] for seg in segments])
+                
+                print("\n===================================================")
+                print("   CONCATENATED FULL TRANSCRIPT (PLAIN TEXT)   ")
+                print("===================================================")
+                print(full_transcript_text)
+                print("===================================================\n")
+            else:
+                print("\n--- Could not find 'plain_transcript' data in the status response. ---\n")
+        except (JSONDecodeError, KeyError) as e:
+            print(f"\n--- Error processing status response for transcript concatenation: {e} ---\n")
+    else:
+        print(f"\n--- Failed to fetch status for transcript concatenation (Status: {status_response.status_code}) ---\n")
+
+    
     # Trigger and wait for diarization
     requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/diarize?username={TEST_USERNAME}")
     WEBSOCKET_DONE.clear()
@@ -175,11 +204,35 @@ def run_full_test():
     # STEP 5: ANALYSIS AND DOWNLOADS (Primary Workflow)
     # ==================================================================
     print("\n\n--- STEP 5: TESTING ANALYSIS AND DOWNLOADS ---")
+
+    # --- NEW: Loop to test ALL summary types ---
+    summary_types_to_test = ["topic", "speaker", "action_items", "decision_log"]
+    print(f"\nTesting all {len(summary_types_to_test)} summary endpoints...")
+
+    for summary_type in summary_types_to_test:
+        print(f"\nTesting: POST /meeting/{encoded_request_id}/summary (type: {summary_type})")
+        summary_payload = {"summary_type": summary_type}
+        summary_response = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/summary?username={TEST_USERNAME}", json=summary_payload)
+        print_response(summary_response, f"Generate '{summary_type}' Summary")
+        # Add a small delay to avoid overwhelming the AI service if it has rate limits
+        time.sleep(1)
+
+    # --- Test Chat Endpoint (remains the same) ---
+    print(f"\nTesting: POST /meeting/chat")
+    chat_payload = {"requestId": request_id, "username": TEST_USERNAME, "message": "What were the main conclusions and who is responsible for what?"}
+    chat_response = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload)
+    print_response(chat_response, "Chat")
+
+    # --- Test Download Endpoints (remains the same) ---
+    print(f"\nTesting: GET /meeting/{encoded_request_id}/download/audio")
     audio_dl_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/audio?username={TEST_USERNAME}")
     if audio_dl_response.status_code == 200:
         audio_save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_audio.wav")
         with open(audio_save_path, 'wb') as f: f.write(audio_dl_response.content)
         print(f"  -> [Download Audio] OK. File saved inside container at {audio_save_path}")
+    else:
+        print(f"  -> [Download Audio] FAILED with status: {audio_dl_response.status_code}")
+
 
     document_types_to_test = ["bbh_hdqt", "nghi_quyet"]
     for doc_type in document_types_to_test:
@@ -192,6 +245,7 @@ def run_full_test():
             print(f"  -> [Download Document] OK. File saved inside container at {doc_save_path}")
         else:
             print_response(doc_dl_response, f"Download {doc_type}")
+    
     # ==================================================================
     # STEP 6: TEST EDITING, LANGUAGE CHANGE, AND SIDE EFFECTS
     # ==================================================================
@@ -203,7 +257,7 @@ def run_full_test():
     lang_change_response = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/language?username={TEST_USERNAME}", json=lang_change_payload)
     print_response(lang_change_response, "Change Language")
 
-    # Wait for the new (English) transcription
+    # Wait for the new (enlish) transcription
     WEBSOCKET_DONE.clear()
     print("\n--- WAITING FOR NEW 'en' TRANSCRIPTION VIA WEBSOCKET ---")
     ws_thread_3 = threading.Thread(target=listen_on_websocket, args=(request_id,))
@@ -245,7 +299,7 @@ def run_full_test():
     print(f"Using new requestId for cancellation test: {cancel_request_id}")
 
     # Start a new meeting
-    cancel_start_payload = { 'requestId': cancel_request_id, 'username': TEST_USERNAME, 'language': 'vi', 'filename': "cancel.wav", 'bbhName': "Meeting to be Cancelled", 'Type': "Test", 'Host': "Test" }
+    cancel_start_payload = { 'requestId': cancel_request_id, 'username': TEST_USERNAME, 'language': 'en', 'filename': "cancel.wav", 'bbhName': "Meeting to be Cancelled", 'Type': "Test", 'Host': "Test" }
     requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=cancel_start_payload)
     
     # Upload one chunk but NOT the last one
@@ -265,6 +319,7 @@ def run_full_test():
         print(f"  -> FAILURE: Expected 404 for cancelled job but got {verify_cancel_res.status_code}.")
 
     print("\n\n--- ALL TESTS COMPLETE ---")
+    
 
 if __name__ == "__main__":
     run_full_test()
