@@ -1,33 +1,20 @@
-# In /app/services/ai_service.py
+Testing: PUT /meeting/test_ING_1758772385/transcript/plain
+  -> [Update Plain Transcript] Status: 500
+     Response (non-JSON): Internal Server Error...
 
-SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một trợ lý AI chuyên trách việc chắt lọc và biên soạn các quyết nghị, chỉ đạo cuối cùng từ bản ghi cuộc họp của HĐQT để tạo ra một văn bản Nghị quyết chính thức.
+--- Verifying side effects of transcript update ---
+  -> FAILURE: Diarized transcript was NOT cleared after update.
 
-## YÊU CẦU
-Phân tích kỹ lưỡng, chỉ tập trung vào các kết luận, chỉ đạo đã được chốt. Bỏ qua phần diễn biến và thảo luận. Trả về kết quả dưới dạng một đối tượng JSON duy nhất.
 
-- **Về cấu trúc:** Với các trường "chi_dao_chung" và "chi_dao_cu_the", hãy trả về một MẢNG CÁC ĐỐI TƯỢỢNG.
-- **Về loại nội dung:** Mỗi đối tượng phải có một trường "type" và một trường "content". Các "type" hợp lệ là: "heading", "paragraph", và "bullet".
-- **Về chi tiết:** Nội dung phải là các mệnh lệnh, quyết định hoặc phân công rõ ràng.
-- **Về định dạng:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. KHÔNG sử dụng Markdown `**`.
-- **Về sự chính xác:** Nếu không tìm thấy thông tin, hãy để giá trị là một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
+--- STEP 7: TESTING MEETING CANCELLATION ---
+Using new requestId for cancellation test: test_cancel_1758772475
 
-## Cấu trúc JSON đầu ra MẪU:
-```json
-{
-  "ngay": "dd",
-  "thang": "mm",
-  "nam": "yy",
-  "chi_dao_chung": [
-    {"type": "heading", "content": "1. Về định hướng chiến lược chung"},
-    {"type": "paragraph", "content": "Toàn hệ thống tiếp tục kiên định với mục tiêu chuyển đổi số toàn diện, lấy hiệu quả thực tế làm thước đo cao nhất cho sự thành công của các sáng kiến."},
-    {"type": "bullet", "content": "Tăng cường minh bạch và trách nhiệm trong việc theo dõi, báo cáo tiến độ thông qua các công cụ quản trị tập trung như dashboard."},
-    {"type": "bullet", "content": "Ưu tiên nguồn lực cho việc chuẩn hóa và làm giàu dữ liệu, coi đây là tài sản cốt lõi cho các hoạt động AI và phân tích kinh doanh."}
-  ],
-  "chi_dao_cu_the": [
-    {"type": "heading", "content": "2. Phân công nhiệm vụ cụ thể"},
-    {"type": "bullet", "content": "Giao <b>Khối Bán lẻ</b> chủ trì, phối hợp với <b>Khối Dữ liệu</b> đánh giá lại hiệu quả của <b>15 mô hình</b> thí điểm dự đoán khách hàng rời bỏ. Báo cáo kết quả và đề xuất kế hoạch nhân rộng trước ngày 30/10."},
-    {"type": "bullet", "content": "Giao <b>Khối Nhân sự</b> phối hợp với <b>Khối Dữ liệu và AI</b> hoàn thiện kế hoạch tuyển dụng các vị trí Data Scientist và AI Engineer cho năm tới, trình HĐQT phê duyệt trong tháng 11."},
-    {"type": "bullet", "content": "Yêu cầu tất cả các Chủ nhiệm sáng kiến chịu trách nhiệm cập nhật tiến độ lên hệ thống dashboard định kỳ vào <b>thứ Sáu hàng tuần</b>."}
-  ]
+Testing: DELETE /meeting/test_cancel_1758772475/cancel
+  -> [Cancel Meeting] Status: 200
+     Response: {
+  "status": 200,
+  "message": "Meeting successfully cancelled."
 }
-"""
+
+--- Verifying that cancelled job 'test_cancel_1758772475' is no longer accessible ---
+  -> SUCCESS: Received 404 Not Found for cancelled job, as expected.
