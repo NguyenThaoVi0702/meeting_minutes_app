@@ -1,0 +1,9 @@
+Docker exec -it psql psql -U bbh-user -d meeting_minutes_db
+
+DROP TABLE IF EXISTS speakeractionlog CASCADE;
+DROP TABLE IF EXISTS chat_history CASCADE;
+DROP TABLE IF EXISTS summary CASCADE;
+DROP TABLE IF EXISTS diarizedtranscript CASCADE;
+DROP TABLE IF EXISTS transcription CASCADE;
+DROP TABLE IF EXISTS meetingjob CASCADE;
+DROP TABLE IF EXISTS "user" CASCADE;
