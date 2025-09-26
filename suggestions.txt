@@ -1,12 +1,57 @@
-Of course. The quickest and most direct way to achieve this is to format the time values right before they are sent out in the API response. This involves creating a small helper function and applying it in the one place where the response data is prepared.
+Of course. This is a great feature to add for providing more context to the AI. Here is the quickest way to modify your code to include meeting_members.
 
-This method is ideal because it doesn't require changing your core processing logic or how you store the data in the database.
+Since you are okay with recreating the database tables, this process will be very fast and will not require a complex database migration.
 
-Here are the precise code modifications:
+Step 1: Update the Database Model
 
-Step 1: Modify the Pydantic Schemas to Expect Strings
+First, we need to add a field to the MeetingJob table to store the list of names. We'll use a JSONB column in PostgreSQL, which is perfect for storing lists.
 
-First, you need to tell the API that the start_time and end_time fields in the response will now be strings (str) instead of numbers (float).
+File to Edit: app/db/models.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/db/models.py
+
+import uuid
+from datetime import datetime
+# --- ADD 'List' TO THIS IMPORT ---
+from typing import Optional, List, Dict, Any
+
+from sqlalchemy import Column, Text
+# --- ADD 'JSONB' TO THIS IMPORT ---
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.sql import func
+from sqlmodel import SQLModel, Field, Relationship
+
+# ... (other models remain the same)
+
+class MeetingJob(SQLModel, table=True):
+    """
+    The central table for a meeting session. It tracks metadata,
+    and links to all related data like transcripts, summaries, etc.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    request_id: str = Field(unique=True, index=True)
+    user_id: int = Field(foreign_key="user.id")
+    
+    # --- Editable Meeting Info ---
+    original_filename: str
+    bbh_name: str
+    meeting_type: str
+    meeting_host: str
+    
+    # --- ADD THIS NEW FIELD ---
+    meeting_members: Optional[List[str]] = Field(default=None, sa_column=Column(JSONB))
+    # --- END OF ADDITION ---
+
+    language: str = Field(default="vi", description="The currently active language for this meeting.")
+    # ... (rest of the model remains the same)
+Step 2: Update the API Input Schema
+
+Next, allow the meeting_members list to be updated via the /info endpoint.
 
 File to Edit: app/schemas/meeting.py
 
@@ -19,38 +64,22 @@ expand_less
 
 # ... (imports remain the same)
 
-# ===================================================================
-#   Core Data Structure Models
-# ===================================================================
-
-class PlainSegment(BaseModel):
+class MeetingInfoUpdateRequest(BaseModel):
     """
-    The direct output from the transcription model (Whisper).
+    Schema for updating the metadata of a meeting. All fields are optional
+    so the user can update one or more fields at a time.
     """
-    id: Optional[int] = Field(None, description="A unique identifier for the segment.")
-    text: str = Field(..., description="The transcribed text of the segment.")
-    # --- CHANGE THIS BLOCK ---
-    start_time: str = Field(..., description="Start time of the segment in HH:MM:SS format.")
-    end_time: str = Field(..., description="End time of the segment in HH:MM:SS format.")
-    # --- END OF CHANGE ---
-
-class DiarizedSegment(BaseModel):
-    """
-    Represents a single segment of a transcript AFTER speaker separation.
-    It includes a speaker label.
-    """
-    id: Optional[int] = Field(None, description="A unique identifier for the segment.")
-    speaker: str = Field(..., description="The identified speaker for this segment (e.g., 'LinhPT' or 'Unknown_Speaker_1').")
-    text: str = Field(..., description="The transcribed text of the segment.")
-    # --- CHANGE THIS BLOCK ---
-    start_time: str = Field(..., description="Start time of the segment in HH:MM:SS format.")
-    end_time: str = Field(..., description="End time of the segment in HH:MM:SS format.")
-    # --- END OF CHANGE ---
+    bbh_name: Optional[str] = None
+    meeting_type: Optional[str] = None
+    meeting_host: Optional[str] = None
+    # --- ADD THIS NEW FIELD ---
+    meeting_members: Optional[List[str]] = None
+    # --- END OF ADDITION ---
 
 # ... (rest of the file remains the same)
-Step 2: Create a Formatting Function and Apply It
+Step 3: Modify the API Endpoints
 
-Now, in the meeting.py route file, we'll add a helper function to convert seconds to the HH:MM:SS format and then use it inside the _format_job_status function, which prepares all the data for the API response.
+Now, we'll update the endpoints to accept and use the new meeting_members field.
 
 File to Edit: app/api/routes/meeting.py
 
@@ -61,85 +90,174 @@ content_copy
 expand_less
 # app/api/routes/meeting.py
 
-# ... (imports remain the same)
+# --- MAKE SURE 'json' IS IMPORTED ---
+import json
+import logging
+# ... (other imports remain the same)
+
+
+# ...
 
 # ===================================================================
-#   Helper Functions & Core Workflow
+#   Core Meeting Workflow Endpoints
 # ===================================================================
 
-# --- ADD THIS HELPER FUNCTION ---
-def _format_seconds_to_hms(seconds: float) -> str:
-    """Converts a float number of seconds to an HH:MM:SS string."""
-    if not isinstance(seconds, (int, float)):
-        return "00:00:00"
-    s = int(seconds)
-    hours = s // 3600
-    minutes = (s % 3600) // 60
-    seconds = s % 60
-    return f"{hours:02}:{minutes:02}:{seconds:02}"
-# --- END OF ADDITION ---
+@router.post("/start-bbh", status_code=status.HTTP_201_CREATED, summary="Initialize a new meeting session")
+async def start_bbh(
+    session: Session = Depends(get_db_session),
+    current_user: User = Depends(get_or_create_user),
+    requestId: str = Form(...),
+    language: str = Form("vi"),
+    filename: str = Form(...),
+    bbhName: str = Form(...),
+    Type: str = Form(...),
+    Host: str = Form(...),
+    # --- ADD THIS NEW PARAMETER ---
+    meetingMembers: str = Form("[]", description="A JSON string of a list of member names."),
+):
+    """
+    Initializes a meeting job record in the database and creates a
+    dedicated directory for storing incoming audio chunks.
+    """
+    logger.info(f"Initializing job '{requestId}' by user '{current_user.username}'.")
+    if session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first():
+        raise HTTPException(status_code=409, detail=f"Meeting job with requestId '{requestId}' already exists.")
 
+    session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
+    os.makedirs(session_dir, exist_ok=True)
 
-def _format_job_status(job: MeetingJob, db: Session) -> dict:
-    """Packages a MeetingJob object into the standard API response schema."""
-    plain_transcript_data = None
-    diarized_transcript_data = None # <-- ADD THIS LINE
-
-    transcription_entry = db.exec(
-        select(Transcription).where(
-            Transcription.meeting_job_id == job.id,
-            Transcription.language == job.language
-        )
-    ).first()
-
-    if transcription_entry and transcription_entry.transcript_data:
-        # --- MODIFY THIS BLOCK ---
-        raw_segments = transcription_entry.transcript_data
-        plain_transcript_data = [
-            {
-                **seg,
-                "start_time": _format_seconds_to_hms(seg.get("start_time", 0)),
-                "end_time": _format_seconds_to_hms(seg.get("end_time", 0)),
-            } for seg in raw_segments
-        ]
-        # --- END OF MODIFICATION ---
-
-    # --- ADD THIS BLOCK FOR DIARIZED TRANSCRIPT ---
-    if job.diarized_transcript and job.diarized_transcript.transcript_data:
-        raw_diarized = job.diarized_transcript.transcript_data
-        diarized_transcript_data = [
-            {
-                **seg,
-                "start_time": _format_seconds_to_hms(seg.get("start_time", 0)),
-                "end_time": _format_seconds_to_hms(seg.get("end_time", 0)),
-            } for seg in raw_diarized
-        ]
+    # --- ADD LOGIC TO PARSE THE JSON STRING ---
+    try:
+        members_list = json.loads(meetingMembers)
+        if not isinstance(members_list, list):
+            raise ValueError("meetingMembers must be a list.")
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid format for meetingMembers: {e}")
     # --- END OF ADDITION ---
 
-
-    response = MeetingStatusResponse(
-        request_id=job.request_id,
-        status=job.status,
-        bbh_name=job.bbh_name,
-        meeting_type=job.meeting_type,
-        meeting_host=job.meeting_host,
-        language=job.language,
-        plain_transcript=[PlainSegment(**seg) for seg in plain_transcript_data] if plain_transcript_data else None,
-        # --- MODIFY THIS LINE ---
-        diarized_transcript=[DiarizedSegment(**seg) for seg in diarized_transcript_data] if diarized_transcript_data else None,
-        # --- END OF MODIFICATION ---
-        error_message=job.error_message
+    job = MeetingJob(
+        request_id=requestId,
+        user_id=current_user.id,
+        language=language,
+        original_filename=filename,
+        bbh_name=bbhName,
+        meeting_type=Type,
+        meeting_host=Host,
+        # --- ADD THE PARSED LIST TO THE MODEL ---
+        meeting_members=members_list,
+        # --- END OF ADDITION ---
+        status="uploading"
     )
-    return response.model_dump()
+    session.add(job)
+    session.commit()
+    return {"status": 201, "message": "Meeting initialized. Ready for chunk uploads."}
 
 
-# ... (rest of the file remains the same)
-Summary of Changes
+# ... (upload-file-chunk and diarize_meeting remain the same)
+# ... (get_meeting_status and other endpoints remain the same)
+# ...
 
-Schema Update: You changed the data type for start_time and end_time from float to str in the response models (PlainSegment, DiarizedSegment) so the API documentation and validation reflect the new output.
+# The update_meeting_info endpoint does NOT need to be changed.
+# Because of its generic design, it will automatically handle updating the new 'meeting_members' field.
 
-Formatting Logic: You added a helper function _format_seconds_to_hms to handle the conversion.
+# ...
 
-Centralized Application: You applied this formatting logic within _format_job_status, the single function responsible for preparing the data. It now loops through the raw transcript dictionaries, replaces the float values with formatted strings, and then builds the final response object.
+# ===================================================================
+#   Analysis, Chat, and Download Endpoints
+# ===================================================================
 
-This is the most efficient and maintainable way to implement the requested change.
+@router.post(
+    "/{request_id}/summary",
+    response_model=SummaryResponse,
+    summary="Generate a meeting summary"
+)
+async def generate_summary(
+    summary_request: SummaryRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path) 
+):
+    # ... (code for getting transcript_source and source_text remains the same)
+
+    try:
+        # --- MODIFY THE CONTEXT DICTIONARY ---
+        members_str = ", ".join(job.meeting_members) if job.meeting_members else "Không xác định"
+        
+        meeting_info = {
+            "bbh_name": job.bbh_name,
+            "meeting_type": job.meeting_type,
+            "meeting_host": job.meeting_host,
+            "meeting_members_str": members_str, # Add the new field
+        }
+        # --- END OF MODIFICATION ---
+
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
+    # ... (rest of the function remains the same)```
+
+### Step 4: Update the AI Prompts
+
+Finally, add the new `meeting_members_str` variable to your summary prompts so the AI can use the information.
+
+**File to Edit:** `app/services/ai_service.py`
+
+```python
+# app/services/ai_service.py
+
+# ...
+
+SUMMARY_BY_TOPIC_PROMPT = """Bạn là một Trợ lý AI chuyên nghiệp, nhiệm vụ của bạn là tạo ra một biên bản họp CHUẨN CHỈNH, RÕ RÀNG và ĐỊNH HƯỚNG HÀNH ĐỘNG từ một bản ghi hội thoại thô.
+
+## Bối cảnh cuộc họp
+- **Chủ đề:** {bbh_name}
+- **Loại cuộc họp:** {meeting_type}
+- **Chủ trì:** {meeting_host}
+- **Thành viên tham gia:** {meeting_members_str}
+
+## Yêu cầu
+# ... (rest of prompt is unchanged)
+"""
+
+SUMMARY_BY_SPEAKER_PROMPT = """Bạn là một trợ lý AI, nhiệm vụ của bạn là phân tích bản ghi hội thoại và tóm tắt ý chính của TỪNG NGƯỜI NÓI.
+
+## Bối cảnh cuộc họp
+- **Chủ đề:** {bbh_name}
+- **Loại cuộc họp:** {meeting_type}
+- **Chủ trì:** {meeting_host}
+- **Thành viên tham gia:** {meeting_members_str}
+
+## Yêu cầu
+# ... (rest of prompt is unchanged)
+"""
+
+# You can add the same line to SUMMARY_ACTION_ITEMS_PROMPT and SUMMARY_DECISION_LOG_PROMPT as well for consistency.
+# ...
+How to Apply and Test
+
+Stop Your Application: Make sure all Docker containers are stopped.
+
+Delete Old Database Data: Since you are not using migrations, you must delete the old database volume so the tables can be recreated with the new schema. If you are using a local volume for Postgres, you can stop the containers and run docker-compose down -v.
+
+Restart the Application: Run docker-compose up --build. The SQLModel.metadata.create_all(engine) line in app/main.py will create the tables with the new meeting_members column.
+
+Test the API: When calling the /start-bbh endpoint, you must now include the new meetingMembers field. Since it's a list, you need to pass it as a JSON-formatted string.
+
+Example curl command:
+
+code
+Bash
+download
+content_copy
+expand_less
+curl -X POST http://localhost:8072/api/v1/meeting/start-bbh \
+-F "requestId=test_with_members_01" \
+-F "username=test_user" \
+-F "filename=meeting.wav" \
+-F "bbhName=Project Phoenix Kickoff" \
+-F "Type=Project Meeting" \
+-F "Host=Mr. Smith" \
+-F 'meetingMembers=["Alice Johnson", "Bob Williams", "Charlie Brown"]'
+
+Now, when you request a summary for this meeting, the prompt sent to the AI will include the list of members, providing it with valuable context.
