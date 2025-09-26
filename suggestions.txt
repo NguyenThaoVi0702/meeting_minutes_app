@@ -1,38 +1,145 @@
-    # Wait for transcription
-    print("\n--- WAITING FOR TRANSCRIPTION VIA WEBSOCKET ---")
-    ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
-    ws_thread.start()
-    WEBSOCKET_DONE.wait(timeout=600)
-    ws_thread.join()
+Of course. The quickest and most direct way to achieve this is to format the time values right before they are sent out in the API response. This involves creating a small helper function and applying it in the one place where the response data is prepared.
 
-    # <<< START OF NEW CODE BLOCK >>>
+This method is ideal because it doesn't require changing your core processing logic or how you store the data in the database.
 
-    # Get the status to extract the plain transcript
-    print(f"\nFetching status to display full transcript text...")
-    status_response = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/status?username={TEST_USERNAME}")
-    
-    if status_response.status_code == 200:
-        try:
-            response_data = status_response.json()
-            segments = response_data.get('data', {}).get('plain_transcript')
-            
-            if segments and isinstance(segments, list):
-                # Use a list comprehension to get the 'text' from each segment and join them
-                full_transcript_text = "\n".join([seg['text'] for seg in segments])
-                
-                print("\n===================================================")
-                print("   CONCATENATED FULL TRANSCRIPT (PLAIN TEXT)   ")
-                print("===================================================")
-                print(full_transcript_text)
-                print("===================================================\n")
-            else:
-                print("\n--- Could not find 'plain_transcript' data in the status response. ---\n")
-        except (JSONDecodeError, KeyError) as e:
-            print(f"\n--- Error processing status response for transcript concatenation: {e} ---\n")
-    else:
-        print(f"\n--- Failed to fetch status for transcript concatenation (Status: {status_response.status_code}) ---\n")
+Here are the precise code modifications:
 
-    # <<< END OF NEW CODE BLOCK >>>
+Step 1: Modify the Pydantic Schemas to Expect Strings
 
-    # Trigger and wait for diarization
-    requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/diarize?username={TEST_USERNAME}")
+First, you need to tell the API that the start_time and end_time fields in the response will now be strings (str) instead of numbers (float).
+
+File to Edit: app/schemas/meeting.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/schemas/meeting.py
+
+# ... (imports remain the same)
+
+# ===================================================================
+#   Core Data Structure Models
+# ===================================================================
+
+class PlainSegment(BaseModel):
+    """
+    The direct output from the transcription model (Whisper).
+    """
+    id: Optional[int] = Field(None, description="A unique identifier for the segment.")
+    text: str = Field(..., description="The transcribed text of the segment.")
+    # --- CHANGE THIS BLOCK ---
+    start_time: str = Field(..., description="Start time of the segment in HH:MM:SS format.")
+    end_time: str = Field(..., description="End time of the segment in HH:MM:SS format.")
+    # --- END OF CHANGE ---
+
+class DiarizedSegment(BaseModel):
+    """
+    Represents a single segment of a transcript AFTER speaker separation.
+    It includes a speaker label.
+    """
+    id: Optional[int] = Field(None, description="A unique identifier for the segment.")
+    speaker: str = Field(..., description="The identified speaker for this segment (e.g., 'LinhPT' or 'Unknown_Speaker_1').")
+    text: str = Field(..., description="The transcribed text of the segment.")
+    # --- CHANGE THIS BLOCK ---
+    start_time: str = Field(..., description="Start time of the segment in HH:MM:SS format.")
+    end_time: str = Field(..., description="End time of the segment in HH:MM:SS format.")
+    # --- END OF CHANGE ---
+
+# ... (rest of the file remains the same)
+Step 2: Create a Formatting Function and Apply It
+
+Now, in the meeting.py route file, we'll add a helper function to convert seconds to the HH:MM:SS format and then use it inside the _format_job_status function, which prepares all the data for the API response.
+
+File to Edit: app/api/routes/meeting.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/api/routes/meeting.py
+
+# ... (imports remain the same)
+
+# ===================================================================
+#   Helper Functions & Core Workflow
+# ===================================================================
+
+# --- ADD THIS HELPER FUNCTION ---
+def _format_seconds_to_hms(seconds: float) -> str:
+    """Converts a float number of seconds to an HH:MM:SS string."""
+    if not isinstance(seconds, (int, float)):
+        return "00:00:00"
+    s = int(seconds)
+    hours = s // 3600
+    minutes = (s % 3600) // 60
+    seconds = s % 60
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+# --- END OF ADDITION ---
+
+
+def _format_job_status(job: MeetingJob, db: Session) -> dict:
+    """Packages a MeetingJob object into the standard API response schema."""
+    plain_transcript_data = None
+    diarized_transcript_data = None # <-- ADD THIS LINE
+
+    transcription_entry = db.exec(
+        select(Transcription).where(
+            Transcription.meeting_job_id == job.id,
+            Transcription.language == job.language
+        )
+    ).first()
+
+    if transcription_entry and transcription_entry.transcript_data:
+        # --- MODIFY THIS BLOCK ---
+        raw_segments = transcription_entry.transcript_data
+        plain_transcript_data = [
+            {
+                **seg,
+                "start_time": _format_seconds_to_hms(seg.get("start_time", 0)),
+                "end_time": _format_seconds_to_hms(seg.get("end_time", 0)),
+            } for seg in raw_segments
+        ]
+        # --- END OF MODIFICATION ---
+
+    # --- ADD THIS BLOCK FOR DIARIZED TRANSCRIPT ---
+    if job.diarized_transcript and job.diarized_transcript.transcript_data:
+        raw_diarized = job.diarized_transcript.transcript_data
+        diarized_transcript_data = [
+            {
+                **seg,
+                "start_time": _format_seconds_to_hms(seg.get("start_time", 0)),
+                "end_time": _format_seconds_to_hms(seg.get("end_time", 0)),
+            } for seg in raw_diarized
+        ]
+    # --- END OF ADDITION ---
+
+
+    response = MeetingStatusResponse(
+        request_id=job.request_id,
+        status=job.status,
+        bbh_name=job.bbh_name,
+        meeting_type=job.meeting_type,
+        meeting_host=job.meeting_host,
+        language=job.language,
+        plain_transcript=[PlainSegment(**seg) for seg in plain_transcript_data] if plain_transcript_data else None,
+        # --- MODIFY THIS LINE ---
+        diarized_transcript=[DiarizedSegment(**seg) for seg in diarized_transcript_data] if diarized_transcript_data else None,
+        # --- END OF MODIFICATION ---
+        error_message=job.error_message
+    )
+    return response.model_dump()
+
+
+# ... (rest of the file remains the same)
+Summary of Changes
+
+Schema Update: You changed the data type for start_time and end_time from float to str in the response models (PlainSegment, DiarizedSegment) so the API documentation and validation reflect the new output.
+
+Formatting Logic: You added a helper function _format_seconds_to_hms to handle the conversion.
+
+Centralized Application: You applied this formatting logic within _format_job_status, the single function responsible for preparing the data. It now loops through the raw transcript dictionaries, replaces the float values with formatted strings, and then builds the final response object.
+
+This is the most efficient and maintainable way to implement the requested change.
