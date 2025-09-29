@@ -513,18 +513,21 @@ async def generate_summary(
     summary="Chat about the meeting content"
 )
 async def chat_with_meeting(
+    # --- UPDATE THE FUNCTION SIGNATURE ---
     chat_request: ChatRequest,
     db: Session = Depends(get_db_session)
+    # --- END OF UPDATE ---
 ):
     """
     Handles conversational queries about a completed meeting. It uses the
     transcript, summaries, and recent conversation history as context.
+    If a summary_type_context is provided, it can also update that summary.
     """
     job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Meeting job not found.")
     
-    
+    # --- 1. GET THE BASE TRANSCRIPT (UNCHANGED) ---
     transcription_entry = db.exec(
         select(Transcription).where(
             Transcription.meeting_job_id == job.id,
@@ -535,38 +538,67 @@ async def chat_with_meeting(
         raise HTTPException(status_code=400, detail="Cannot chat without a completed transcript.")
     transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
 
-    
-    summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
-    summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
+    # --- 2. GET CONTEXT-SPECIFIC SUMMARY (NEW LOGIC) ---
+    context_for_llm = f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n"
+    summary_to_update = None # Variable to hold the summary object if we need to update it
 
-    
+    if chat_request.summary_type_context:
+        summary_type = chat_request.summary_type_context
+        # Find the specific summary the user is talking about
+        summary_to_update = db.exec(
+            select(Summary).where(
+                Summary.meeting_job_id == job.id,
+                Summary.summary_type == summary_type
+            )
+        ).first()
+        
+        if summary_to_update:
+            # Add this specific summary to the context for the AI
+            context_for_llm += (
+                f"--- CURRENT '{summary_type.upper()}' SUMMARY (FOR CONTEXT) ---\n"
+                f"{summary_to_update.summary_content}\n\n"
+            )
+
+    # --- 3. GET CHAT HISTORY (UNCHANGED) ---
     chat_history_db = db.exec(
         select(ChatHistory)
         .where(ChatHistory.meeting_job_id == job.id)
         .order_by(ChatHistory.created_at.desc())
         .limit(settings.LIMIT_TURN * 2) 
     ).all()
-    
     chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
 
-    
-    full_context_for_llm = (
-        f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" +
-        "\n\n".join(summary_texts)
-    )
-
-    
+    # --- 4. CALL AI SERVICE (UNCHANGED) ---
     try:
-        assistant_response = await ai_service.get_response(
+        assistant_response_raw = await ai_service.get_response(
             task="chat",
-            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
+            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{context_for_llm}",
             context={"history": chat_history_formatted}
         )
     except Exception as e:
         logger.error(f"AI service failed during chat for job '{job.request_id}': {e}", exc_info=True)
         raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
 
-    
+    # --- 5. PARSE RESPONSE AND UPDATE DATABASE (NEW LOGIC) ---
+    final_response_to_user = assistant_response_raw
+    update_pattern = r'\[UPDATE:(\w+)\]\s*(.*)'
+    match = re.match(update_pattern, assistant_response_raw, re.DOTALL)
+
+    if match and summary_to_update:
+        updated_type = match.group(1)
+        new_summary_content = match.group(2).strip()
+        
+        # Security check: ensure the AI wants to update the summary we gave it context for
+        if updated_type == summary_to_update.summary_type:
+            logger.info(f"AI requested update for summary type '{updated_type}' on job '{job.request_id}'.")
+            summary_to_update.summary_content = new_summary_content
+            db.add(summary_to_update)
+            # The commit will happen with the chat history save
+            final_response_to_user = new_summary_content # The user sees the full new summary
+        else:
+            logger.warning(f"AI tried to update '{updated_type}' but context was for '{summary_to_update.summary_type}'. Ignoring.")
+            
+    # --- 6. SAVE CHAT HISTORY AND COMMIT (MODIFIED) ---
     user_message_entry = ChatHistory(
         meeting_job_id=job.id,
         role="user",
@@ -575,14 +607,17 @@ async def chat_with_meeting(
     assistant_message_entry = ChatHistory(
         meeting_job_id=job.id,
         role="assistant",
-        message=assistant_response
+        # Save the raw response to see the [UPDATE] tag in history if needed
+        message=assistant_response_raw 
     )
     db.add(user_message_entry)
     db.add(assistant_message_entry)
+    
+    # This single commit saves both the chat history and any summary changes
     db.commit()
 
-    return ChatResponse(response=assistant_response)
-
+    return ChatResponse(response=final_response_to_user)
+    
 
 @router.get("/{request_id}/download/audio", summary="Download the original audio file")
 async def download_audio_file(
