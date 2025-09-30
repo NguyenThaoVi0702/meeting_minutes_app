@@ -1,57 +1,22 @@
-Excellent. This is a fantastic and very common requirement for making a chatbot feel truly intelligent and helpful. You want to move from a simple command-based system to a conversational one that understands intent, checks state, and handles ambiguity.
+Of course. This is an excellent set of requirements that will significantly enhance the application's capabilities. You want to unify the summary system so that all summary types are persistent, editable via chat, and downloadable as documents.
 
-This requires a more sophisticated approach than the previous design. We will essentially turn your backend into an orchestrator that uses the AI for two distinct tasks:
+Here is a comprehensive guide on how to modify your code to achieve this, incorporating your coworker's document generation logic for the standard summaries.
 
-Stage 1: Intent Analysis: First, understand what the user wants to do (their intent) and what they are talking about (the entity).
+Answering Your Initial Questions
 
-Stage 2: Content Generation: Then, based on the intent, perform the appropriate action, which might involve another AI call to generate the actual text.
+Can bbh_hdqt and nghi_quyet be added to the chat editing options?
+Yes, absolutely. We will teach the "Intent Analysis" AI to recognize them as valid summary types (entities).
 
-Here is the design and the step-by-step code modifications to implement this advanced conversational logic.
+Does the present code store the summary for nghi_quyet and bbh_hdqt?
+No, it does not. Your current generate_and_download_document endpoint generates them on-the-fly for a one-time download and never saves them to the database. We will change this behavior to make them persistent.
 
-Part 1: The Design - A Two-Stage AI Approach
+How can we handle downloading all summary types?
+We will refactor the download endpoint into a single, intelligent function. It will fetch the requested summary from the database. If it's bbh_hdqt or nghi_quyet, it will use the existing template engine. For all other types (which are in Markdown), it will use your coworker's provided logic to convert Markdown to a DOCX file.
 
-User sends a message: "sửa nội dung biên bản họp theo chủ đề cho tôi, thêm chi tiết về ngân sách."
+Step-by-Step Code Modifications
+Step 1: Update the AI Intent Analysis Prompt
 
-Backend receives the message. Instead of immediately trying to answer, it first sends the user's text to the AI with a special "Intent Analysis" prompt.
-
-AI (Stage 1) returns a structured JSON object, not a conversational reply. The JSON will look like this:
-
-code
-JSON
-download
-content_copy
-expand_less
-{
-  "intent": "edit_summary",
-  "entity": "topic",
-  "confidence": 0.95,
-  "edit_instruction": "thêm chi tiết về ngân sách"
-}
-
-Backend parses the JSON and enters its main logic block.
-
-It sees intent is edit_summary.
-
-It sees entity is topic.
-
-Backend checks the application state (Database):
-
-It queries the Summary table for the meeting. Does a summary with summary_type = 'topic' exist?
-
-Backend follows the correct logic path:
-
-Case A (Summary Exists): The backend now makes a second AI call (Stage 2). It uses the CHAT_SYSTEM_PROMPT (the one we designed before for updating summaries) and provides the existing 'topic' summary content and the edit_instruction as context. The AI returns the fully rewritten summary, and the backend saves it.
-
-Case B (Summary Does Not Exist): The backend does not call the AI again. It constructs a specific, hard-coded response: "Biên bản họp theo 'chủ đề' chưa được tạo. Vui lòng nhấn nút 'Tóm tắt theo chủ đề' để tạo trước khi bạn có thể chỉnh sửa." and sends this back to the user.
-
-Case C (Ambiguity): If the AI (Stage 1) returned entity: null because the user said "Sửa tóm tắt này," the backend would skip the database check and immediately return the clarifying question: "Bạn muốn sửa loại tóm tắt nào? (ví dụ: theo chủ đề, theo người nói, các công việc cần làm...)"
-
-This design makes your backend the "brain" of the operation, using the AI as a powerful tool for language understanding rather than letting the AI control the entire flow.
-
-Part 2: Step-by-Step Code Modifications
-Step 1: Create a New, Powerful "Intent Analysis" Prompt
-
-This is the most important new piece. We need to train the AI to act as a classifier.
+First, let's teach the AI to recognize the new summary types during chat.
 
 File to Edit: app/services/ai_service.py
 
@@ -62,9 +27,8 @@ content_copy
 expand_less
 # app/services/ai_service.py
 
-# ... (other prompts)
+# ...
 
-# --- ADD THIS NEW PROMPT ---
 INTENT_ANALYSIS_PROMPT = """Bạn là một mô hình AI chuyên phân tích ý định của người dùng trong một cuộc trò chuyện về biên bản họp. Phân tích câu cuối cùng của người dùng và trả về một đối tượng JSON DUY NHẤT.
 
 Các loại 'intent' hợp lệ:
@@ -77,6 +41,10 @@ Các loại 'entity' (loại tóm tắt) hợp lệ:
 - 'speaker': Tóm tắt theo người nói.
 - 'action_items': Tóm tắt các công việc cần làm.
 - 'decision_log': Tóm tắt các quyết định cuối cùng.
+# --- ADD THESE NEW ENTITIES ---
+- 'summary_bbh_hdqt': Biên bản họp dạng chi tiết (JSON).
+- 'summary_nghi_quyet': Nghị quyết cuộc họp (JSON).
+# --- END OF ADDITION ---
 - null: Nếu không thể xác định hoặc người dùng không đề cập.
 
 Cấu trúc JSON đầu ra BẮT BUỘC:
@@ -86,40 +54,10 @@ Cấu trúc JSON đầu ra BẮT BUỘC:
   "confidence": <số từ 0.0 đến 1.0>,
   "edit_instruction": "<Trích xuất chính xác chỉ thị chỉnh sửa của người dùng nếu có, nếu không thì để là null>"
 }
+# ... (rest of the prompt is unchanged)
+Step 2: Refactor the Summary Generation Endpoint
 
-Ví dụ:
-- User: "sửa lại biên bản họp theo chủ đề cho tôi" -> {"intent": "edit_summary", "entity": "topic", "confidence": 0.9, "edit_instruction": null}
-- User: "thêm phần ngân sách vào tóm tắt các quyết định" -> {"intent": "edit_summary", "entity": "decision_log", "confidence": 0.98, "edit_instruction": "thêm phần ngân sách"}
-- User: "ai là người phụ trách công việc ABC?" -> {"intent": "ask_question", "entity": null, "confidence": 0.99, "edit_instruction": null}
-- User: "sửa cái tóm tắt này" -> {"intent": "edit_summary", "entity": null, "confidence": 0.85, "edit_instruction": null}
-- User: "cảm ơn bạn" -> {"intent": "general_chit_chat", "entity": null, "confidence": 0.9, "edit_instruction": null}
-
-Bây giờ, hãy phân tích tin nhắn của người dùng sau đây.
-"""
-# --- END OF ADDITION ---
-
-# ...
-
-class AIService:
-    # ...
-    def _get_system_prompt_for_task(self, task: str) -> str:
-        """Retrieves the appropriate system prompt based on the task type."""
-        prompts = {
-            "topic": SUMMARY_BY_TOPIC_PROMPT,
-            "speaker": SUMMARY_BY_SPEAKER_PROMPT,
-            "action_items": SUMMARY_ACTION_ITEMS_PROMPT,
-            "decision_log": SUMMARY_DECISION_LOG_PROMPT,
-            "summary_bbh_hdqt": SUMMARY_BBH_HDQT_PROMPT,
-            "summary_nghi_quyet": SUMMARY_NGHI_QUYET_PROMPT,
-            "chat": CHAT_SYSTEM_PROMPT,
-            # --- ADD THIS NEW TASK ---
-            "intent_analysis": INTENT_ANALYSIS_PROMPT,
-            # --- END OF ADDITION ---
-        }
-        # ...
-Step 2: Refactor the Chat Endpoint to Be the Orchestrator
-
-This is the major change where we implement the two-stage logic.
+This is the most critical change. We will transform the /summary endpoint so it becomes the single source for getting, generating, and saving all summary types. It will now check the database first before doing any work.
 
 File to Edit: app/api/routes/meeting.py
 
@@ -130,129 +68,234 @@ content_copy
 expand_less
 # app/api/routes/meeting.py
 
-# ... (imports)
-
-# ADD THIS HELPER FUNCTION AT THE TOP OF THE FILE
-def _parse_ai_json(json_string: str) -> Optional[Dict]:
-    """Safely parses a JSON string that might be wrapped in markdown."""
-    try:
-        # Clean markdown fences
-        cleaned_string = re.sub(r'```json\s*|\s*```', '', json_string, flags=re.DOTALL).strip()
-        return json.loads(cleaned_string)
-    except (json.JSONDecodeError, TypeError):
-        logger.error(f"Failed to decode AI JSON response: {json_string}")
-        return None
-
-# ... (rest of the file until the chat endpoint)
-
 @router.post(
-    "/chat",
-    response_model=ChatResponse,
-    summary="Chat about the meeting content"
+    "/{request_id}/summary",
+    response_model=SummaryResponse,
+    summary="Get, or generate and save, a meeting summary"
 )
-async def chat_with_meeting(
-    chat_request: ChatRequest,
-    db: Session = Depends(get_db_session)
+async def get_or_generate_summary( # <-- RENAME a little for clarity
+    summary_request: SummaryRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
 ):
-    job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Meeting job not found.")
+    """
+    Retrieves a summary if it already exists in the database.
+    If not, it generates the summary, saves it permanently, and then returns it.
+    This applies to ALL summary types, including 'summary_bbh_hdqt' and 'summary_nghi_quyet'.
+    """
+    db.add(job)
+    summary_type = summary_request.summary_type
+    logger.info(f"Request for summary '{summary_type}' for job '{job.request_id}'.")
 
-    final_response_to_user = "Xin lỗi, tôi chưa hiểu ý của bạn. Bạn có thể diễn đạt khác được không?"
+    # --- 1. CHECK DATABASE FIRST ---
+    existing_summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
 
-    # --- STAGE 1: INTENT ANALYSIS ---
-    try:
-        intent_json_str = await ai_service.get_response(task="intent_analysis", user_message=chat_request.message)
-        intent_data = _parse_ai_json(intent_json_str)
-
-        if not intent_data:
-            raise ValueError("AI did not return valid JSON for intent analysis.")
-
-        intent = intent_data.get("intent")
-        entity = intent_data.get("entity")
-        edit_instruction = intent_data.get("edit_instruction") or chat_request.message
-
-    except Exception as e:
-        logger.error(f"Failed during Stage 1 (Intent Analysis): {e}")
-        intent = 'ask_question' # Default to simple question if analysis fails
-
-    # --- STAGE 2: BACKEND ORCHESTRATION ---
-
-    # --- PATH 1: USER WANTS TO EDIT A SUMMARY ---
-    if intent == 'edit_summary':
-        if not entity:
-            # AMBIGUITY: Ask the user to clarify
-            final_response_to_user = "Bạn muốn sửa loại tóm tắt nào? (ví dụ: theo chủ đề, theo người nói, các công việc cần làm...)"
-        else:
-            # State Check: See if the summary exists
-            summary_record = db.exec(
-                select(Summary).where(Summary.meeting_job_id == job.id, Summary.summary_type == entity)
-            ).first()
-
-            if not summary_record:
-                # Summary does not exist: Ask user to generate it first
-                final_response_to_user = f"Biên bản họp theo '{entity}' chưa được tạo. Vui lòng nhấn nút tương ứng để tạo tóm tắt trước khi bạn có thể chỉnh sửa."
-            else:
-                # HAPPY PATH: Summary exists, so we can edit it.
-                logger.info(f"Performing summary edit for type '{entity}' on job '{job.request_id}'.")
-                
-                # Construct the detailed prompt for the Stage 2 generation call
-                edit_context = (
-                    f"--- EXISTING '{entity.upper()}' SUMMARY ---\n"
-                    f"{summary_record.summary_content}\n\n"
-                    f"--- USER'S EDIT INSTRUCTION ---\n"
-                    f"{edit_instruction}"
-                )
-                
-                # This is the generation call, using the chat prompt with the update rules
-                new_summary_content_raw = await ai_service.get_response(
-                    task="chat", 
-                    user_message=edit_context
-                )
-                
-                # Parse the response to get the clean summary content
-                update_pattern = r'\[UPDATE:(\w+)\]\s*(.*)'
-                match = re.match(update_pattern, new_summary_content_raw, re.DOTALL)
-                
-                if match:
-                    new_summary_content = match.group(2).strip()
-                    summary_record.summary_content = new_summary_content
-                    db.add(summary_record)
-                    final_response_to_user = new_summary_content
-                else:
-                    # If the AI fails to follow the format, return its raw response
-                    final_response_to_user = new_summary_content_raw
-
-    # --- PATH 2: USER IS ASKING A GENERAL QUESTION ---
-    elif intent == 'ask_question':
-        logger.info(f"Answering a general question for job '{job.request_id}'.")
-        # This is the original logic from your previous chat function
-        transcript_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
-        transcript_text = "\n".join([seg['text'] for seg in transcript_entry.transcript_data]) if transcript_entry else ""
-        
-        summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
-        summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
-
-        chat_history_db = db.exec(select(ChatHistory).where(ChatHistory.meeting_job_id == job.id).order_by(ChatHistory.created_at.desc()).limit(settings.LIMIT_TURN * 2)).all()
-        chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
-        
-        full_context_for_llm = (f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" + "\n\n".join(summary_texts))
-        
-        final_response_to_user = await ai_service.get_response(
-            task="chat",
-            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
-            context={"history": chat_history_formatted}
+    if existing_summary:
+        logger.info(f"Found existing '{summary_type}' summary in DB. Returning cached version.")
+        return SummaryResponse(
+            request_id=job.request_id,
+            summary_type=existing_summary.summary_type,
+            summary_content=existing_summary.summary_content
         )
 
-    # --- PATH 3: GENERAL CHIT-CHAT (OR FALLBACK) ---
+    # --- 2. IF NOT FOUND, GENERATE AND SAVE ---
+    logger.info(f"No existing summary found. Generating a new '{summary_type}' summary.")
+    
+    # Prepare transcript source text (same as before)
+    # ... [This block of code for getting `source_text` is unchanged] ...
+    if summary_type == "speaker":
+        if not job.diarized_transcript:
+            raise HTTPException(status_code=400, detail="A 'speaker' summary requires diarization.")
+        transcript_source = job.diarized_transcript.transcript_data
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
     else:
-        final_response_to_user = "Cảm ơn bạn. Tôi có thể giúp gì khác cho cuộc họp này không?"
+        transcription_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(status_code=400, detail="A summary requires a completed transcript.")
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
 
-    # --- SAVE CONVERSATION TO HISTORY AND COMMIT ALL CHANGES ---
-    db.add(ChatHistory(meeting_job_id=job.id, role="user", message=chat_request.message))
-    db.add(ChatHistory(meeting_job_id=job.id, role="assistant", message=final_response_to_user))
+    # Generate content using AI service
+    try:
+        meeting_info = { "bbh_name": job.bbh_name, "meeting_type": job.meeting_type, "meeting_host": job.meeting_host, }
+        # For document generation, we need to add more context
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+             # This is the context preparation from your old download endpoint
+            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
+            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
+            context_header = (
+                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
+                f"- Giờ bắt đầu: {start_time_local.strftime('%H:%M') if start_time_local else 'N/A'}\n"
+                f"- Giờ kết thúc: {end_time_local.strftime('%H:%M') if end_time_local else 'N/A'}\n\n"
+                f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
+            )
+            source_text = context_header + source_text
+
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
+    except Exception as e:
+        logger.error(f"AI service failed during summary generation: {e}", exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+    # --- 3. SAVE THE NEWLY GENERATED SUMMARY TO DB ---
+    new_summary = Summary(
+        meeting_job_id=job.id,
+        summary_type=summary_type,
+        summary_content=summary_content
+    )
+    db.add(new_summary)
     db.commit()
+    db.refresh(new_summary)
 
-    return ChatResponse(response=final_response_to_user)
+    logger.info(f"Successfully generated and saved new '{summary_type}' summary.")
+    return SummaryResponse(
+        request_id=job.request_id,
+        summary_type=new_summary.summary_type,
+        summary_content=new_summary.summary_content
+    )
+Step 3: Integrate Coworker's Code and Refactor Download Endpoint
 
-This new implementation provides a much more robust and intelligent conversational experience, fully meeting your requirements for intent detection, state checking, and ambiguity resolution.
+First, let's add your coworker's logic into your project. We'll place it in the document generation service file.
+
+File to Edit: app/services/document_generator.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/services/document_generator.py
+
+import json
+import logging
+from io import BytesIO
+from pathlib import Path
+from docxtpl import DocxTemplate
+from app.utils import create_subdoc_from_structured_data
+import pypandoc # <-- ADD THIS IMPORT
+import os # <-- ADD THIS IMPORT
+
+logger = logging.getLogger(__name__)
+# ...
+
+# --- THIS IS THE ORIGINAL FUNCTION FOR TEMPLATES ---
+def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
+    # ... (this function is unchanged)
+
+# --- ADD THIS NEW FUNCTION BASED ON YOUR COWORKER'S CODE ---
+def generate_docx_from_markdown(markdown_content: str) -> BytesIO:
+    """
+    Converts a markdown string to a DOCX file in memory using Pandoc
+    and returns it as a BytesIO buffer.
+    """
+    # Use a temporary directory to avoid file conflicts
+    temp_dir = Path("./temp_docs")
+    os.makedirs(temp_dir, exist_ok=True)
+    
+    markdown_file_path = temp_dir / 'temp.md'
+    docx_output_path = temp_dir / 'temp_output.docx'
+
+    try:
+        with open(markdown_file_path, 'w', encoding='utf-8') as f:
+            f.write(markdown_content)
+
+        logger.info(f"Converting markdown to DOCX using Pandoc...")
+        pypandoc.convert_file(
+            str(markdown_file_path),
+            to='docx',
+            outputfile=str(docx_output_path),
+            extra_args=['--standalone']
+        )
+        logger.info("Pandoc conversion successful!")
+
+        with open(docx_output_path, "rb") as f:
+            buffer = BytesIO(f.read())
+        buffer.seek(0)
+        return buffer
+
+    except Exception as e:
+        logger.error(f"Pandoc conversion failed: {e}. Falling back to basic conversion.", exc_info=True)
+        # You can add a simpler fallback here if needed, or just re-raise
+        raise RuntimeError(f"Failed to generate DOCX from markdown: {e}")
+    finally:
+        # Clean up temporary files
+        if os.path.exists(markdown_file_path):
+            os.remove(markdown_file_path)
+        if os.path.exists(docx_output_path):
+            os.remove(docx_output_path)
+
+Now, let's replace your old download endpoint with the new, unified one.
+
+File to Edit: app/api/routes/meeting.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/api/routes/meeting.py
+
+# --- Make sure this is imported ---
+from app.services.document_generator import generate_templated_document, generate_docx_from_markdown
+
+# ...
+
+# --- REPLACE THE OLD 'generate_and_download_document' WITH THIS ---
+@router.get("/{request_id}/download/document", summary="Download any summary as a DOCX document")
+async def download_summary_document(
+    job: MeetingJob = Depends(get_owned_job_from_path),
+    summary_type: str = Query(..., description="The type of summary to download."),
+    db: Session = Depends(get_db_session)
+):
+    """
+    Downloads the latest version of any given summary type as a .docx file.
+    It fetches the content from the database. If the summary hasn't been generated yet,
+    it will return an error.
+    """
+    # 1. Fetch the required summary from the database
+    summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
+
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Summary of type '{summary_type}' has not been generated yet. Please generate it first."
+        )
+
+    # 2. Select the correct document generation engine
+    try:
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            # These types use the template engine with JSON data
+            document_buffer = generate_templated_document(summary_type.replace("summary_", ""), summary.summary_content)
+        else:
+            # All other types are Markdown and use the Pandoc engine
+            document_buffer = generate_docx_from_markdown(summary.summary_content)
+    except Exception as e:
+        logger.error(f"Error during document generation for type '{summary_type}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
+
+    # 3. Stream the response
+    filename = f"{summary_type}_{job.bbh_name.replace(' ', '_')}.docx"
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    
+    return StreamingResponse(
+        document_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers
+    )
+
+Your application is now fully upgraded. All summary types are treated as first-class citizens: they are persistently stored, editable via chat, and downloadable in the correct format. The logic is centralized, robust, and provides the intelligent, conversational experience you described.
