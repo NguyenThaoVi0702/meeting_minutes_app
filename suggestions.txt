@@ -1,200 +1,246 @@
 import requests
 import os
 import time
+import glob
 import json
 import threading
 import websocket
-from urllib.parse import quote
 from requests.exceptions import JSONDecodeError
+from urllib.parse import quote
 
 # --- CONFIGURATION ---
-# IMPORTANT: Adjust these values to match your environment
 API_BASE_URL = "http://localhost:8072/api/v1"
-MEETING_AUDIO_PATH = "test_audio/sample_meeting.wav"  # <-- Make sure this file exists
-TEST_USERNAME = "test_user_integration"
-DOWNLOAD_DIR = "test_downloads"
-
-# Global event to signal when a WebSocket task is done
-WEBSOCKET_DONE = threading.Event()
+MEETING_AUDIO_DIR = "ING" # Folder containing audio chunks like 'meeting_0.wav', 'meeting_1.wav', etc.
+TEST_USERNAME = "test_user_01"
+DOWNLOAD_DIR = "downloads"
+REQUEST_TIMEOUT = 120 # Timeout for API requests in seconds
+WEBSOCKET_TIMEOUT = 600 # Max time to wait for a websocket event in seconds
 
 # --- HELPER FUNCTIONS ---
-
-def print_step(title):
+def print_separator(title):
     print("\n" + "="*80)
-    print(f"--- STEP: {title.upper()} ---")
-    print("="*80)
-
-def print_scenario(title):
-    print("\n" + "-"*60)
-    print(f"--> SCENARIO: {title}")
-    print("-"*60)
+    print(f"===== {title.upper()} =====")
+    print("="*80 + "\n")
 
 def print_response(response, step_name):
     print(f"  -> [{step_name}] Status: {response.status_code}")
     try:
-        # Limit long responses for readability
-        response_json = response.json()
-        if "summary_content" in response_json and len(response_json["summary_content"]) > 300:
-            response_json["summary_content"] = response_json["summary_content"][:300] + "..."
-        if "response" in response_json and len(response_json["response"]) > 300:
-            response_json["response"] = response_json["response"][:300] + "..."
-            
-        print(f"     Response: {json.dumps(response_json, indent=2, ensure_ascii=False)}")
-    except (JSONDecodeError, TypeError):
-        print(f"     Response (non-JSON or not serializable): {response.text[:500]}...")
+        # Limit long summary content for cleaner logs
+        json_data = response.json()
+        if "summary_content" in json_data and len(json_data["summary_content"]) > 250:
+            json_data["summary_content"] = json_data["summary_content"][:250] + "..."
+        if "data" in json_data and "summary_content" in json_data["data"] and len(json_data["data"]["summary_content"]) > 250:
+             json_data["data"]["summary_content"] = json_data["data"]["summary_content"][:250] + "..."
+        
+        print(f"     Response: {json.dumps(json_data, indent=2, ensure_ascii=False)}")
+    except JSONDecodeError:
+        print(f"     Response (non-JSON): {response.text[:500]}...")
 
-def listen_on_websocket(request_id):
-    """Connects to the WebSocket and waits for a terminal status update."""
-    encoded_request_id = quote(request_id)
-    ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{encoded_request_id}"
-    print(f"\n[WebSocket] Connecting to {ws_url}...")
+def group_meeting_chunks():
+    meetings = {}
+    search_path = os.path.join(MEETING_AUDIO_DIR, '*.wav')
+    for chunk_path in glob.glob(search_path):
+        filename = os.path.basename(chunk_path)
+        # Assumes format like 'meeting_0.wav', 'meeting_1.wav'
+        try:
+            meeting_name = "_".join(filename.split('_')[:-1])
+            chunk_num = int(filename.split('_')[-1].split('.')[0])
+            if meeting_name not in meetings:
+                meetings[meeting_name] = []
+            meetings[meeting_name].append((chunk_num, chunk_path))
+        except (ValueError, IndexError):
+            print(f"Warning: Skipping file with unexpected format: {filename}")
+            continue
 
-    def on_message(ws, message):
+    for name, chunks in meetings.items():
+        chunks.sort() # Sort by chunk number
+        meetings[name] = [path for _, path in chunks] # Keep only the path
+
+    print(f"Found {len(meetings)} meetings to process in '{MEETING_AUDIO_DIR}'.")
+    return meetings
+
+# --- WEBSOCKET CLIENT CLASS ---
+class WebSocketClient:
+    """A threaded WebSocket client to listen for status updates without blocking."""
+    def __init__(self, request_id: str):
+        encoded_id = quote(request_id)
+        ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{encoded_id}"
+        self.ws_app = websocket.WebSocketApp(
+            ws_url,
+            on_open=self.on_open,
+            on_message=self.on_message,
+            on_error=self.on_error,
+            on_close=self.on_close
+        )
+        self.last_message = {}
+        self.is_done_event = threading.Event()
+        self.thread = threading.Thread(target=self.ws_app.run_forever)
+
+    def on_open(self, ws):
+        print("\n[WebSocket] Connection opened.")
+
+    def on_message(self, ws, message):
         data = json.loads(message)
         status = data.get('status')
-        print(f"\n[WebSocket] ===> STATUS UPDATE: {status} <===")
-        if status in ['completed', 'failed', 'cancelled', 'transcription_complete']:
-            print(f"[WebSocket] Received terminal status '{status}'. Closing connection.")
-            WEBSOCKET_DONE.set()
-            ws.close()
+        print(f"\n[WebSocket] <<<< STATUS UPDATE: {status} >>>>")
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        self.last_message = data
+        # Signal completion on final states
+        if status in ['transcription_complete', 'completed', 'failed', 'cancelled']:
+            self.is_done_event.set()
 
-    def on_error(ws, error):
+    def on_error(self, ws, error):
         print(f"[WebSocket] Error: {error}")
-        WEBSOCKET_DONE.set()
+        self.is_done_event.set() # Don't hang if there's an error
 
-    def on_close(ws, close_status_code, close_msg):
+    def on_close(self, ws, close_status_code, close_msg):
         print("[WebSocket] Connection closed.")
-        if not WEBSOCKET_DONE.is_set():
-            WEBSOCKET_DONE.set() # Ensure we don't wait forever if connection closes unexpectedly
+        self.is_done_event.set() # Ensure waiting threads are released on close
 
-    def on_open(ws):
-        print("[WebSocket] Connection opened. Waiting for status updates...")
+    def start(self):
+        self.thread.start()
 
-    ws_app = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
-    ws_app.run_forever()
-
-# --- MAIN TEST FUNCTION ---
-
-def run_full_meeting_test():
-    if not os.path.exists(MEETING_AUDIO_PATH):
-        print(f"ERROR: Audio file not found at '{MEETING_AUDIO_PATH}'. Please check the path.")
-        return
-        
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    
-    request_id = f"integration_test_{int(time.time())}"
-    encoded_request_id = quote(request_id)
-    print(f"Starting full integration test with Request ID: {request_id}")
-
-    # --- 1. START MEETING & UPLOAD AUDIO ---
-    print_step("START MEETING AND UPLOAD AUDIO")
-    start_payload = {
-        'requestId': request_id,
-        'username': TEST_USERNAME,
-        'language': 'vi',
-        'filename': os.path.basename(MEETING_AUDIO_PATH),
-        'bbhName': "Integration Test Meeting",
-        'Type': "Test",
-        'Host': "Automated Tester"
-    }
-    start_res = requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload)
-    print_response(start_res, "Start BBH")
-
-    upload_payload = {'requestId': request_id, 'isLastChunk': 'True'}
-    with open(MEETING_AUDIO_PATH, 'rb') as f:
-        files = {'FileData': (os.path.basename(MEETING_AUDIO_PATH), f, 'audio/wav')}
-        upload_res = requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=upload_payload, files=files)
-        print_response(upload_res, "Upload Chunk (Last)")
-
-    # --- 2. WAIT FOR TRANSCRIPTION VIA WEBSOCKET ---
-    print_step("WAITING FOR TRANSCRIPTION")
-    ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
-    ws_thread.start()
-    WEBSOCKET_DONE.wait(timeout=600) # 10-minute timeout
-    ws_thread.join()
-    WEBSOCKET_DONE.clear()
-
-    # --- 3. TRIGGER & WAIT FOR DIARIZATION VIA WEBSOCKET ---
-    print_step("TRIGGER AND WAIT FOR DIARIZATION")
-    diarize_res = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/diarize?username={TEST_USERNAME}")
-    print_response(diarize_res, "Trigger Diarization")
-
-    ws_thread_2 = threading.Thread(target=listen_on_websocket, args=(request_id,))
-    ws_thread_2.start()
-    WEBSOCKET_DONE.wait(timeout=600)
-    ws_thread_2.join()
-    WEBSOCKET_DONE.clear()
-
-    # --- 4. GENERATE AND DOWNLOAD ALL SUMMARY TYPES ---
-    print_step("GENERATE AND DOWNLOAD ALL SUMMARY TYPES")
-    summary_types_to_test = ['topic', 'speaker', 'summary_bbh_hdqt', 'summary_nghi_quyet']
-    for summary_type in summary_types_to_test:
-        print(f"\n--- Testing generation and download for: '{summary_type}' ---")
-        # Generate (or get) the summary
-        summary_payload = {"summary_type": summary_type}
-        summary_res = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/summary?username={TEST_USERNAME}", json=summary_payload)
-        print_response(summary_res, f"Generate '{summary_type}' Summary")
-
-        # Download the summary
-        doc_params = {'username': TEST_USERNAME, 'summary_type': summary_type}
-        doc_dl_res = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/document", params=doc_params)
-        if doc_dl_res.status_code == 200:
-            save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{summary_type}.docx")
-            with open(save_path, 'wb') as f:
-                f.write(doc_dl_res.content)
-            print(f"  -> [Download Document '{summary_type}'] SUCCESS. File saved to {save_path}")
+    def wait_for_completion(self, timeout=WEBSOCKET_TIMEOUT):
+        print(f"\n[Main Thread] Waiting for WebSocket to signal completion (max {timeout}s)...")
+        completed = self.is_done_event.wait(timeout=timeout)
+        if not completed:
+            print("[Main Thread] TIMEOUT waiting for WebSocket signal.")
+            self.ws_app.close()
         else:
-            print_response(doc_dl_res, f"Download '{summary_type}' Document")
-        time.sleep(1) # Small delay
+            print("[Main Thread] WebSocket signal received.")
+        self.thread.join(timeout=2)
+        return completed
 
-    # --- 5. TEST CHAT EDITING SCENARIOS ---
-    print_step("TESTING CHAT EDITING SCENARIOS")
+    def reset(self):
+        self.is_done_event.clear()
 
-    # SCENARIO 1: Happy Path - Edit an existing summary ('topic')
-    print_scenario("Edit an existing summary ('topic')")
-    chat_payload_1 = {
-        "requestId": request_id,
-        "username": TEST_USERNAME,
-        "message": "Hãy sửa lại tóm tắt theo chủ đề, thêm vào ý 'Tất cả các thành viên đồng ý với kế hoạch ngân sách quý 4'."
+
+# --- MAIN TEST SCRIPT ---
+def run_full_test():
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    meetings = group_meeting_chunks()
+    if not meetings:
+        print(f"No meeting chunk files found in the '{MEETING_AUDIO_DIR}' directory. Aborting test.")
+        return
+
+    meeting_name, chunks = list(meetings.items())[0]
+    request_id = f"test_{meeting_name}_{int(time.time())}"
+
+    # ==================================================================
+    # STEP 1: UPLOAD & PROCESS MEETING (TRANSCRIPTION & DIARIZATION)
+    # ==================================================================
+    print_separator(f"STEP 1: PROCESSING MEETING '{meeting_name}' (ID: {request_id})")
+
+    # Start WebSocket listener in the background
+    ws_client = WebSocketClient(request_id)
+    ws_client.start()
+    time.sleep(2) # Give the websocket time to connect
+
+    # Start the meeting
+    start_payload = {
+        'requestId': request_id, 'username': TEST_USERNAME, 'language': 'vi',
+        'filename': f"{meeting_name}.wav", 'bbhName': "Cuộc Họp Đánh Giá Dự Án",
+        'Type': "Kiểm tra định kỳ", 'Host': "Giám đốc",
+        'meetingMembers': json.dumps(["Anh Toàn", "Chị Linh", "Bạn Hùng"])
     }
-    chat_res_1 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_1)
-    print_response(chat_res_1, "Chat Edit 'topic'")
-    print("  -> VERIFY: The response should be the full, updated 'topic' summary including the new sentence.")
+    print("Testing: POST /meeting/start-bbh")
+    response = requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload, timeout=REQUEST_TIMEOUT)
+    print_response(response, "Start Meeting")
 
-    # SCENARIO 2: State Check - Try to edit a summary that has been disabled ('action_items')
-    print_scenario("Attempt to edit a disabled/non-existent summary type ('action_items')")
-    chat_payload_2 = {
-        "requestId": request_id,
-        "username": TEST_USERNAME,
-        "message": "Sửa lại danh sách các công việc cần làm cho tôi."
-    }
-    chat_res_2 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_2)
-    print_response(chat_res_2, "Chat Edit non-existent 'action_items'")
-    print("  -> VERIFY: The response should be a message asking the user to generate the summary first.")
+    # Upload chunks
+    print(f"\nUploading {len(chunks)} audio chunks...")
+    for i, chunk_path in enumerate(chunks):
+        is_last = (i == len(chunks) - 1)
+        chunk_payload = {'requestId': request_id, 'isLastChunk': str(is_last)}
+        files = {'FileData': (os.path.basename(chunk_path), open(chunk_path, 'rb'), 'audio/wav')}
+        requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files, timeout=REQUEST_TIMEOUT)
+        print(f"  - Uploaded chunk {i+1}/{len(chunks)} (isLastChunk={is_last})")
 
-    # SCENARIO 3: Ambiguity - Ask to edit without specifying which summary
-    print_scenario("Ask to edit an ambiguous summary")
-    chat_payload_3 = {
-        "requestId": request_id,
-        "username": TEST_USERNAME,
-        "message": "Sửa lại bản tóm tắt này đi."
-    }
-    chat_res_3 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_3)
-    print_response(chat_res_3, "Chat Edit Ambiguous")
-    print("  -> VERIFY: The response should be a question asking the user to clarify WHICH summary.")
+    # Wait for transcription to complete
+    ws_client.wait_for_completion()
+    if ws_client.last_message.get("status") != "transcription_complete":
+        print("ERROR: Transcription did not complete successfully. Aborting further tests.")
+        return
     
-    # SCENARIO 4: General Question - Ask a question that should not trigger an edit
-    print_scenario("Ask a general question (no edit)")
-    chat_payload_4 = {
-        "requestId": request_id,
-        "username": TEST_USERNAME,
-        "message": "Cuộc họp đã thảo luận về những chủ đề chính nào?"
-    }
-    chat_res_4 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_4)
-    print_response(chat_res_4, "Chat General Question")
-    print("  -> VERIFY: The response should be a conversational answer, NOT a full summary block.")
+    ws_client.reset()
 
-    print("\n\n--- ALL TESTS COMPLETE ---")
+    # Trigger and wait for diarization
+    print("\nTesting: POST /diarize")
+    requests.post(f"{API_BASE_URL}/meeting/{quote(request_id)}/diarize?username={TEST_USERNAME}", timeout=REQUEST_TIMEOUT)
+    ws_client.wait_for_completion()
+    if ws_client.last_message.get("status") != "completed":
+        print("ERROR: Diarization did not complete successfully. Aborting further tests.")
+        return
+
+    # ==================================================================
+    # STEP 2: GENERATE AND DOWNLOAD ALL SUMMARY TYPES
+    # ==================================================================
+    print_separator("STEP 2: GENERATING & DOWNLOADING SUMMARIES")
+    summary_types_to_test = ['topic', 'speaker', 'summary_bbh_hdqt', 'summary_nghi_quyet']
+    
+    for s_type in summary_types_to_test:
+        # Generate/Get Summary
+        print(f"\nTesting: POST /summary (type: {s_type})")
+        summary_payload = {"summary_type": s_type}
+        summary_response = requests.post(f"{API_BASE_URL}/meeting/{quote(request_id)}/summary?username={TEST_USERNAME}", json=summary_payload, timeout=REQUEST_TIMEOUT)
+        print_response(summary_response, f"Generate '{s_type}' Summary")
+
+        # Download Document
+        print(f"Testing: GET /download/document (type: {s_type})")
+        doc_params = {'username': TEST_USERNAME, 'summary_type': s_type}
+        doc_dl_response = requests.get(f"{API_BASE_URL}/meeting/{quote(request_id)}/download/document", params=doc_params, timeout=REQUEST_TIMEOUT)
+        if doc_dl_response.status_code == 200:
+            save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{s_type}.docx")
+            with open(save_path, 'wb') as f:
+                f.write(doc_dl_response.content)
+            print(f"  -> [Download Document] OK. File saved to '{save_path}'")
+        else:
+            print_response(doc_dl_response, f"Download Document '{s_type}'")
+        time.sleep(1) # Small delay between heavy AI calls
+
+    # ==================================================================
+    # STEP 3: CHAT SCENARIOS FOR SUMMARY EDITING
+    # ==================================================================
+    print_separator("STEP 3: TESTING CHAT EDITING SCENARIOS")
+
+    def send_chat_and_print(message, summary_context=None):
+        payload = {"requestId": request_id, "username": TEST_USERNAME, "message": message}
+        if summary_context:
+            payload["summary_type_context"] = summary_context
+        print(f"\n>>> Sending Chat (context: {summary_context}): '{message}'")
+        response = requests.post(f"{API_BASE_URL}/meeting/chat", json=payload, timeout=REQUEST_TIMEOUT)
+        print_response(response, "Chat Response")
+        return response.json().get("response", "")
+
+    # --- Scenario 1: Ambiguous edit request ---
+    send_chat_and_print("Sửa tóm tắt này cho tôi")
+
+    # --- Scenario 2: Edit a summary that has NOT been generated yet ---
+    # (Assuming 'speaker' summary wasn't generated above, but our code does generate it.
+    # We will test the logic by trying to edit a non-existent type.)
+    send_chat_and_print("Sửa biên bản họp theo công việc cho tôi", summary_context="action_items")
+
+    # --- Scenario 3: Successful Edit ---
+    # We already generated 'topic' summary in Step 2.
+    edit_instruction = "Sửa lại tóm tắt theo chủ đề, hãy nhấn mạnh rằng kế hoạch marketing cho Quý 4 là ưu tiên hàng đầu."
+    send_chat_and_print(edit_instruction, summary_context="topic")
+
+    # --- Scenario 4: Simple Question (no editing) ---
+    send_chat_and_print("Ai là người chủ trì cuộc họp này?")
+    
+    # --- Scenario 5: Verify the edit was saved ---
+    print("\nVerifying that the summary edit was saved permanently...")
+    summary_payload = {"summary_type": "topic"}
+    verify_response = requests.post(f"{API_BASE_URL}/meeting/{quote(request_id)}/summary?username={TEST_USERNAME}", json=summary_payload, timeout=REQUEST_TIMEOUT)
+    summary_content = verify_response.json().get("data", {}).get("summary_content", "")
+    if "marketing" in summary_content.lower() and "quý 4" in summary_content:
+        print("  -> SUCCESS: The new summary content was correctly fetched from the database.")
+    else:
+        print("  -> FAILURE: The edited summary content was not found.")
+    print_response(verify_response, "Verify Saved Edit")
+
+
+    print_separator("ALL TESTS COMPLETE")
 
 if __name__ == "__main__":
-    run_full_meeting_test()
+    run_full_test()
