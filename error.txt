@@ -1,21 +1,116 @@
-meeting_worker      | [NeMo W 2025-09-30 15:45:38 nemo_logging:405] /usr/local/lib/python3.12/dist-packages/celery/platforms.py:841: SecurityWarning: You're running the worker with superuser privileges: this is
-meeting_worker      |     absolutely not recommended!
-meeting_worker      |
-meeting_worker      |     Please specify a different user using the --uid option.
-meeting_worker      |
-meeting_worker      |     User information: uid=0 euid=0 gid=0 egid=0
-meeting_worker      |
-meeting_worker      |       warnings.warn(SecurityWarning(ROOT_DISCOURAGED.format(
-meeting_worker      |
-meeting_worker      | [2025-09-30 15:45:38,552: CRITICAL/MainProcess] Faster-Whisper model path '/models/viet-bud500-model-dir-ct2' is invalid or does not exist.
-meeting_worker      | [2025-09-30 15:45:38,552: ERROR/MainProcess] Signal handler <function on_worker_init at 0x7fda1eb3b600> raised: FileNotFoundError("Faster-Whisper model path '/models/viet-bud500-model-dir-ct2' is invalid or does not exist.")
-meeting_worker      | Traceback (most recent call last):
-meeting_worker      |   File "/usr/local/lib/python3.12/dist-packages/celery/utils/dispatch/signal.py", line 280, in send
-meeting_worker      |     response = receiver(signal=self, sender=sender, **named)
-meeting_worker      |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_worker      |   File "/code/app/worker/tasks.py", line 32, in on_worker_init
-meeting_worker      |     _transcriber_service = Transcriber()
-meeting_worker      |                            ^^^^^^^^^^^^^
-meeting_worker      |   File "/code/app/processing/transcription.py", line 19, in __init__
-meeting_worker      |     raise FileNotFoundError(msg)
-meeting_worker      | FileNotFoundError: Faster-Whisper model path '/models/viet-bud500-model-dir-ct2' is invalid or does not exist.
+
+meeting_api_server  | (Background on this error at: https://sqlalche.me/e/20/f405)
+meeting_api_server  | 2025-09-30 19:21:28,221 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-09-30 19:21:28,221 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-09-30 19:21:28,222 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | 2025-09-30 19:21:28,222 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-09-30 19:21:28,222 - INFO - sqlalchemy.engine.Engine - [cached since 3.284s ago] {'request_id_1': 'test_ING_1759234884'}
+meeting_api_server  | 2025-09-30 19:21:28,222 INFO sqlalchemy.engine.Engine [cached since 3.284s ago] {'request_id_1': 'test_ING_1759234884'}
+meeting_api_server  | 2025-09-30 19:21:28,224 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | 2025-09-30 19:21:28,224 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | INFO:     192.168.16.4:53192 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 500 Internal Server Error
+meeting_api_server  | ERROR:    Exception in ASGI application
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+meeting_api_server  |     self.dialect.do_execute(
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+meeting_api_server  |     cursor.execute(statement, parameters)
+meeting_api_server  | psycopg2.errors.UndefinedColumn: column meetingjob.meeting_members does not exist
+meeting_api_server  | LINE 1: ...meetingjob.meeting_type, meetingjob.meeting_host, meetingjob...
+meeting_api_server  |                                                              ^
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | The above exception was the direct cause of the following exception:
+meeting_api_server  |
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+meeting_api_server  |     return await self.app(scope, receive, send)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
+meeting_api_server  |     await super().__call__(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
+meeting_api_server  |     await self.app(scope, receive, _send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
+meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
+meeting_api_server  |     await self.middleware_stack(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
+meeting_api_server  |     await route.handle(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
+meeting_api_server  |     await self.app(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
+meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+meeting_api_server  |     raise exc
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+meeting_api_server  |     await app(scope, receive, sender)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
+meeting_api_server  |     response = await f(request)
+meeting_api_server  |                ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
+meeting_api_server  |     raw_response = await run_endpoint_function(
+meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
+meeting_api_server  |     return await dependant.call(**values)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 228, in upload_file_chunk
+meeting_api_server  |     job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
+meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlmodel/orm/session.py", line 66, in exec
+meeting_api_server  |     results = super().execute(
+meeting_api_server  |               ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 2365, in execute
+meeting_api_server  |     return self._execute_internal(
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
+meeting_api_server  |     result: Result[Any] = compile_state_cls.orm_execute_statement(
+meeting_api_server  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
+meeting_api_server  |     result = conn.execute(
+meeting_api_server  |              ^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1415, in execute
+meeting_api_server  |     return meth(
+meeting_api_server  |            ^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
+meeting_api_server  |     return connection._execute_clauseelement(
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
+meeting_api_server  |     ret = self._execute_context(
+meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
+meeting_api_server  |     return self._exec_single_context(
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
+meeting_api_server  |     self._handle_dbapi_exception(
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
+meeting_api_server  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
+meeting_api_server  |     self.dialect.do_execute(
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/default.py", line 943, in do_execute
+meeting_api_server  |     cursor.execute(statement, parameters)
+meeting_api_server  | sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column meetingjob.meeting_members does not exist
+meeting_api_server  | LINE 1: ...meetingjob.meeting_type, meetingjob.meeting_host, meetingjob...
+meeting_api_server  |                                                              ^
+meeting_api_server  |
+meeting_api_server  | [SQL: SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s]
+meeting_api_server  | [parameters: {'request_id_1': 'test_ING_1759234884'}]
+meeting_api_server  | (Background on this error at: https://sqlalche.me/e/20/f405)
