@@ -1,116 +1,241 @@
 
-meeting_api_server  | (Background on this error at: https://sqlalche.me/e/20/f405)
-meeting_api_server  | 2025-09-30 19:21:28,221 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
-meeting_api_server  | 2025-09-30 19:21:28,221 INFO sqlalchemy.engine.Engine BEGIN (implicit)
-meeting_api_server  | 2025-09-30 19:21:28,222 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | 2025-09-30 19:21:28,222 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
-meeting_api_server  | 2025-09-30 19:21:28,222 - INFO - sqlalchemy.engine.Engine - [cached since 3.284s ago] {'request_id_1': 'test_ING_1759234884'}
-meeting_api_server  | 2025-09-30 19:21:28,222 INFO sqlalchemy.engine.Engine [cached since 3.284s ago] {'request_id_1': 'test_ING_1759234884'}
-meeting_api_server  | 2025-09-30 19:21:28,224 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-09-30 19:21:28,224 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     192.168.16.4:53192 - "POST /api/v1/meeting/upload-file-chunk HTTP/1.1" 500 Internal Server Error
-meeting_api_server  | ERROR:    Exception in ASGI application
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
-meeting_api_server  |     self.dialect.do_execute(
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/default.py", line 943, in do_execute
-meeting_api_server  |     cursor.execute(statement, parameters)
-meeting_api_server  | psycopg2.errors.UndefinedColumn: column meetingjob.meeting_members does not exist
-meeting_api_server  | LINE 1: ...meetingjob.meeting_type, meetingjob.meeting_host, meetingjob...
-meeting_api_server  |                                                              ^
+meeting_api_server  | 2025-09-30 19:29:29,243 - INFO - sqlalchemy.engine.Engine - [cached since 0.006696s ago] {'table_name': 'chathistory', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'pg_catalog'}
+meeting_api_server  | 2025-09-30 19:29:29,244 - INFO - sqlalchemy.engine.Engine -
+meeting_api_server  | 2025-09-30 19:29:29,244 INFO sqlalchemy.engine.Engine
+meeting_api_server  | CREATE TABLE "user" (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   username VARCHAR NOT NULL,
+meeting_api_server  |   display_name VARCHAR NOT NULL,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id)
+meeting_api_server  | )
 meeting_api_server  |
 meeting_api_server  |
-meeting_api_server  | The above exception was the direct cause of the following exception:
+meeting_api_server  | CREATE TABLE "user" (
+meeting_api_server  | 2025-09-30 19:29:29,244 INFO sqlalchemy.engine.Engine [no key 0.00011s] {}
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   username VARCHAR NOT NULL,
+meeting_api_server  |   display_name VARCHAR NOT NULL,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id)
+meeting_api_server  | )
 meeting_api_server  |
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-meeting_api_server  |     return await self.app(scope, receive, send)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
-meeting_api_server  |     await super().__call__(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
-meeting_api_server  |     await self.app(scope, receive, _send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
-meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
-meeting_api_server  |     await route.handle(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
-meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 228, in upload_file_chunk
-meeting_api_server  |     job = session.exec(select(MeetingJob).where(MeetingJob.request_id == requestId)).first()
-meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlmodel/orm/session.py", line 66, in exec
-meeting_api_server  |     results = super().execute(
-meeting_api_server  |               ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 2365, in execute
-meeting_api_server  |     return self._execute_internal(
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 2251, in _execute_internal
-meeting_api_server  |     result: Result[Any] = compile_state_cls.orm_execute_statement(
-meeting_api_server  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-meeting_api_server  |     result = conn.execute(
-meeting_api_server  |              ^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1415, in execute
-meeting_api_server  |     return meth(
-meeting_api_server  |            ^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/sql/elements.py", line 523, in _execute_on_connection
-meeting_api_server  |     return connection._execute_clauseelement(
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1637, in _execute_clauseelement
-meeting_api_server  |     ret = self._execute_context(
-meeting_api_server  |           ^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1842, in _execute_context
-meeting_api_server  |     return self._exec_single_context(
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1982, in _exec_single_context
-meeting_api_server  |     self._handle_dbapi_exception(
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 2351, in _handle_dbapi_exception
-meeting_api_server  |     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/base.py", line 1963, in _exec_single_context
-meeting_api_server  |     self.dialect.do_execute(
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/engine/default.py", line 943, in do_execute
-meeting_api_server  |     cursor.execute(statement, parameters)
-meeting_api_server  | sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column meetingjob.meeting_members does not exist
-meeting_api_server  | LINE 1: ...meetingjob.meeting_type, meetingjob.meeting_host, meetingjob...
-meeting_api_server  |                                                              ^
 meeting_api_server  |
-meeting_api_server  | [SQL: SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
-meeting_api_server  | FROM meetingjob
-meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s]
-meeting_api_server  | [parameters: {'request_id_1': 'test_ING_1759234884'}]
-meeting_api_server  | (Background on this error at: https://sqlalche.me/e/20/f405)
+meeting_api_server  | 2025-09-30 19:29:29,244 - INFO - sqlalchemy.engine.Engine - [no key 0.00011s] {}
+meeting_api_server  | 2025-09-30 19:29:29,248 INFO sqlalchemy.engine.Engine CREATE UNIQUE INDEX ix_user_username ON "user" (username)
+meeting_api_server  | 2025-09-30 19:29:29,248 INFO sqlalchemy.engine.Engine [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,248 - INFO - sqlalchemy.engine.Engine - CREATE UNIQUE INDEX ix_user_username ON "user" (username)
+meeting_api_server  | 2025-09-30 19:29:29,248 - INFO - sqlalchemy.engine.Engine - [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,250 INFO sqlalchemy.engine.Engine
+meeting_api_server  | CREATE TABLE speakeractionlog (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   request_id VARCHAR NOT NULL,
+meeting_api_server  |   submitter_id INTEGER NOT NULL,
+meeting_api_server  |   action_type VARCHAR NOT NULL,
+meeting_api_server  |   target_user_ad VARCHAR,
+meeting_api_server  |   device_data JSONB,
+meeting_api_server  |   payload JSONB,
+meeting_api_server  |   status VARCHAR NOT NULL,
+meeting_api_server  |   error_message VARCHAR,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(submitter_id) REFERENCES "user" (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,250 INFO sqlalchemy.engine.Engine [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,250 - INFO - sqlalchemy.engine.Engine -
+meeting_api_server  | CREATE TABLE speakeractionlog (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   request_id VARCHAR NOT NULL,
+meeting_api_server  |   submitter_id INTEGER NOT NULL,
+meeting_api_server  |   action_type VARCHAR NOT NULL,
+meeting_api_server  |   target_user_ad VARCHAR,
+meeting_api_server  |   device_data JSONB,
+meeting_api_server  |   payload JSONB,
+meeting_api_server  |   status VARCHAR NOT NULL,
+meeting_api_server  |   error_message VARCHAR,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(submitter_id) REFERENCES "user" (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,250 - INFO - sqlalchemy.engine.Engine - [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,252 INFO sqlalchemy.engine.Engine CREATE INDEX ix_speakeractionlog_target_user_ad ON speakeractionlog (target_user_ad)
+meeting_api_server  | 2025-09-30 19:29:29,252 INFO sqlalchemy.engine.Engine [no key 0.00013s] {}
+meeting_api_server  | 2025-09-30 19:29:29,252 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_speakeractionlog_target_user_ad ON speakeractionlog (target_user_ad)
+meeting_api_server  | 2025-09-30 19:29:29,252 - INFO - sqlalchemy.engine.Engine - [no key 0.00013s] {}
+meeting_api_server  | 2025-09-30 19:29:29,253 INFO sqlalchemy.engine.Engine CREATE INDEX ix_speakeractionlog_action_type ON speakeractionlog (action_type)
+meeting_api_server  | 2025-09-30 19:29:29,253 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_speakeractionlog_action_type ON speakeractionlog (action_type)
+meeting_api_server  | 2025-09-30 19:29:29,253 INFO sqlalchemy.engine.Engine [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,253 - INFO - sqlalchemy.engine.Engine - [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,254 INFO sqlalchemy.engine.Engine CREATE INDEX ix_speakeractionlog_request_id ON speakeractionlog (request_id)
+meeting_api_server  | 2025-09-30 19:29:29,254 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_speakeractionlog_request_id ON speakeractionlog (request_id)
+meeting_api_server  | 2025-09-30 19:29:29,254 INFO sqlalchemy.engine.Engine [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,254 - INFO - sqlalchemy.engine.Engine - [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,255 INFO sqlalchemy.engine.Engine
+meeting_api_server  | CREATE TABLE meetingjob (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   request_id VARCHAR NOT NULL,
+meeting_api_server  |   user_id INTEGER NOT NULL,
+meeting_api_server  |   original_filename VARCHAR NOT NULL,
+meeting_api_server  |   bbh_name VARCHAR NOT NULL,
+meeting_api_server  |   meeting_type VARCHAR NOT NULL,
+meeting_api_server  |   meeting_host VARCHAR NOT NULL,
+meeting_api_server  |   meeting_members JSONB,
+meeting_api_server  |   language VARCHAR NOT NULL,
+meeting_api_server  |   upload_started_at TIMESTAMP WITHOUT TIME ZONE,
+meeting_api_server  |   upload_finished_at TIMESTAMP WITHOUT TIME ZONE,
+meeting_api_server  |   status VARCHAR NOT NULL,
+meeting_api_server  |   diarization_job_id VARCHAR,
+meeting_api_server  |   error_message VARCHAR,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(user_id) REFERENCES "user" (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,255 INFO sqlalchemy.engine.Engine [no key 0.00008s] {}
+meeting_api_server  | 2025-09-30 19:29:29,255 - INFO - sqlalchemy.engine.Engine -
+meeting_api_server  | CREATE TABLE meetingjob (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   request_id VARCHAR NOT NULL,
+meeting_api_server  |   user_id INTEGER NOT NULL,
+meeting_api_server  |   original_filename VARCHAR NOT NULL,
+meeting_api_server  |   bbh_name VARCHAR NOT NULL,
+meeting_api_server  |   meeting_type VARCHAR NOT NULL,
+meeting_api_server  |   meeting_host VARCHAR NOT NULL,
+meeting_api_server  |   meeting_members JSONB,
+meeting_api_server  |   language VARCHAR NOT NULL,
+meeting_api_server  |   upload_started_at TIMESTAMP WITHOUT TIME ZONE,
+meeting_api_server  |   upload_finished_at TIMESTAMP WITHOUT TIME ZONE,
+meeting_api_server  |   status VARCHAR NOT NULL,
+meeting_api_server  |   diarization_job_id VARCHAR,
+meeting_api_server  |   error_message VARCHAR,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(user_id) REFERENCES "user" (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,255 - INFO - sqlalchemy.engine.Engine - [no key 0.00008s] {}
+meeting_api_server  | 2025-09-30 19:29:29,256 INFO sqlalchemy.engine.Engine CREATE UNIQUE INDEX ix_meetingjob_request_id ON meetingjob (request_id)
+meeting_api_server  | 2025-09-30 19:29:29,256 INFO sqlalchemy.engine.Engine [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,256 - INFO - sqlalchemy.engine.Engine - CREATE UNIQUE INDEX ix_meetingjob_request_id ON meetingjob (request_id)
+meeting_api_server  | 2025-09-30 19:29:29,256 - INFO - sqlalchemy.engine.Engine - [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,257 INFO sqlalchemy.engine.Engine CREATE INDEX ix_meetingjob_diarization_job_id ON meetingjob (diarization_job_id)
+meeting_api_server  | 2025-09-30 19:29:29,257 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_meetingjob_diarization_job_id ON meetingjob (diarization_job_id)
+meeting_api_server  | 2025-09-30 19:29:29,257 INFO sqlalchemy.engine.Engine [no key 0.00008s] {}
+meeting_api_server  | 2025-09-30 19:29:29,257 - INFO - sqlalchemy.engine.Engine - [no key 0.00008s] {}
+meeting_api_server  | 2025-09-30 19:29:29,257 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_meetingjob_status ON meetingjob (status)
+meeting_api_server  | 2025-09-30 19:29:29,257 INFO sqlalchemy.engine.Engine CREATE INDEX ix_meetingjob_status ON meetingjob (status)
+meeting_api_server  | 2025-09-30 19:29:29,258 INFO sqlalchemy.engine.Engine [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,258 - INFO - sqlalchemy.engine.Engine - [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,258 - INFO - sqlalchemy.engine.Engine -
+meeting_api_server  | CREATE TABLE transcription (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   meeting_job_id INTEGER NOT NULL,
+meeting_api_server  |   language VARCHAR NOT NULL,
+meeting_api_server  |   transcript_data JSONB,
+meeting_api_server  |   word_level_data JSONB,
+meeting_api_server  |   is_edited BOOLEAN NOT NULL,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(meeting_job_id) REFERENCES meetingjob (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,259 - INFO - sqlalchemy.engine.Engine - [no key 0.00008s] {}
+meeting_api_server  | 2025-09-30 19:29:29,258 INFO sqlalchemy.engine.Engine
+meeting_api_server  | CREATE TABLE transcription (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   meeting_job_id INTEGER NOT NULL,
+meeting_api_server  |   language VARCHAR NOT NULL,
+meeting_api_server  |   transcript_data JSONB,
+meeting_api_server  |   word_level_data JSONB,
+meeting_api_server  |   is_edited BOOLEAN NOT NULL,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(meeting_job_id) REFERENCES meetingjob (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,259 INFO sqlalchemy.engine.Engine [no key 0.00008s] {}
+meeting_api_server  | 2025-09-30 19:29:29,260 INFO sqlalchemy.engine.Engine CREATE INDEX ix_transcription_language ON transcription (language)
+meeting_api_server  | 2025-09-30 19:29:29,260 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_transcription_language ON transcription (language)
+meeting_api_server  | 2025-09-30 19:29:29,260 - INFO - sqlalchemy.engine.Engine - [no key 0.00013s] {}
+meeting_api_server  | 2025-09-30 19:29:29,260 INFO sqlalchemy.engine.Engine [no key 0.00013s] {}
+meeting_api_server  | 2025-09-30 19:29:29,261 INFO sqlalchemy.engine.Engine
+meeting_api_server  | CREATE TABLE diarizedtranscript (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   meeting_job_id INTEGER NOT NULL,
+meeting_api_server  |   transcript_data JSONB,
+meeting_api_server  |   is_edited BOOLEAN NOT NULL,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   UNIQUE (meeting_job_id),
+meeting_api_server  |   FOREIGN KEY(meeting_job_id) REFERENCES meetingjob (id)
+meeting_api_server  | 2025-09-30 19:29:29,261 - INFO - sqlalchemy.engine.Engine -
+meeting_api_server  | CREATE TABLE diarizedtranscript (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   meeting_job_id INTEGER NOT NULL,
+meeting_api_server  |   transcript_data JSONB,
+meeting_api_server  |   is_edited BOOLEAN NOT NULL,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,261 INFO sqlalchemy.engine.Engine [no key 0.00020s] {}
+meeting_api_server  |   UNIQUE (meeting_job_id),
+meeting_api_server  |   FOREIGN KEY(meeting_job_id) REFERENCES meetingjob (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,261 - INFO - sqlalchemy.engine.Engine - [no key 0.00020s] {}
+meeting_api_server  | 2025-09-30 19:29:29,264 INFO sqlalchemy.engine.Engine
+meeting_api_server  | 2025-09-30 19:29:29,264 - INFO - sqlalchemy.engine.Engine -
+meeting_api_server  | CREATE TABLE summary (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   meeting_job_id INTEGER NOT NULL,
+meeting_api_server  |   summary_type VARCHAR NOT NULL,
+meeting_api_server  |   summary_content TEXT,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(meeting_job_id) REFERENCES meetingjob (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,264 - INFO - sqlalchemy.engine.Engine - [no key 0.00009s] {}
+meeting_api_server  | CREATE TABLE summary (
+meeting_api_server  |   id SERIAL NOT NULL,
+meeting_api_server  |   meeting_job_id INTEGER NOT NULL,
+meeting_api_server  |   summary_type VARCHAR NOT NULL,
+meeting_api_server  |   summary_content TEXT,
+meeting_api_server  |   created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+meeting_api_server  |   PRIMARY KEY (id),
+meeting_api_server  |   FOREIGN KEY(meeting_job_id) REFERENCES meetingjob (id)
+meeting_api_server  | )
+meeting_api_server  |
+meeting_api_server  |
+meeting_api_server  | 2025-09-30 19:29:29,264 INFO sqlalchemy.engine.Engine [no key 0.00009s] {}
+meeting_api_server  | 2025-09-30 19:29:29,265 - INFO - sqlalchemy.engine.Engine - CREATE INDEX ix_summary_summary_type ON summary (summary_type)
+meeting_api_server  | 2025-09-30 19:29:29,265 INFO sqlalchemy.engine.Engine CREATE INDEX ix_summary_summary_type ON summary (summary_type)
+meeting_api_server  | 2025-09-30 19:29:29,265 INFO sqlalchemy.engine.Engine [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,265 - INFO - sqlalchemy.engine.Engine - [no key 0.00007s] {}
+meeting_api_server  | 2025-09-30 19:29:29,265 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-09-30 19:29:29,265 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-09-30 19:29:29,266 - INFO - app.main - Database tables verified.
+meeting_api_server  | 2025-09-30 19:29:29,266 - INFO - app.main - Verified shared directories exist at '/code/shared_audio'.
+meeting_api_server  | 2025-09-30 19:29:29,266 - INFO - app.main - Started background tasks for Redis listener and job cleanup.
+meeting_api_server  | INFO:     Application startup complete.
+meeting_api_server  | 2025-09-30 19:29:29,269 - INFO - app.main - Redis listener subscribed to 'job_updates' channel.
