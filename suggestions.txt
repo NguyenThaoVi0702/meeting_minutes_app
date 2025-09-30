@@ -1,211 +1,246 @@
-You are absolutely right to focus on this. The presentation quality of the final document is a critical feature, and your coworker's code is indeed very clever in how it achieves a professional look.
+Excellent. These are great refinements that will significantly improve the user experience and simplify the application's focus. You want to make the system more proactive and streamlined.
 
-Let's break down exactly how they did it and then modify your code to incorporate the same high-quality formatting.
+Here is a complete guide on how to implement both of these changes.
 
-Part 1: How Your Coworker's Code Achieves Good Formatting
+Part 1: Auto-Generate Summary on Download (If Not Found)
 
-Your coworker's code uses a smart, two-pronged approach. The key insight is that they are not just blindly converting Markdown to DOCX. They are using the powerful python-docx library to build the Word document piece by piece, interpreting the Markdown syntax themselves.
+This is a fantastic UX improvement. Instead of showing an error, the system will just do the work the user expects. The best way to achieve this without duplicating code is to refactor your summary generation logic into a reusable internal helper function.
 
-Here’s the breakdown of their md_to_docx function, which is the secret sauce:
+File to Edit: app/api/routes/meeting.py
 
-Directly Creates a Word Document: The code starts with doc = Document(). This creates a blank Word document object in memory.
-
-Parses Line by Line: It reads the Markdown content line by line.
-
-Applies Native Word Styles: This is the most important step. Instead of just making text bold or large, it maps Markdown syntax to built-in Word styles:
-
-Headings (#, ##): When it sees a line starting with #, it calls doc.add_heading(text, level=level). This doesn't just change the font size; it applies Word's "Heading 1", "Heading 2", etc., styles, which come with proper spacing and formatting defined in the document template.
-
-Bullet Points (-, *): When it sees a bullet point, it calls doc.add_paragraph(style='List Bullet'). This applies Word's native bullet list style, ensuring correct indentation and alignment.
-
-Numbered Lists (1.): Similarly, it uses style='List Number' for ordered lists.
-
-Handles Inline Formatting (Bold/Italic): The helper function parse_inline_markdown is very smart. It splits a line of text into segments. For text wrapped in **...**, it creates a separate "run" (paragraph.add_run(...)) and sets its .bold property to True. This is how it can mix bold and regular text within the same paragraph.
-
-In short, your coworker's code acts as a custom interpreter that translates simple Markdown into a structured, style-based Word document. This gives them far more control over the final appearance than a generic converter might.
-
-Important Note: Looking at their create_meeting_minutes_doc_buffer function, they wisely use pypandoc as the primary method (because it's very powerful and supports more complex Markdown) and only use their custom md_to_docx parser as a fallback if Pandoc fails. We will adopt this robust strategy.
-
-Part 2: How to Modify Your Code to Do Exactly That
-
-We will integrate your coworker's logic directly into your document_generator.py service. This will ensure that all your standard summaries (topic, speaker, etc.) are beautifully formatted.
-
-File to Edit: app/services/document_generator.py
-
-This will be the only file you need to change. We will add the helper functions and then update the main function to use them.
+We will create a new helper function _generate_and_save_summary and then use it in both the main summary endpoint and the download endpoint.
 
 code
 Python
 download
 content_copy
 expand_less
-# app/services/document_generator.py
+# app/api/routes/meeting.py
 
-import json
-import logging
-from io import BytesIO
-from pathlib import Path
-from docxtpl import DocxTemplate
-from app.utils import create_subdoc_from_structured_data
-import pypandoc
-import os
-from docx import Document # <-- ADD THIS IMPORT
+# ... (all imports remain the same)
 
-logger = logging.getLogger(__name__)
-TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
+# --- 1. CREATE THIS NEW REUSABLE HELPER FUNCTION ---
+# Place this function right before your `get_or_generate_summary` endpoint.
 
-# --- THIS IS THE ORIGINAL FUNCTION FOR TEMPLATES (UNCHANGED) ---
-def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
-    # ... (this function is unchanged)
-    template_map = {
-        "bbh_hdqt": "bbh_hdqt_template.docx",
-        "nghi_quyet": "nghi_quyet_template.docx",
-    }
-    template_filename = template_map.get(template_type)
-    if not template_filename:
-        raise ValueError(f"Invalid template type: {template_type}")
-
-    template_path = TEMPLATES_DIR / template_filename
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template file not found at: {template_path}")
-
-    try:
-        doc = DocxTemplate(template_path)
-        context_data = json.loads(llm_json_output)
-        
-        render_context = {}
-        for key, value in context_data.items():
-            if isinstance(value, list):
-                render_context[key] = create_subdoc_from_structured_data(doc, value)
-            else:
-                render_context[key] = value
-        
-        doc.render(render_context)
-        
-        buffer = BytesIO()
-        doc.save(buffer)
-        buffer.seek(0)
-        return buffer
-
-    except json.JSONDecodeError:
-        logger.error(f"Failed to decode LLM JSON: {llm_json_output}")
-        raise ValueError("AI service returned invalid JSON.")
-    except Exception as e:
-        logger.error(f"Failed to generate document for template '{template_type}': {e}", exc_info=True)
-        raise RuntimeError("An unexpected error occurred during document generation.")
-
-
-# --- ADD YOUR COWORKER'S HELPER FUNCTIONS EXACTLY AS THEY WERE ---
-
-def _parse_inline_markdown(text, paragraph):
+async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
     """
-    Parses a string for **bold** and *italic* markdown and adds
-    formatted runs to a python-docx paragraph object.
+    Internal helper to generate a summary, save it to the DB, and return the new object.
+    This contains the core generation logic, preventing code duplication.
     """
-    import re
-    parts = re.split(r'(\*\*.*?\*\*|\*.*?\*)', text)
-    for part in parts:
-        if part.startswith('**') and part.endswith('**'):
-            run = paragraph.add_run(part[2:-2])
-            run.bold = True
-        elif part.startswith('*') and part.endswith('*'):
-            run = paragraph.add_run(part[1:-1])
-            run.italic = True
-        elif part:
-            paragraph.add_run(part)
-
-def _md_to_docx_custom_parser(markdown_content: str) -> BytesIO:
-    """
-    A custom, line-by-line parser that converts simple Markdown to a 
-    well-formatted DOCX using python-docx styles. This is the fallback method.
-    """
-    doc = Document()
-    lines = markdown_content.strip().split('\n')
-
-    for line in lines:
-        line = line.rstrip()
-        if not line.strip():
-            continue
-
-        # Headings
-        if line.startswith('#'):
-            level = len(line) - len(line.lstrip('#'))
-            text = line.lstrip('#').strip()
-            doc.add_heading(text, level=min(level, 4))
-        # Unordered list
-        elif line.strip().startswith(('-', '*')):
-            text = line.strip().lstrip('-* ').strip()
-            p = doc.add_paragraph(style='List Bullet')
-            _parse_inline_markdown(text, p)
-        # Ordered list
-        elif line.strip() and line.strip()[0].isdigit() and '.' in line:
-            text = line.split('.', 1)[1].strip()
-            p = doc.add_paragraph(style='List Number')
-            _parse_inline_markdown(text, p)
-        # Normal paragraph
-        else:
-            p = doc.add_paragraph()
-            _parse_inline_markdown(line, p)
-
-    buffer = BytesIO()
-    doc.save(buffer)
-    buffer.seek(0)
-    return buffer
-
-
-# --- REPLACE the old `generate_docx_from_markdown` WITH THIS new version ---
-def generate_docx_from_markdown(markdown_content: str) -> BytesIO:
-    """
-    Converts a markdown string to a DOCX file in memory.
-    It first tries using the powerful Pandoc converter. If that fails,
-    it falls back to a custom parser for guaranteed basic formatting.
-    """
-    temp_dir = Path("./temp_docs")
-    os.makedirs(temp_dir, exist_ok=True)
+    logger.info(f"Generating a new '{summary_type}' summary for job '{job.request_id}'.")
     
-    markdown_file_path = temp_dir / 'temp.md'
+    # Prepare transcript source text
+    if summary_type == "speaker":
+        if not job.diarized_transcript:
+            raise HTTPException(status_code=400, detail="A 'speaker' summary requires diarization.")
+        transcript_source = job.diarized_transcript.transcript_data
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
+    else:
+        transcription_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(status_code=400, detail="A summary requires a completed transcript.")
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
 
+    # Generate content using AI service
     try:
-        with open(markdown_file_path, 'w', encoding='utf-8') as f:
-            f.write(markdown_content)
+        meeting_info = { "bbh_name": job.bbh_name, "meeting_type": job.meeting_type, "meeting_host": job.meeting_host, }
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
+            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
+            context_header = (
+                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
+                f"- Giờ bắt đầu: {start_time_local.strftime('%H:%M') if start_time_local else 'N/A'}\n"
+                f"- Giờ kết thúc: {end_time_local.strftime('%H:%M') if end_time_local else 'N/A'}\n\n"
+                f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
+            )
+            source_text = context_header + source_text
 
-        logger.info(f"Attempting markdown to DOCX conversion using Pandoc...")
-        # Use a BytesIO object directly with Pandoc if possible to avoid temp files
-        output_buffer = BytesIO()
-        pypandoc.convert_file(
-            str(markdown_file_path),
-            to='docx',
-            outputfile=None, # Signal to return bytes
-            extra_args=['--standalone']
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
         )
-        # pypandoc.convert_text doesn't handle some complex cases as well as file
-        output_bytes = pypandoc.convert_file(str(markdown_file_path), 'docx')
-        output_buffer.write(output_bytes)
-        output_buffer.seek(0)
-        
-        logger.info("Pandoc conversion successful!")
-        return output_buffer
-
     except Exception as e:
-        logger.warning(f"Pandoc conversion failed: {e}. Falling back to custom parser.")
-        # FALLBACK to the custom, style-based parser
-        return _md_to_docx_custom_parser(markdown_content)
-    finally:
-        # Clean up the temporary markdown file
-        if os.path.exists(markdown_file_path):
-            os.remove(markdown_file_path)
-Summary of Changes and Why They Work
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
 
-Copied Helper Functions: We've added _parse_inline_markdown and created _md_to_docx_custom_parser based on your coworker's logic. These functions are now available within your service. I've prefixed them with an underscore (_) to indicate they are internal helper functions.
+    # Save the newly generated summary to DB
+    new_summary = Summary(
+        meeting_job_id=job.id,
+        summary_type=summary_type,
+        summary_content=summary_content
+    )
+    db.add(new_summary)
+    db.commit()
+    db.refresh(new_summary)
+    logger.info(f"Successfully generated and saved new '{summary_type}' summary.")
+    return new_summary
 
-Upgraded generate_docx_from_markdown: The main function that your download endpoint calls is now much more robust.
 
-Pandoc First: It will always try to use pypandoc first. Pandoc is an extremely powerful tool that can handle complex tables, nested lists, and other rich Markdown features that the custom parser cannot. This gives you the best possible conversion for complex content.
+# --- 2. MODIFY THE /summary ENDPOINT TO USE THE HELPER ---
 
-Custom Parser as a Fallback: If Pandoc fails for any reason (e.g., it's not installed correctly in the environment, or there's a weird formatting issue it can't handle), the except block will catch the error and run the custom _md_to_docx_custom_parser.
+@router.post(
+    "/{request_id}/summary",
+    response_model=SummaryResponse,
+    summary="Get, or generate and save, a meeting summary"
+)
+async def get_or_generate_summary(
+    summary_request: SummaryRequest,
+    db: Session = Depends(get_db_session),
+    job: MeetingJob = Depends(get_owned_job_from_path)
+):
+    # ... (function description remains the same)
+    db.add(job)
+    summary_type = summary_request.summary_type
+    
+    existing_summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
 
-Guaranteed Quality: This fallback guarantees that for all your standard summaries—which are composed of headings, paragraphs, and lists—you will always get the well-formatted DOCX output with proper Word styles, just like your coworker's code produced.
+    if existing_summary:
+        summary_to_return = existing_summary
+    else:
+        # If not found, call our new helper to generate and save it
+        summary_to_return = await _generate_and_save_summary(db, job, summary_type)
 
-No Other Changes Needed: Your download_summary_document endpoint in meeting.py is already perfect. It correctly calls this service function, so you don't need to touch it.
+    return SummaryResponse(
+        request_id=job.request_id,
+        summary_type=summary_to_return.summary_type,
+        summary_content=summary_to_return.summary_content
+    )
 
-By making these changes to app/services/document_generator.py, you have successfully integrated the high-quality formatting logic into your application for all standard summary types.
+
+# --- 3. MODIFY THE /download/document ENDPOINT TO USE THE HELPER ---
+
+@router.get("/{request_id}/download/document", summary="Download any summary as a DOCX document")
+async def download_summary_document(
+    job: MeetingJob = Depends(get_owned_job_from_path),
+    summary_type: str = Query(..., description="The type of summary to download."),
+    db: Session = Depends(get_db_session)
+):
+    # ... (function description remains the same)
+    summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
+        )
+    ).first()
+
+    # --- THIS IS THE KEY CHANGE ---
+    if not summary:
+        # If summary is not found, generate and save it on the fly!
+        logger.warning(f"Summary '{summary_type}' not found for download. Generating now...")
+        summary = await _generate_and_save_summary(db, job, summary_type)
+    # --- END OF CHANGE ---
+
+    # The rest of the download logic remains exactly the same.
+    try:
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            document_buffer = generate_templated_document(summary_type.replace("summary_", ""), summary.summary_content)
+        else:
+            document_buffer = generate_docx_from_markdown(summary.summary_content)
+    except Exception as e:
+        logger.error(f"Error during document generation for type '{summary_type}': {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
+
+    filename = f"{summary_type}_{job.bbh_name.replace(' ', '_')}.docx"
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    
+    return StreamingResponse(
+        document_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers
+    )
+
+Now, your application will seamlessly handle requests for summaries that haven't been created yet, providing a much smoother user flow.
+
+Part 2: Disabling action_items and decision_log
+
+This is a straightforward process of removing references to these two summary types from your AI service prompts.
+
+File to Edit: app/services/ai_service.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/services/ai_service.py
+
+# ... (imports)
+
+def _clean_ai_response(text: str) -> str:
+    # ... (this function is unchanged)
+
+# --- 1. DELETE THE UNUSED PROMPT STRINGS ---
+# You can completely remove the SUMMARY_ACTION_ITEMS_PROMPT and 
+# SUMMARY_DECISION_LOG_PROMPT variable definitions to keep the code clean.
+
+# (For brevity, I'll just show the parts to modify)
+
+# --- 2. UPDATE THE INTENT ANALYSIS PROMPT ---
+INTENT_ANALYSIS_PROMPT = """Bạn là một mô hình AI chuyên phân tích ý định của người dùng...
+...
+Các loại 'entity' (loại tóm tắt) hợp lệ:
+- 'topic': Tóm tắt theo chủ đề chính.
+- 'speaker': Tóm tắt theo người nói.
+- 'summary_bbh_hdqt': Biên bản họp dạng chi tiết (JSON).
+- 'summary_nghi_quyet': Nghị quyết cuộc họp (JSON).
+- null: Nếu không thể xác định hoặc người dùng không đề cập.
+...
+""" # The rest of this prompt is unchanged
+
+# ... (other prompts like SUMMARY_BY_TOPIC_PROMPT are unchanged)
+
+class AIService:
+    # ... (init is unchanged)
+
+    def _get_system_prompt_for_task(self, task: str) -> str:
+        """Retrieves the appropriate system prompt based on the task type."""
+        # --- 3. REMOVE THE ENTRIES FROM THE DICTIONARY ---
+        prompts = {
+            "topic": SUMMARY_BY_TOPIC_PROMPT,
+            "speaker": SUMMARY_BY_SPEAKER_PROMPT,
+            # "action_items": SUMMARY_ACTION_ITEMS_PROMPT, # <-- DELETE THIS LINE
+            # "decision_log": SUMMARY_DECISION_LOG_PROMPT, # <-- DELETE THIS LINE
+            "summary_bbh_hdqt": SUMMARY_BBH_HDQT_PROMPT,
+            "summary_nghi_quyet": SUMMARY_NGHI_QUYET_PROMPT,
+            "chat": CHAT_SYSTEM_PROMPT,
+            "intent_analysis": INTENT_ANALYSIS_PROMPT,
+        }
+        prompt = prompts.get(task)
+        if not prompt:
+            logger.error(f"Unknown AI task requested: {task}")
+            raise ValueError(f"Unknown AI task: {task}")
+        return prompt
+
+    # ... (get_response is unchanged)
+
+ai_service = AIService()
+Final Recommendation: Update Your Test Script
+
+To prevent your tests from failing, you should also update the list of summaries being tested in your test_code.py file.
+
+File to Edit: test_code.py
+
+code
+Python
+download
+content_copy
+expand_less
+# test_code.py
+# ...
+
+    # --- NEW: Loop to test ALL summary types ---
+    # Update this list to reflect the new, focused set of summaries
+    summary_types_to_test = ["topic", "speaker"] # "action_items" and "decision_log" are removed
+    print(f"\nTesting all {len(summary_types_to_test)} summary endpoints...")
+
+# ...
+
+By completing these steps, you have successfully implemented both of your requests. The application is now more user-friendly, as it generates content on demand, and more focused, offering a curated set of high-value summary options.
