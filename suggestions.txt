@@ -1,246 +1,200 @@
-Excellent. These are great refinements that will significantly improve the user experience and simplify the application's focus. You want to make the system more proactive and streamlined.
+import requests
+import os
+import time
+import json
+import threading
+import websocket
+from urllib.parse import quote
+from requests.exceptions import JSONDecodeError
 
-Here is a complete guide on how to implement both of these changes.
+# --- CONFIGURATION ---
+# IMPORTANT: Adjust these values to match your environment
+API_BASE_URL = "http://localhost:8072/api/v1"
+MEETING_AUDIO_PATH = "test_audio/sample_meeting.wav"  # <-- Make sure this file exists
+TEST_USERNAME = "test_user_integration"
+DOWNLOAD_DIR = "test_downloads"
 
-Part 1: Auto-Generate Summary on Download (If Not Found)
+# Global event to signal when a WebSocket task is done
+WEBSOCKET_DONE = threading.Event()
 
-This is a fantastic UX improvement. Instead of showing an error, the system will just do the work the user expects. The best way to achieve this without duplicating code is to refactor your summary generation logic into a reusable internal helper function.
+# --- HELPER FUNCTIONS ---
 
-File to Edit: app/api/routes/meeting.py
+def print_step(title):
+    print("\n" + "="*80)
+    print(f"--- STEP: {title.upper()} ---")
+    print("="*80)
 
-We will create a new helper function _generate_and_save_summary and then use it in both the main summary endpoint and the download endpoint.
+def print_scenario(title):
+    print("\n" + "-"*60)
+    print(f"--> SCENARIO: {title}")
+    print("-"*60)
 
-code
-Python
-download
-content_copy
-expand_less
-# app/api/routes/meeting.py
-
-# ... (all imports remain the same)
-
-# --- 1. CREATE THIS NEW REUSABLE HELPER FUNCTION ---
-# Place this function right before your `get_or_generate_summary` endpoint.
-
-async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
-    """
-    Internal helper to generate a summary, save it to the DB, and return the new object.
-    This contains the core generation logic, preventing code duplication.
-    """
-    logger.info(f"Generating a new '{summary_type}' summary for job '{job.request_id}'.")
-    
-    # Prepare transcript source text
-    if summary_type == "speaker":
-        if not job.diarized_transcript:
-            raise HTTPException(status_code=400, detail="A 'speaker' summary requires diarization.")
-        transcript_source = job.diarized_transcript.transcript_data
-        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
-    else:
-        transcription_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
-        if not transcription_entry or not transcription_entry.transcript_data:
-            raise HTTPException(status_code=400, detail="A summary requires a completed transcript.")
-        transcript_source = transcription_entry.transcript_data
-        source_text = "\n".join([seg['text'] for seg in transcript_source])
-
-    # Generate content using AI service
+def print_response(response, step_name):
+    print(f"  -> [{step_name}] Status: {response.status_code}")
     try:
-        meeting_info = { "bbh_name": job.bbh_name, "meeting_type": job.meeting_type, "meeting_host": job.meeting_host, }
-        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
-            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
-            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
-            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
-            context_header = (
-                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
-                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
-                f"- Giờ bắt đầu: {start_time_local.strftime('%H:%M') if start_time_local else 'N/A'}\n"
-                f"- Giờ kết thúc: {end_time_local.strftime('%H:%M') if end_time_local else 'N/A'}\n\n"
-                f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
-            )
-            source_text = context_header + source_text
+        # Limit long responses for readability
+        response_json = response.json()
+        if "summary_content" in response_json and len(response_json["summary_content"]) > 300:
+            response_json["summary_content"] = response_json["summary_content"][:300] + "..."
+        if "response" in response_json and len(response_json["response"]) > 300:
+            response_json["response"] = response_json["response"][:300] + "..."
+            
+        print(f"     Response: {json.dumps(response_json, indent=2, ensure_ascii=False)}")
+    except (JSONDecodeError, TypeError):
+        print(f"     Response (non-JSON or not serializable): {response.text[:500]}...")
 
-        summary_content = await ai_service.get_response(
-            task=summary_type,
-            user_message=source_text,
-            context={"meeting_info": meeting_info}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+def listen_on_websocket(request_id):
+    """Connects to the WebSocket and waits for a terminal status update."""
+    encoded_request_id = quote(request_id)
+    ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{encoded_request_id}"
+    print(f"\n[WebSocket] Connecting to {ws_url}...")
 
-    # Save the newly generated summary to DB
-    new_summary = Summary(
-        meeting_job_id=job.id,
-        summary_type=summary_type,
-        summary_content=summary_content
-    )
-    db.add(new_summary)
-    db.commit()
-    db.refresh(new_summary)
-    logger.info(f"Successfully generated and saved new '{summary_type}' summary.")
-    return new_summary
+    def on_message(ws, message):
+        data = json.loads(message)
+        status = data.get('status')
+        print(f"\n[WebSocket] ===> STATUS UPDATE: {status} <===")
+        if status in ['completed', 'failed', 'cancelled', 'transcription_complete']:
+            print(f"[WebSocket] Received terminal status '{status}'. Closing connection.")
+            WEBSOCKET_DONE.set()
+            ws.close()
 
+    def on_error(ws, error):
+        print(f"[WebSocket] Error: {error}")
+        WEBSOCKET_DONE.set()
 
-# --- 2. MODIFY THE /summary ENDPOINT TO USE THE HELPER ---
+    def on_close(ws, close_status_code, close_msg):
+        print("[WebSocket] Connection closed.")
+        if not WEBSOCKET_DONE.is_set():
+            WEBSOCKET_DONE.set() # Ensure we don't wait forever if connection closes unexpectedly
 
-@router.post(
-    "/{request_id}/summary",
-    response_model=SummaryResponse,
-    summary="Get, or generate and save, a meeting summary"
-)
-async def get_or_generate_summary(
-    summary_request: SummaryRequest,
-    db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path)
-):
-    # ... (function description remains the same)
-    db.add(job)
-    summary_type = summary_request.summary_type
+    def on_open(ws):
+        print("[WebSocket] Connection opened. Waiting for status updates...")
+
+    ws_app = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message, on_error=on_error, on_close=on_close)
+    ws_app.run_forever()
+
+# --- MAIN TEST FUNCTION ---
+
+def run_full_meeting_test():
+    if not os.path.exists(MEETING_AUDIO_PATH):
+        print(f"ERROR: Audio file not found at '{MEETING_AUDIO_PATH}'. Please check the path.")
+        return
+        
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     
-    existing_summary = db.exec(
-        select(Summary).where(
-            Summary.meeting_job_id == job.id,
-            Summary.summary_type == summary_type
-        )
-    ).first()
+    request_id = f"integration_test_{int(time.time())}"
+    encoded_request_id = quote(request_id)
+    print(f"Starting full integration test with Request ID: {request_id}")
 
-    if existing_summary:
-        summary_to_return = existing_summary
-    else:
-        # If not found, call our new helper to generate and save it
-        summary_to_return = await _generate_and_save_summary(db, job, summary_type)
+    # --- 1. START MEETING & UPLOAD AUDIO ---
+    print_step("START MEETING AND UPLOAD AUDIO")
+    start_payload = {
+        'requestId': request_id,
+        'username': TEST_USERNAME,
+        'language': 'vi',
+        'filename': os.path.basename(MEETING_AUDIO_PATH),
+        'bbhName': "Integration Test Meeting",
+        'Type': "Test",
+        'Host': "Automated Tester"
+    }
+    start_res = requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload)
+    print_response(start_res, "Start BBH")
 
-    return SummaryResponse(
-        request_id=job.request_id,
-        summary_type=summary_to_return.summary_type,
-        summary_content=summary_to_return.summary_content
-    )
+    upload_payload = {'requestId': request_id, 'isLastChunk': 'True'}
+    with open(MEETING_AUDIO_PATH, 'rb') as f:
+        files = {'FileData': (os.path.basename(MEETING_AUDIO_PATH), f, 'audio/wav')}
+        upload_res = requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=upload_payload, files=files)
+        print_response(upload_res, "Upload Chunk (Last)")
 
+    # --- 2. WAIT FOR TRANSCRIPTION VIA WEBSOCKET ---
+    print_step("WAITING FOR TRANSCRIPTION")
+    ws_thread = threading.Thread(target=listen_on_websocket, args=(request_id,))
+    ws_thread.start()
+    WEBSOCKET_DONE.wait(timeout=600) # 10-minute timeout
+    ws_thread.join()
+    WEBSOCKET_DONE.clear()
 
-# --- 3. MODIFY THE /download/document ENDPOINT TO USE THE HELPER ---
+    # --- 3. TRIGGER & WAIT FOR DIARIZATION VIA WEBSOCKET ---
+    print_step("TRIGGER AND WAIT FOR DIARIZATION")
+    diarize_res = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/diarize?username={TEST_USERNAME}")
+    print_response(diarize_res, "Trigger Diarization")
 
-@router.get("/{request_id}/download/document", summary="Download any summary as a DOCX document")
-async def download_summary_document(
-    job: MeetingJob = Depends(get_owned_job_from_path),
-    summary_type: str = Query(..., description="The type of summary to download."),
-    db: Session = Depends(get_db_session)
-):
-    # ... (function description remains the same)
-    summary = db.exec(
-        select(Summary).where(
-            Summary.meeting_job_id == job.id,
-            Summary.summary_type == summary_type
-        )
-    ).first()
+    ws_thread_2 = threading.Thread(target=listen_on_websocket, args=(request_id,))
+    ws_thread_2.start()
+    WEBSOCKET_DONE.wait(timeout=600)
+    ws_thread_2.join()
+    WEBSOCKET_DONE.clear()
 
-    # --- THIS IS THE KEY CHANGE ---
-    if not summary:
-        # If summary is not found, generate and save it on the fly!
-        logger.warning(f"Summary '{summary_type}' not found for download. Generating now...")
-        summary = await _generate_and_save_summary(db, job, summary_type)
-    # --- END OF CHANGE ---
+    # --- 4. GENERATE AND DOWNLOAD ALL SUMMARY TYPES ---
+    print_step("GENERATE AND DOWNLOAD ALL SUMMARY TYPES")
+    summary_types_to_test = ['topic', 'speaker', 'summary_bbh_hdqt', 'summary_nghi_quyet']
+    for summary_type in summary_types_to_test:
+        print(f"\n--- Testing generation and download for: '{summary_type}' ---")
+        # Generate (or get) the summary
+        summary_payload = {"summary_type": summary_type}
+        summary_res = requests.post(f"{API_BASE_URL}/meeting/{encoded_request_id}/summary?username={TEST_USERNAME}", json=summary_payload)
+        print_response(summary_res, f"Generate '{summary_type}' Summary")
 
-    # The rest of the download logic remains exactly the same.
-    try:
-        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
-            document_buffer = generate_templated_document(summary_type.replace("summary_", ""), summary.summary_content)
+        # Download the summary
+        doc_params = {'username': TEST_USERNAME, 'summary_type': summary_type}
+        doc_dl_res = requests.get(f"{API_BASE_URL}/meeting/{encoded_request_id}/download/document", params=doc_params)
+        if doc_dl_res.status_code == 200:
+            save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{summary_type}.docx")
+            with open(save_path, 'wb') as f:
+                f.write(doc_dl_res.content)
+            print(f"  -> [Download Document '{summary_type}'] SUCCESS. File saved to {save_path}")
         else:
-            document_buffer = generate_docx_from_markdown(summary.summary_content)
-    except Exception as e:
-        logger.error(f"Error during document generation for type '{summary_type}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
+            print_response(doc_dl_res, f"Download '{summary_type}' Document")
+        time.sleep(1) # Small delay
 
-    filename = f"{summary_type}_{job.bbh_name.replace(' ', '_')}.docx"
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    # --- 5. TEST CHAT EDITING SCENARIOS ---
+    print_step("TESTING CHAT EDITING SCENARIOS")
+
+    # SCENARIO 1: Happy Path - Edit an existing summary ('topic')
+    print_scenario("Edit an existing summary ('topic')")
+    chat_payload_1 = {
+        "requestId": request_id,
+        "username": TEST_USERNAME,
+        "message": "Hãy sửa lại tóm tắt theo chủ đề, thêm vào ý 'Tất cả các thành viên đồng ý với kế hoạch ngân sách quý 4'."
+    }
+    chat_res_1 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_1)
+    print_response(chat_res_1, "Chat Edit 'topic'")
+    print("  -> VERIFY: The response should be the full, updated 'topic' summary including the new sentence.")
+
+    # SCENARIO 2: State Check - Try to edit a summary that has been disabled ('action_items')
+    print_scenario("Attempt to edit a disabled/non-existent summary type ('action_items')")
+    chat_payload_2 = {
+        "requestId": request_id,
+        "username": TEST_USERNAME,
+        "message": "Sửa lại danh sách các công việc cần làm cho tôi."
+    }
+    chat_res_2 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_2)
+    print_response(chat_res_2, "Chat Edit non-existent 'action_items'")
+    print("  -> VERIFY: The response should be a message asking the user to generate the summary first.")
+
+    # SCENARIO 3: Ambiguity - Ask to edit without specifying which summary
+    print_scenario("Ask to edit an ambiguous summary")
+    chat_payload_3 = {
+        "requestId": request_id,
+        "username": TEST_USERNAME,
+        "message": "Sửa lại bản tóm tắt này đi."
+    }
+    chat_res_3 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_3)
+    print_response(chat_res_3, "Chat Edit Ambiguous")
+    print("  -> VERIFY: The response should be a question asking the user to clarify WHICH summary.")
     
-    return StreamingResponse(
-        document_buffer,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers=headers
-    )
+    # SCENARIO 4: General Question - Ask a question that should not trigger an edit
+    print_scenario("Ask a general question (no edit)")
+    chat_payload_4 = {
+        "requestId": request_id,
+        "username": TEST_USERNAME,
+        "message": "Cuộc họp đã thảo luận về những chủ đề chính nào?"
+    }
+    chat_res_4 = requests.post(f"{API_BASE_URL}/meeting/chat", json=chat_payload_4)
+    print_response(chat_res_4, "Chat General Question")
+    print("  -> VERIFY: The response should be a conversational answer, NOT a full summary block.")
 
-Now, your application will seamlessly handle requests for summaries that haven't been created yet, providing a much smoother user flow.
+    print("\n\n--- ALL TESTS COMPLETE ---")
 
-Part 2: Disabling action_items and decision_log
-
-This is a straightforward process of removing references to these two summary types from your AI service prompts.
-
-File to Edit: app/services/ai_service.py
-
-code
-Python
-download
-content_copy
-expand_less
-# app/services/ai_service.py
-
-# ... (imports)
-
-def _clean_ai_response(text: str) -> str:
-    # ... (this function is unchanged)
-
-# --- 1. DELETE THE UNUSED PROMPT STRINGS ---
-# You can completely remove the SUMMARY_ACTION_ITEMS_PROMPT and 
-# SUMMARY_DECISION_LOG_PROMPT variable definitions to keep the code clean.
-
-# (For brevity, I'll just show the parts to modify)
-
-# --- 2. UPDATE THE INTENT ANALYSIS PROMPT ---
-INTENT_ANALYSIS_PROMPT = """Bạn là một mô hình AI chuyên phân tích ý định của người dùng...
-...
-Các loại 'entity' (loại tóm tắt) hợp lệ:
-- 'topic': Tóm tắt theo chủ đề chính.
-- 'speaker': Tóm tắt theo người nói.
-- 'summary_bbh_hdqt': Biên bản họp dạng chi tiết (JSON).
-- 'summary_nghi_quyet': Nghị quyết cuộc họp (JSON).
-- null: Nếu không thể xác định hoặc người dùng không đề cập.
-...
-""" # The rest of this prompt is unchanged
-
-# ... (other prompts like SUMMARY_BY_TOPIC_PROMPT are unchanged)
-
-class AIService:
-    # ... (init is unchanged)
-
-    def _get_system_prompt_for_task(self, task: str) -> str:
-        """Retrieves the appropriate system prompt based on the task type."""
-        # --- 3. REMOVE THE ENTRIES FROM THE DICTIONARY ---
-        prompts = {
-            "topic": SUMMARY_BY_TOPIC_PROMPT,
-            "speaker": SUMMARY_BY_SPEAKER_PROMPT,
-            # "action_items": SUMMARY_ACTION_ITEMS_PROMPT, # <-- DELETE THIS LINE
-            # "decision_log": SUMMARY_DECISION_LOG_PROMPT, # <-- DELETE THIS LINE
-            "summary_bbh_hdqt": SUMMARY_BBH_HDQT_PROMPT,
-            "summary_nghi_quyet": SUMMARY_NGHI_QUYET_PROMPT,
-            "chat": CHAT_SYSTEM_PROMPT,
-            "intent_analysis": INTENT_ANALYSIS_PROMPT,
-        }
-        prompt = prompts.get(task)
-        if not prompt:
-            logger.error(f"Unknown AI task requested: {task}")
-            raise ValueError(f"Unknown AI task: {task}")
-        return prompt
-
-    # ... (get_response is unchanged)
-
-ai_service = AIService()
-Final Recommendation: Update Your Test Script
-
-To prevent your tests from failing, you should also update the list of summaries being tested in your test_code.py file.
-
-File to Edit: test_code.py
-
-code
-Python
-download
-content_copy
-expand_less
-# test_code.py
-# ...
-
-    # --- NEW: Loop to test ALL summary types ---
-    # Update this list to reflect the new, focused set of summaries
-    summary_types_to_test = ["topic", "speaker"] # "action_items" and "decision_log" are removed
-    print(f"\nTesting all {len(summary_types_to_test)} summary endpoints...")
-
-# ...
-
-By completing these steps, you have successfully implemented both of your requests. The application is now more user-friendly, as it generates content on demand, and more focused, offering a curated set of high-value summary options.
+if __name__ == "__main__":
+    run_full_meeting_test()
