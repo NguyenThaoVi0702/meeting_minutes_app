@@ -1,42 +1,5 @@
-eting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
-meeting_api_server  |     await super().__call__(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
-meeting_api_server  |     await self.app(scope, receive, _send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
-meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
-meeting_api_server  |     await route.handle(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
-meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 208, in start_bbh
-meeting_api_server  |     meeting_members=members_list,
-meeting_api_server  |                     ^^^^^^^^^^^^
-meeting_api_server  | NameError: name 'members_list' is not defined
+ai_dev@ppe-nvidia-k8s-worker01:/u01/user-data/vint1/finetune_whisper$ ls merged_model_ct2_dir
+added_tokens.json  generation_config.json  model.bin        preprocessor_config.json  tokenizer_config.json  vocab.json
+config.json        merges.txt              normalizer.json  special_tokens_map.json   tokenizer.json         vocabulary.json
+ai_dev@ppe-nvidia-k8s-worker01:/u01/user-data/vint1/finetune_whisper$ ls viet-bud500-model-dir-ct2
+config.json  model.bin  preprocessor_config.json  vocab.json  vocabulary.json
