@@ -1,50 +1,4 @@
-
-meeting_api_server  | Process SpawnProcess-1:
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
-meeting_api_server  |     self.run()
-meeting_api_server  |   File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
-meeting_api_server  |     self._target(*self._args, **self._kwargs)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
-meeting_api_server  |     target(sockets=sockets)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 66, in run
-meeting_api_server  |     return asyncio.run(self.serve(sockets=sockets))
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/lib/python3.12/asyncio/runners.py", line 195, in run
-meeting_api_server  |     return runner.run(main)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
-meeting_api_server  |     return self._loop.run_until_complete(task)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 70, in serve
-meeting_api_server  |     await self._serve(sockets)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 77, in _serve
-meeting_api_server  |     config.load()
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/config.py", line 435, in load
-meeting_api_server  |     self.loaded_app = import_from_string(self.app)
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 19, in import_from_string
-meeting_api_server  |     module = importlib.import_module(module_str)
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
-meeting_api_server  |     return _bootstrap._gcd_import(name[level:], package, level)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
-meeting_api_server  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
-meeting_api_server  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
-meeting_api_server  |   File "/code/app/main.py", line 12, in <module>
-meeting_api_server  |     from app.api.routes import meeting, speaker
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 81
-meeting_api_server  |     if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
-meeting_api_server  |                                                                   ^
-
-
-This is the function:
-"async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
+async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
     """
     Internal helper to generate a summary, save it to the DB, and return the new object.
     This contains the core generation logic, preventing code duplication.
@@ -66,7 +20,8 @@ This is the function:
 
     # Generate content using AI service
     try:
-         meeting_info = {
+        # This dictionary is created inside the try block
+        meeting_info = {
             "bbh_name": job.bbh_name,
             "meeting_type": job.meeting_type,
             "meeting_host": job.meeting_host,
@@ -78,6 +33,7 @@ This is the function:
             "meeting_members_str": ", ".join(job.meeting_members) if job.meeting_members else "Không xác định",
         }
         
+        # --- THIS ENTIRE BLOCK MUST BE INDENTED TO MATCH THE LINE ABOVE ---
         if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
             local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
             start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
@@ -100,6 +56,7 @@ This is the function:
                 f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
             )
             source_text = context_header + source_text
+        # --- END OF INDENTED BLOCK ---
 
         summary_content = await ai_service.get_response(
             task=summary_type,
@@ -107,6 +64,7 @@ This is the function:
             context={"meeting_info": meeting_info}
         )
     except Exception as e:
+        logger.error(f"AI service call failed: {e}", exc_info=True) # Add more detail for debugging
         raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
 
     # Save the newly generated summary to DB
@@ -119,6 +77,4 @@ This is the function:
     db.commit()
     db.refresh(new_summary)
     logger.info(f"Successfully generated and saved new '{summary_type}' summary.")
-    return new_summary"
-
-meeting_api_server  | IndentationError: unindent does not match any outer indentation level
+    return new_summary
