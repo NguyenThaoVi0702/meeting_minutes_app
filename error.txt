@@ -1,144 +1,23 @@
-Still error:
-"===== STEP 2: GENERATING & DOWNLOADING SUMMARIES =====
-================================================================================
-
-
-Testing: POST /summary (type: topic)
-  -> [Generate 'topic' Summary] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759464042",
-  "summary_type": "topic",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Tổng kết tiến độ các sáng kiến chuyển đổi số và công tác quản trị dữ liệu  \n**Loại cuộc họp:** Họp giao ban chuyển đổi số  \n**Chủ trì:** Anh Xin  \n**Thành viên tham gia:** Hồ Quang Ngân, Tín Hiển,..."
-}
-Testing: GET /download/document (type: topic)
-  -> [Download Document 'topic'] Status: 500
-     Response (non-JSON): Internal Server Error...
-
-Testing: POST /summary (type: speaker)
-  -> [Generate 'speaker' Summary] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759464042",
-  "summary_type": "speaker",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT THEO NGƯỜI NÓI**\n**Chủ đề:** Không rõ (chưa cung cấp)\n**Loại cuộc họp:** Không rõ (chưa cung cấp)\n**Chủ trì:** Không rõ (chưa cung cấp)\n**Thành viên tham gia:** Không rõ (chưa cung cấp)\n-----------------------------------------..."
-}
-Testing: GET /download/document (type: speaker)
-  -> [Download Document 'speaker'] Status: 500
-     Response (non-JSON): Internal Server Error...
-
-Testing: POST /summary (type: summary_bbh_hdqt)
-  -> [Generate 'summary_bbh_hdqt' Summary] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"start_time\"'"
-}
-Testing: GET /download/document (type: summary_bbh_hdqt)
-  -> [Download Document 'summary_bbh_hdqt'] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"start_time\"'"
-}
-
-Testing: POST /summary (type: summary_nghi_quyet)
-  -> [Generate 'summary_nghi_quyet' Summary] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"ngay\"'"
-}
-Testing: GET /download/document (type: summary_nghi_quyet)
-  -> [Download Document 'summary_nghi_quyet'] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"ngay\"'"
-}
-
-
->>> Sending Chat (context: None): 'Ai là người chủ trì cuộc họp này?'
-  -> [Chat Response] Status: 200
-     Response: {
-  "success": 0,
-  "response": "Người chủ trì cuộc họp này là Anh Xin."
-}
-
-Verifying that the summary edit was saved permanently...
-  -> FAILURE: The edited summary content was not found.
-  -> [Verify Saved Edit] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759464042",
-  "summary_type": "topic",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Tổng kết tiến độ các sáng kiến chuyển đổi số, công tác quản trị dữ liệu và ưu tiên kế hoạch marketing Quý 4  \n**Loại cuộc họp:** Họp giao ban chuyển đổi số  \n**Chủ trì:** Anh Xin  \n**Thành viên th..."
-}
-"
-
-Logs:
-'meeting_api_server  | INFO:     172.26.0.5:55882 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1759464042/download/document?username=test_user_01&summary_type=speaker HTTP/1.1" 500 Internal Server Error
-meeting_api_server  | ERROR:    Exception in ASGI application
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-meeting_api_server  |     return await self.app(scope, receive, send)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
-meeting_api_server  |     await super().__call__(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
-meeting_api_server  |     await self.app(scope, receive, _send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
-meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
-meeting_api_server  |     await route.handle(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
-meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 758, in download_summary_document
-meeting_api_server  |     encoded_filename = quote(f"{summary_type}_{safe_filename_part}.docx")
-meeting_api_server  |                        ^^^^^
-meeting_api_server  | NameError: name 'quote' is not defined. Did you mean: 'quit'?
-
-
-meeting_api_server  | 2025-10-03 11:03:43,889 - INFO - sqlalchemy.engine.Engine - [cached since 28.06s ago] {'meeting_job_id_1': 10, 'language_1': 'vi'}
-meeting_api_server  | 2025-10-03 11:03:43,899 - ERROR - app.services.ai_service - An unexpected error occurred in AIService for task 'summary_nghi_quyet': '\n  "ngay"'
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-10-03 11:17:00,216 - INFO - sqlalchemy.engine.Engine - [cached since 25.93s ago] {'meeting_job_id_1': 11, 'language_1': 'vi'}
+meeting_api_server  | 2025-10-03 11:17:00,227 - ERROR - app.services.ai_service - An unexpected error occurred in AIService for task 'summary_nghi_quyet': '"type"'
 meeting_api_server  | Traceback (most recent call last):
 meeting_api_server  |   File "/code/app/services/ai_service.py", line 87, in get_response
 meeting_api_server  |     system_prompt = system_prompt.format(**context["meeting_info"])
 meeting_api_server  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  | KeyError: '\n  "ngay"'
-meeting_api_server  | 2025-10-03 11:03:43,900 - ERROR - app.api.routes.meeting - AI service call failed: An unexpected error occurred: '\n  "ngay"'
+meeting_api_server  | KeyError: '"type"'
+meeting_api_server  | 2025-10-03 11:17:00,228 - ERROR - app.api.routes.meeting - AI service call failed: An unexpected error occurred: '"type"'
 meeting_api_server  | Traceback (most recent call last):
 meeting_api_server  |   File "/code/app/services/ai_service.py", line 87, in get_response
 meeting_api_server  |     system_prompt = system_prompt.format(**context["meeting_info"])
 meeting_api_server  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  | KeyError: '\n  "ngay"'
+meeting_api_server  | KeyError: '"type"'
 meeting_api_server  |
 meeting_api_server  | During handling of the above exception, another exception occurred:
 meeting_api_server  |
 meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 107, in _generate_and_save_summary
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 108, in _generate_and_save_summary
 meeting_api_server  |     summary_content = await ai_service.get_response(
 meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 meeting_api_server  |   File "/code/app/services/ai_service.py", line 117, in get_response
 meeting_api_server  |     raise RuntimeError(f"An unexpected error occurred: {e}")
-meeting_api_server  | RuntimeError: An unexpected error occurred: '\n  "ngay"'
-"
