@@ -12,8 +12,8 @@ class PlainSegment(BaseModel):
     """
     id: Optional[int] = Field(None, description="A unique identifier for the segment.")
     text: str = Field(..., description="The transcribed text of the segment.")
-    start_time: float = Field(..., description="Start time of the segment in seconds.")
-    end_time: float = Field(..., description="End time of the segment in seconds.")
+    start_time: str = Field(..., description="Start time of the segment in HH:MM:SS format.")
+    end_time: str = Field(..., description="End time of the segment in HH:MM:SS format.")
 
 class DiarizedSegment(BaseModel):
     """
@@ -23,8 +23,8 @@ class DiarizedSegment(BaseModel):
     id: Optional[int] = Field(None, description="A unique identifier for the segment.")
     speaker: str = Field(..., description="The identified speaker for this segment (e.g., 'LinhPT' or 'Unknown_Speaker_1').")
     text: str = Field(..., description="The transcribed text of the segment.")
-    start_time: float = Field(..., description="Start time of the segment in seconds.")
-    end_time: float = Field(..., description="End time of the segment in seconds.")
+    start_time: str = Field(..., description="Start time of the segment in HH:MM:SS format.")
+    end_time: str = Field(..., description="End time of the segment in HH:MM:SS format.")
 
 # ===================================================================
 #   API Request Body Models
@@ -38,6 +38,7 @@ class MeetingInfoUpdateRequest(BaseModel):
     bbh_name: Optional[str] = None
     meeting_type: Optional[str] = None
     meeting_host: Optional[str] = None
+    meeting_members: Optional[List[str]] = None
 
 class LanguageChangeRequest(BaseModel):
     """
