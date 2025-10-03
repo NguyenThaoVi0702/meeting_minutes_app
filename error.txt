@@ -1,87 +1,44 @@
 
- => => transferring context: 4.54kB                                                                                                                                                             0.0s
- => [worker  3/10] RUN pip config set global.trusted-host dso-nexus.vietinbank.vn                                                                                                               0.8s
- => ERROR [worker  4/10] RUN apt-get update && apt-get install -y --no-install-recommends pandoc                                                                                              851.4s
-------
- > [worker  4/10] RUN apt-get update && apt-get install -y --no-install-recommends pandoc:
-30.46 Ign:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
-30.60 Ign:2 http://archive.ubuntu.com/ubuntu jammy InRelease
-30.60 Ign:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
-30.60 Ign:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-60.61 Ign:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-60.97 Ign:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-61.49 Ign:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
-61.62 Ign:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
-88.12 Ign:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-90.72 Ign:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-93.65 Ign:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
-94.23 Ign:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
-121.3 Ign:2 http://archive.ubuntu.com/ubuntu jammy InRelease
-122.4 Err:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
-122.4   Temporary failure resolving 'developer.download.nvidia.com'
-127.7 Err:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
-127.7   Temporary failure resolving 'security.ubuntu.com'
-133.3 Err:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
-133.3   Temporary failure resolving 'ppa.launchpadcontent.net'
-151.4 Ign:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-181.4 Ign:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-211.1 Ign:2 http://archive.ubuntu.com/ubuntu jammy InRelease
-241.1 Ign:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-271.1 Ign:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-301.5 Err:2 http://archive.ubuntu.com/ubuntu jammy InRelease
-301.5   Temporary failure resolving 'archive.ubuntu.com'
-331.3 Err:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
-331.3   Temporary failure resolving 'archive.ubuntu.com'
-361.3 Err:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
-361.3   Temporary failure resolving 'archive.ubuntu.com'
-361.3 Reading package lists...
-362.8 W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy/InRelease  Temporary failure resolving 'archive.ubuntu.com'
-362.8 W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-updates/InRelease  Temporary failure resolving 'archive.ubuntu.com'
-362.8 W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-backports/InRelease  Temporary failure resolving 'archive.ubuntu.com'
-362.8 W: Failed to fetch http://security.ubuntu.com/ubuntu/dists/jammy-security/InRelease  Temporary failure resolving 'security.ubuntu.com'
-362.8 W: Failed to fetch https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/InRelease  Temporary failure resolving 'developer.download.nvidia.com'
-362.8 W: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/dists/jammy/InRelease  Temporary failure resolving 'ppa.launchpadcontent.net'
-362.8 W: Some index files failed to download. They have been ignored, or old ones used instead.
-362.8 Reading package lists...
-364.2 Building dependency tree...
-364.5 Reading state information...
-364.8 The following additional packages will be installed:
-364.8   libcmark-gfm-extensions0.29.0.gfm.3 libcmark-gfm0.29.0.gfm.3 pandoc-data
-364.8 Suggested packages:
-364.8   texlive-latex-recommended texlive-xetex texlive-luatex pandoc-citeproc
-364.8   texlive-latex-extra context wkhtmltopdf librsvg2-bin groff ghc nodejs php
-364.8   python ruby r-base-core libjs-mathjax libjs-katex
-364.8   citation-style-language-styles
-364.9 The following NEW packages will be installed:
-364.9   libcmark-gfm-extensions0.29.0.gfm.3 libcmark-gfm0.29.0.gfm.3 pandoc
-364.9   pandoc-data
-395.3 0 upgraded, 4 newly installed, 0 to remove and 83 not upgraded.
-395.3 Need to get 20.6 MB of archives.
-395.3 After this operation, 156 MB of additional disk space will be used.
-395.3 Ign:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-425.4 Ign:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-455.7 Ign:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
-485.8 Ign:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
-515.8 Ign:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-551.2 Ign:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-581.3 Ign:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
-610.8 Ign:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
-640.8 Ign:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-671.4 Ign:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-700.7 Ign:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
-730.7 Ign:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
-760.8 Err:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-760.8   Temporary failure resolving 'archive.ubuntu.com'
-791.3 Err:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
-791.3   Temporary failure resolving 'archive.ubuntu.com'
-820.7 Err:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
-820.7   Temporary failure resolving 'archive.ubuntu.com'
-851.3 Err:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
-851.3   Temporary failure resolving 'archive.ubuntu.com'
-851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/c/cmark-gfm/libcmark-gfm0.29.0.gfm.3_0.29.0.gfm.3-3_amd64.deb  Temporary failure resolving 'archive.ubuntu.com'
-851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/c/cmark-gfm/libcmark-gfm-extensions0.29.0.gfm.3_0.29.0.gfm.3-3_amd64.deb  Temporary failure resolving 'archive.ubuntu.com'
-851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/p/pandoc/pandoc-data_2.9.2.1-3ubuntu2_all.deb  Temporary failure resolving 'archive.ubuntu.com'
-851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/p/pandoc/pandoc_2.9.2.1-3ubuntu2_amd64.deb  Temporary failure resolving 'archive.ubuntu.com'
-851.3 E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
-------
-failed to solve: process "/bin/sh -c apt-get update && apt-get install -y --no-install-recommends pandoc" did not complete successfully: exit code: 100
+meeting_api_server  | Process SpawnProcess-1:
+meeting_api_server  | Traceback (most recent call last):
+meeting_api_server  |   File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+meeting_api_server  |     self.run()
+meeting_api_server  |   File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+meeting_api_server  |     self._target(*self._args, **self._kwargs)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/_subprocess.py", line 80, in subprocess_started
+meeting_api_server  |     target(sockets=sockets)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 66, in run
+meeting_api_server  |     return asyncio.run(self.serve(sockets=sockets))
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/lib/python3.12/asyncio/runners.py", line 195, in run
+meeting_api_server  |     return runner.run(main)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+meeting_api_server  |     return self._loop.run_until_complete(task)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 70, in serve
+meeting_api_server  |     await self._serve(sockets)
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/server.py", line 77, in _serve
+meeting_api_server  |     config.load()
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/config.py", line 435, in load
+meeting_api_server  |     self.loaded_app = import_from_string(self.app)
+meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/importer.py", line 19, in import_from_string
+meeting_api_server  |     module = importlib.import_module(module_str)
+meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "/usr/lib/python3.12/importlib/__init__.py", line 90, in import_module
+meeting_api_server  |     return _bootstrap._gcd_import(name[level:], package, level)
+meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+meeting_api_server  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+meeting_api_server  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+meeting_api_server  |   File "/code/app/main.py", line 12, in <module>
+meeting_api_server  |     from app.api.routes import meeting, speaker
+meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 81
+meeting_api_server  |     if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+meeting_api_server  |                                                                   ^
+meeting_api_server  | IndentationError: unindent does not match any outer indentation level
