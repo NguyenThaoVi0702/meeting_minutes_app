@@ -41,4 +41,84 @@ meeting_api_server  |     from app.api.routes import meeting, speaker
 meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 81
 meeting_api_server  |     if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
 meeting_api_server  |                                                                   ^
+
+
+This is the function:
+"async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
+    """
+    Internal helper to generate a summary, save it to the DB, and return the new object.
+    This contains the core generation logic, preventing code duplication.
+    """
+    logger.info(f"Generating a new '{summary_type}' summary for job '{job.request_id}'.")
+    
+    # Prepare transcript source text
+    if summary_type == "speaker":
+        if not job.diarized_transcript:
+            raise HTTPException(status_code=400, detail="A 'speaker' summary requires diarization.")
+        transcript_source = job.diarized_transcript.transcript_data
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
+    else:
+        transcription_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(status_code=400, detail="A summary requires a completed transcript.")
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
+
+    # Generate content using AI service
+    try:
+         meeting_info = {
+            "bbh_name": job.bbh_name,
+            "meeting_type": job.meeting_type,
+            "meeting_host": job.meeting_host,
+            "start_time": "N/A",
+            "end_time": "N/A",
+            "ngay": "N/A",
+            "thang": "N/A",
+            "nam": "N/A",
+            "meeting_members_str": ", ".join(job.meeting_members) if job.meeting_members else "Không xác định",
+        }
+        
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
+            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
+
+            if start_time_local:
+                meeting_info["start_time"] = start_time_local.strftime('%H:%M')
+                meeting_info["ngay"] = start_time_local.strftime('%d')
+                meeting_info["thang"] = start_time_local.strftime('%m')
+                meeting_info["nam"] = start_time_local.strftime('%Y') 
+            
+            if end_time_local:
+                meeting_info["end_time"] = end_time_local.strftime('%H:%M')
+
+            context_header = (
+                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
+                f"- Giờ bắt đầu: {meeting_info['start_time']}\n"
+                f"- Giờ kết thúc: {meeting_info['end_time']}\n\n"
+                f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
+            )
+            source_text = context_header + source_text
+
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+    # Save the newly generated summary to DB
+    new_summary = Summary(
+        meeting_job_id=job.id,
+        summary_type=summary_type,
+        summary_content=summary_content
+    )
+    db.add(new_summary)
+    db.commit()
+    db.refresh(new_summary)
+    logger.info(f"Successfully generated and saved new '{summary_type}' summary.")
+    return new_summary"
+
 meeting_api_server  | IndentationError: unindent does not match any outer indentation level
