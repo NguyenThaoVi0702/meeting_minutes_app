@@ -116,7 +116,8 @@ def run_transcription_task(self, job_id: int, audio_path: str, language: str):
             new_transcription = Transcription(
                 meeting_job_id=job.id,
                 language=language,
-                transcript_data=word_transcript 
+                transcript_data=sentence_transcript,
+                word_level_data=word_transcript
             )
             session.add(new_transcription)
             
@@ -171,10 +172,10 @@ def run_diarization_task(self, job_id: int, audio_path: str):
                 )
             ).first()
 
-            if not transcription_entry or not transcription_entry.transcript_data:
+            if not transcription_entry or not transcription_entry.word_level_data:
                 raise FileNotFoundError("Could not find a valid source transcript for diarization.")
 
-            word_level_transcript = transcription_entry.transcript_data
+            word_level_transcript = transcription_entry.word_level_data
 
         enrolled_profiles = enrollment_svc.get_all_enrolled_profiles_for_diarization()
 
