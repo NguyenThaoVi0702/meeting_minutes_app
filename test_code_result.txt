@@ -1,20 +1,42 @@
-Testing: PUT /meeting/test_ING_1758772385/transcript/plain
-  -> [Update Plain Transcript] Status: 500
-     Response (non-JSON): Internal Server Error...
 
---- Verifying side effects of transcript update ---
-  -> FAILURE: Diarized transcript was NOT cleared after update.
+================================================================================
+===== STEP 3: TESTING CHAT EDITING SCENARIOS =====
+================================================================================
 
 
---- STEP 7: TESTING MEETING CANCELLATION ---
-Using new requestId for cancellation test: test_cancel_1758772475
-
-Testing: DELETE /meeting/test_cancel_1758772475/cancel
-  -> [Cancel Meeting] Status: 200
+>>> Sending Chat (context: None): 'Sửa tóm tắt này cho tôi'
+  -> [Chat Response] Status: 200
      Response: {
-  "status": 200,
-  "message": "Meeting successfully cancelled."
+  "success": 0,
+  "response": "Bạn muốn sửa loại tóm tắt nào? (ví dụ: theo chủ đề, theo người nói, các công việc cần làm...)"
 }
 
---- Verifying that cancelled job 'test_cancel_1758772475' is no longer accessible ---
-  -> SUCCESS: Received 404 Not Found for cancelled job, as expected.
+>>> Sending Chat (context: action_items): 'Sửa biên bản họp theo công việc cho tôi'
+  -> [Chat Response] Status: 200
+     Response: {
+  "success": 0,
+  "response": "Biên bản họp theo 'action_items' chưa được tạo. Vui lòng nhấn nút tương ứng để tạo tóm tắt trước khi bạn có thể chỉnh sửa."
+}
+
+>>> Sending Chat (context: topic): 'Sửa lại tóm tắt theo chủ đề, hãy nhấn mạnh rằng kế hoạch marketing cho Quý 4 là ưu tiên hàng đầu.'
+  -> [Chat Response] Status: 200
+     Response: {
+  "success": 0,
+  "response": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**Thành vhị Linh, Bạn Hùng  \n-------------------------------------------\n\n### I. Nội dung thảo luận\n\n*   **Chủ đề 1: Đánh giá tiến độ các sáng kiến chuyển đổi số**\n    * Tổn đổi số, tiến độ triển khai các sản phẩm/dự án trọng điểm trong các khối.\n    * Đã triển khai thí điểm các mô hình mới tại 15 chi nhánh trên 7 khu vực, tập trung vào dự i bỏ và các sản phẩm online không bảo đảm.\n    * Hệ thống quản trị tiến độ (Zara, Dashpop) đã được xây dựng để theo dõi, cảnh báo các công việc trễ hạn, sắp đến hạn và hột số sáng kiến về bảo hiểm, môi trường, công nghệ thông tin (chuẩn hóa SWIFT, quản lý chất lượng IT) đã hoàn thành hoặc vượt tiến độ.\n    * Nhóm WAL (quản lý sàn sàn tráng so với kế hoạch, đang xin điều chỉnh.\n    * Đã xây dựng hệ thống e-dashboard để minh bạch hóa tiến độ và hiệu quả các sáng kiến chuyển đổi số.\n\n*   **Chủ đề 2: Đánh và hiệu quả kinh doanh**\n    * Đánh giá các chỉ tiêu KIA, tỷ lệ giải ngân, NIM (Net Interest Margin) của các sản phẩm vay sản xuất kinh doanh và bán lẻ.\n    * NIM thựa (1,68% so với mục tiêu 2,6-2,8%).\n    * Một số chỉ tiêu hoàn thành thấp do cạnh tranh tín dụng cao, cần tăng cường các giải pháp nâng cao hiệu quả và tỷ lệ giải ngân.\tăng quy mô, điều chỉnh chỉ tiêu quy mô phù hợp với từng chi nhánh và sản phẩm.\n\n*   **Chủ đề 3: Quản trị nhân sự, chuẩn hóa năng lực và tuyển dụng**\n    * Công tác ch trí AI và Data còn chậm, chưa hoàn thành mapping năng lực.\n    * Tuyển dụng nhân sự dữ liệu chưa được trình ký và triển khai đúng tiến độ.\n\n*   **Chủ đề 4: Kế hoạch mhoạch marketing cho Quý 4 được xác định là ưu tiên hàng đầu nhằm thúc đẩy hiệu quả kinh doanh, tăng trưởng khách hàng mới và hỗ trợ các sáng kiến chuyển đổi số.\n    * Cáhối hợp xây dựng, triển khai các chương trình marketing trọng điểm, đảm bảo tiến độ và hiệu quả theo mục tiêu đề ra.\n\n### II. Các vấn đề & Giải pháp\n\n*   **Vấn đề:** kiến chuyển đổi số (đặc biệt nhóm WAL và các công việc nền tảng).\n    *   **Giải pháp đề xuất:** Tập trung đẩy nhanh tiến độ các công việc nền tảng, tổ chức họp trực tiếể tháo gỡ vướng mắc, cập nhật tiến độ thường xuyên trên hệ thống quản trị.\n*   **Vấn đề:** NIM và các chỉ tiêu tài chính chưa đạt mục tiêu do cạnh tranh tín dụng cao.\n ** Tăng cường các giải pháp nâng cao hiệu quả giải ngân, điều chỉnh quy mô chỉ tiêu phù hợp, áp dụng các tính năng mới để tăng tỷ lệ giải ngân.\n*   **Vấn đề:** Chậm chuẩg nhân sự AI, Data.\n    *   **Giải pháp đề xuất:** Đẩy nhanh hoàn thiện mapping năng lực, trình ký và triển khai tuyển dụng nhân sự đúng tiến độ.\n*   **Vấn đề:** Kế hoạ ưu tiên triển khai đồng bộ, kịp thời.\n    *   **Giải pháp đề xuất:** Các phòng ban liên quan cần phối hợp chặt chẽ, xây dựng lộ trình cụ thể và báo cáo tiến độ thực hiệluận & Quyết định\n\n*   Thống nhất sử dụng hệ thống Zara và Dashpop để cập nhật, giám sát tiến độ các sáng kiến chuyển đổi số và các công việc liên quan.\n*   Yêu cầu cá tiến độ phải có giải pháp cụ thể, báo cáo tiến độ hàng tuần.\n*   Đẩy mạnh công tác chuẩn hóa năng lực và tuyển dụng nhân sự cho các vị trí AI, Data, hoàn thành trong thing Quý 4 được xác định là ưu tiên hàng đầu, các phòng ban phải chủ động phối hợp triển khai và báo cáo tiến độ thường xuyên.\n*   Tiếp tục theo dõi, đánh giá hiệu quả cáêu tài chính, đặc biệt là NIM và tỷ lệ giải ngân.\n\n### IV. Phân công nhiệm vụ (Action Items)\n\n- **Anh Toàn:** Phụ trách đôn đốc các nhóm sáng kiến chuyển đổi số cập nara, thời hạn: 15/09/2024.\n- **Chị Linh:** Hoàn thiện mapping năng lực và trình ký kế hoạch tuyển dụng nhân sự AI, Data, thời hạn: 20/09/2024.\n- **Bạn Hùng:** Tổng hợp háp nâng cao chỉ tiêu tài chính, đề xuất điều chỉnh chỉ tiêu quy mô cho từng chi nhánh, thời hạn: 18/09/2024.\n- **Các nhóm sáng kiến chậm tiến độ:** Báo cáo giải pháp kh hàng tuần lên hệ thống, thời hạn: liên tục đến khi hoàn thành.\n- **Các phòng ban liên quan:** Xây dựng và triển khai kế hoạch marketing Quý 4, báo cáo tiến độ thực hiệnc đến hết Quý 4/2024.\n\n**Lưu ý:** Các thành viên cần chủ động phối hợp, cập nhật tiến độ thường xuyên và báo cáo kịp thời các vướng mắc phát sinh để Ban lãnh đạo hỗ trợQuý 4 là ưu tiên hàng đầu trong các hoạt động triển khai."
+}
+
+>>> Sending Chat (context: None): 'Ai là người chủ trì cuộc họp này?'
+  -> [Chat Response] Status: 200
+     Response: {
+  "success": 0,
+  "response": "Người chủ trì cuộc họp này là Giám đốc."
+}
+
+Verifying that the summary edit was saved permanently...
+  -> FAILURE: The edited summary content was not found.
+  -> [Verify Saved Edit] Status: 200
+     Response: {
+  "request_id": "test_Hop TO 11092025_1759476725",
+  "summary_type": "topic",
+  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**Toàn, Chị Linh, Bạn Hùng  \n-------------------------------------------\n\n### I. ..."
+}
