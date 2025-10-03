@@ -1,11 +1,14 @@
 import json
 import logging
 import os
+import re
 import shutil
 from datetime import datetime
 from pathlib import Path
 from datetime import timezone
 from zoneinfo import ZoneInfo
+from typing import List, Dict, Any, Tuple, Optional
+from urllib.parse import quote
 
 from fastapi import (
     APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status,
@@ -29,9 +32,8 @@ from app.schemas.meeting import (
     PlainTranscriptUpdateRequest, SummaryRequest, SummaryResponse
 )
 from app.services.ai_service import ai_service
-from app.services.document_generator import generate_templated_document
+from app.services.document_generator import generate_templated_document, generate_docx_from_markdown
 from app.services.websocket_manager import websocket_manager
-# --- FIX 1: REMOVE direct task imports, import the app itself ---
 from app.worker.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -43,9 +45,112 @@ router = APIRouter()
 #   Helper Functions & Core Workflow
 # ===================================================================
 
+async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
+    """
+    Internal helper to generate a summary, save it to the DB, and return the new object.
+    This contains the core generation logic, preventing code duplication.
+    """
+    logger.info(f"Generating a new '{summary_type}' summary for job '{job.request_id}'.")
+    
+
+    if summary_type == "speaker":
+        if not job.diarized_transcript:
+            raise HTTPException(status_code=400, detail="A 'speaker' summary requires diarization.")
+        transcript_source = job.diarized_transcript.transcript_data
+        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
+    else:
+        transcription_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
+        if not transcription_entry or not transcription_entry.transcript_data:
+            raise HTTPException(status_code=400, detail="A summary requires a completed transcript.")
+        transcript_source = transcription_entry.transcript_data
+        source_text = "\n".join([seg['text'] for seg in transcript_source])
+
+   
+    try:
+ 
+        meeting_info = {
+            "bbh_name": job.bbh_name,
+            "meeting_type": job.meeting_type,
+            "meeting_host": job.meeting_host,
+            "start_time": "N/A",
+            "end_time": "N/A",
+            "ngay": "N/A",
+            "thang": "N/A",
+            "nam": "N/A",
+            "meeting_members_str": ", ".join(job.meeting_members) if job.meeting_members else "Không xác định",
+        }
+        
+  
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
+            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
+
+            if start_time_local:
+                meeting_info["start_time"] = start_time_local.strftime('%H:%M')
+                meeting_info["ngay"] = start_time_local.strftime('%d')
+                meeting_info["thang"] = start_time_local.strftime('%m')
+                meeting_info["nam"] = start_time_local.strftime('%Y') 
+            
+            if end_time_local:
+                meeting_info["end_time"] = end_time_local.strftime('%H:%M')
+
+            context_header = (
+                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
+                f"- Giờ bắt đầu: {meeting_info['start_time']}\n"
+                f"- Giờ kết thúc: {meeting_info['end_time']}\n\n"
+                f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
+            )
+            source_text = context_header + source_text
+
+
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info}
+        )
+    except Exception as e:
+        logger.error(f"AI service call failed: {e}", exc_info=True) # Add more detail for debugging
+        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
+
+
+    new_summary = Summary(
+        meeting_job_id=job.id,
+        summary_type=summary_type,
+        summary_content=summary_content
+    )
+    db.add(new_summary)
+    db.commit()
+    db.refresh(new_summary)
+    logger.info(f"Successfully generated and saved new '{summary_type}' summary.")
+    return new_summary
+
+def _parse_ai_json(json_string: str) -> Optional[Dict]:
+    """Safely parses a JSON string that might be wrapped in markdown."""
+    try:
+        cleaned_string = re.sub(r'```json\s*|\s*```', '', json_string, flags=re.DOTALL).strip()
+        return json.loads(cleaned_string)
+    except (json.JSONDecodeError, TypeError):
+        logger.error(f"Failed to decode AI JSON response: {json_string}")
+        return None
+
+def _format_seconds_to_hms(seconds: float) -> str:
+    """Converts a float number of seconds to an HH:MM:SS string."""
+    if not isinstance(seconds, (int, float)):
+        return "00:00:00"
+    s = int(seconds)
+    hours = s // 3600
+    minutes = (s % 3600) // 60
+    seconds = s % 60
+    return f"{hours:02}:{minutes:02}:{seconds:02}"
+
+
 def _format_job_status(job: MeetingJob, db: Session) -> dict:
     """Packages a MeetingJob object into the standard API response schema."""
     plain_transcript_data = None
+    diarized_transcript_data = None 
+
     transcription_entry = db.exec(
         select(Transcription).where(
             Transcription.meeting_job_id == job.id,
@@ -54,7 +159,25 @@ def _format_job_status(job: MeetingJob, db: Session) -> dict:
     ).first()
 
     if transcription_entry and transcription_entry.transcript_data:
-        plain_transcript_data = [PlainSegment(**seg) for seg in transcription_entry.transcript_data]
+        raw_segments = transcription_entry.transcript_data
+        plain_transcript_data = [
+            {
+                **seg,
+                "start_time": _format_seconds_to_hms(seg.get("start_time", 0)),
+                "end_time": _format_seconds_to_hms(seg.get("end_time", 0)),
+            } for seg in raw_segments
+        ]
+
+    if job.diarized_transcript and job.diarized_transcript.transcript_data:
+        raw_diarized = job.diarized_transcript.transcript_data
+        diarized_transcript_data = [
+            {
+                **seg,
+                "start_time": _format_seconds_to_hms(seg.get("start_time", 0)),
+                "end_time": _format_seconds_to_hms(seg.get("end_time", 0)),
+            } for seg in raw_diarized
+        ]
+
 
     response = MeetingStatusResponse(
         request_id=job.request_id,
@@ -63,11 +186,13 @@ def _format_job_status(job: MeetingJob, db: Session) -> dict:
         meeting_type=job.meeting_type,
         meeting_host=job.meeting_host,
         language=job.language,
-        plain_transcript=plain_transcript_data,
-        diarized_transcript=job.diarized_transcript.transcript_data if job.diarized_transcript else None,
+        plain_transcript=[PlainSegment(**seg) for seg in plain_transcript_data] if plain_transcript_data else None,
+        diarized_transcript=[DiarizedSegment(**seg) for seg in diarized_transcript_data] if diarized_transcript_data else None,
         error_message=job.error_message
     )
     return response.model_dump()
+
+
 
 
 
@@ -85,6 +210,7 @@ async def start_bbh(
     bbhName: str = Form(...),
     Type: str = Form(...),
     Host: str = Form(...),
+    meetingMembers: str = Form("[]", description="A JSON string of a list of member names."),
 ):
     """
     Initializes a meeting job record in the database and creates a
@@ -97,6 +223,16 @@ async def start_bbh(
     session_dir = Path(settings.SHARED_AUDIO_PATH) / requestId
     os.makedirs(session_dir, exist_ok=True)
 
+    members_list = []
+    try:
+        parsed_members = json.loads(meetingMembers)
+        if isinstance(parsed_members, list):
+            members_list = parsed_members
+        else:
+            raise ValueError("meetingMembers must be a JSON array (a list of strings).")
+    except (json.JSONDecodeError, ValueError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid format for meetingMembers: {e}")
+
     job = MeetingJob(
         request_id=requestId,
         user_id=current_user.id,
@@ -105,6 +241,7 @@ async def start_bbh(
         bbh_name=bbhName,
         meeting_type=Type,
         meeting_host=Host,
+        meeting_members=members_list,
         status="uploading"
     )
     session.add(job)
@@ -140,7 +277,7 @@ async def upload_file_chunk(
     try:
         with open(chunk_path, "wb") as buffer:
             shutil.copyfileobj(FileData.file, buffer)
-    except IOError as e:
+    except IOError as e: 
         raise HTTPException(status_code=500, detail=f"Failed to save chunk file: {e}")
 
     if isLastChunk:
@@ -286,9 +423,10 @@ async def change_meeting_language(
     
     if cached_transcript:
         logger.info(f"Found cached transcript for language '{new_language}' for job '{job.request_id}'.")
-        # Clear diarizatio result
         if job.diarized_transcript:
              db.delete(job.diarized_transcript)
+             job.diarized_transcript = None
+             db.flush()
         job.status = "transcription_complete"
     else:
         logger.info(f"No cached transcript for '{new_language}'. Triggering new transcription task for job '{job.request_id}'.")
@@ -348,8 +486,10 @@ async def update_plain_transcript(
     if job.diarized_transcript:
         logger.info(f"Deleting stale diarized transcript for job '{job.request_id}'.")
         db.delete(job.diarized_transcript)
+        job.diarized_transcript = None
         # Revert status 
         job.status = "transcription_complete"
+        db.flush()
 
     # Delete all associated summaries
     if job.summaries:
@@ -367,8 +507,7 @@ async def update_plain_transcript(
     transcription_entry.transcript_data = new_transcript_data
     transcription_entry.is_edited = True # Mark this transcript as user-modified
 
-    db.add(transcription_entry)
-    db.add(job) 
+    db.add(transcription_entry) 
     db.commit()
     db.refresh(job)
 
@@ -415,66 +554,19 @@ async def cancel_meeting(
 @router.post(
     "/{request_id}/summary",
     response_model=SummaryResponse,
-    summary="Generate a meeting summary"
+    summary="Get, or generate and save, a meeting summary"
 )
-async def generate_summary(
+async def get_or_generate_summary( 
     summary_request: SummaryRequest,
     db: Session = Depends(get_db_session),
-    job: MeetingJob = Depends(get_owned_job_from_path) 
+    job: MeetingJob = Depends(get_owned_job_from_path)
 ):
     """
-    Generates a summary for the meeting based on the requested type.
-    - 'topic', 'action_items', 'decision_log' require a completed transcript.
-    - 'speaker' requires a completed, speaker-separated transcript.
-
-    If a summary of the same type already exists, it will be overwritten.
+    Retrieves a summary if it already exists in the database.
+    If not, it generates the summary, saves it permanently, and then returns it.
     """
     db.add(job)
     summary_type = summary_request.summary_type
-    logger.info(f"Received request to generate '{summary_type}' summary for job '{job.request_id}'.")
-
-   
-    if summary_type == "speaker":
-        if not job.diarized_transcript:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A 'speaker' summary requires a completed speaker-separated transcript. Please run diarization first."
-            )
-        transcript_source = job.diarized_transcript.transcript_data
-        source_text = "\n".join([f"{seg['speaker']}: {seg['text']}" for seg in transcript_source])
-    else:
-        
-        transcription_entry = db.exec(
-            select(Transcription).where(
-                Transcription.meeting_job_id == job.id,
-                Transcription.language == job.language
-            )
-        ).first()
-        if not transcription_entry or not transcription_entry.transcript_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A summary requires a completed transcript. Please ensure transcription is complete."
-            )
-        
-        transcript_source = transcription_entry.transcript_data
-        source_text = "\n".join([seg['text'] for seg in transcript_source])
-
-   
-    try:
-        meeting_info = {
-            "bbh_name": job.bbh_name,
-            "meeting_type": job.meeting_type,
-            "meeting_host": job.meeting_host,
-        }
-        summary_content = await ai_service.get_response(
-            task=summary_type,
-            user_message=source_text,
-            context={"meeting_info": meeting_info}
-        )
-    except Exception as e:
-        logger.error(f"AI service failed during summary generation for job '{job.request_id}': {e}", exc_info=True)
-        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
-
     
     existing_summary = db.exec(
         select(Summary).where(
@@ -484,21 +576,9 @@ async def generate_summary(
     ).first()
 
     if existing_summary:
-        logger.info(f"Updating existing '{summary_type}' summary for job '{job.request_id}'.")
-        existing_summary.summary_content = summary_content
         summary_to_return = existing_summary
     else:
-        logger.info(f"Creating new '{summary_type}' summary for job '{job.request_id}'.")
-        new_summary = Summary(
-            meeting_job_id=job.id,
-            summary_type=summary_type,
-            summary_content=summary_content
-        )
-        db.add(new_summary)
-        summary_to_return = new_summary
-    
-    db.commit()
-    db.refresh(summary_to_return)
+        summary_to_return = await _generate_and_save_summary(db, job, summary_type)
 
     return SummaryResponse(
         request_id=job.request_id,
@@ -507,117 +587,116 @@ async def generate_summary(
     )
 
 
+
 @router.post(
     "/chat",
     response_model=ChatResponse,
     summary="Chat about the meeting content"
 )
 async def chat_with_meeting(
-    # --- UPDATE THE FUNCTION SIGNATURE ---
     chat_request: ChatRequest,
     db: Session = Depends(get_db_session)
-    # --- END OF UPDATE ---
 ):
-    """
-    Handles conversational queries about a completed meeting. It uses the
-    transcript, summaries, and recent conversation history as context.
-    If a summary_type_context is provided, it can also update that summary.
-    """
     job = db.exec(select(MeetingJob).where(MeetingJob.request_id == chat_request.requestId)).first()
     if not job:
         raise HTTPException(status_code=404, detail="Meeting job not found.")
-    
-    # --- 1. GET THE BASE TRANSCRIPT (UNCHANGED) ---
-    transcription_entry = db.exec(
-        select(Transcription).where(
-            Transcription.meeting_job_id == job.id,
-            Transcription.language == job.language
-        )
-    ).first()
-    if not transcription_entry:
-        raise HTTPException(status_code=400, detail="Cannot chat without a completed transcript.")
-    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
 
-    # --- 2. GET CONTEXT-SPECIFIC SUMMARY (NEW LOGIC) ---
-    context_for_llm = f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n"
-    summary_to_update = None # Variable to hold the summary object if we need to update it
+    final_response_to_user = "Xin lỗi, tôi chưa hiểu ý của bạn. Bạn có thể diễn đạt khác được không?"
 
-    if chat_request.summary_type_context:
-        summary_type = chat_request.summary_type_context
-        # Find the specific summary the user is talking about
-        summary_to_update = db.exec(
-            select(Summary).where(
-                Summary.meeting_job_id == job.id,
-                Summary.summary_type == summary_type
-            )
-        ).first()
-        
-        if summary_to_update:
-            # Add this specific summary to the context for the AI
-            context_for_llm += (
-                f"--- CURRENT '{summary_type.upper()}' SUMMARY (FOR CONTEXT) ---\n"
-                f"{summary_to_update.summary_content}\n\n"
-            )
-
-    # --- 3. GET CHAT HISTORY (UNCHANGED) ---
-    chat_history_db = db.exec(
-        select(ChatHistory)
-        .where(ChatHistory.meeting_job_id == job.id)
-        .order_by(ChatHistory.created_at.desc())
-        .limit(settings.LIMIT_TURN * 2) 
-    ).all()
-    chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
-
-    # --- 4. CALL AI SERVICE (UNCHANGED) ---
+    # --- STAGE 1: INTENT ANALYSIS ---
     try:
-        assistant_response_raw = await ai_service.get_response(
+        intent_json_str = await ai_service.get_response(task="intent_analysis", user_message=chat_request.message)
+        intent_data = _parse_ai_json(intent_json_str)
+
+        if not intent_data:
+            raise ValueError("AI did not return valid JSON for intent analysis.")
+
+        intent = intent_data.get("intent")
+        entity = intent_data.get("entity")
+        edit_instruction = intent_data.get("edit_instruction") or chat_request.message
+
+    except Exception as e:
+        logger.error(f"Failed during Stage 1 (Intent Analysis): {e}")
+        intent = 'ask_question' # Default to simple question if analysis fails
+
+    # --- STAGE 2: BACKEND ORCHESTRATION ---
+
+    # --- PATH 1: USER WANTS TO EDIT A SUMMARY ---
+    if intent == 'edit_summary':
+        if not entity:
+            # AMBIGUITY: Ask the user to clarify
+            final_response_to_user = "Bạn muốn sửa loại tóm tắt nào? (ví dụ: theo chủ đề, theo người nói, các công việc cần làm...)"
+        else:
+            # State Check: See if the summary exists
+            summary_record = db.exec(
+                select(Summary).where(Summary.meeting_job_id == job.id, Summary.summary_type == entity)
+            ).first()
+
+            if not summary_record:
+                # Summary does not exist: Ask user to generate it first
+                final_response_to_user = f"Biên bản họp theo '{entity}' chưa được tạo. Vui lòng nhấn nút tương ứng để tạo tóm tắt trước khi bạn có thể chỉnh sửa."
+            else:
+                # HAPPY PATH: Summary exists, so we can edit it.
+                logger.info(f"Performing summary edit for type '{entity}' on job '{job.request_id}'.")
+                
+                # Construct the detailed prompt for the Stage 2 generation call
+                edit_context = (
+                    f"--- EXISTING '{entity.upper()}' SUMMARY ---\n"
+                    f"{summary_record.summary_content}\n\n"
+                    f"--- USER'S EDIT INSTRUCTION ---\n"
+                    f"{edit_instruction}"
+                )
+                
+                # Using the chat prompt with the update rules
+                new_summary_content_raw = await ai_service.get_response(
+                    task="chat", 
+                    user_message=edit_context
+                )
+                
+                # Parse the response to get the clean summary content
+                update_pattern = r'\[UPDATE:(\w+)\]\s*(.*)'
+                match = re.match(update_pattern, new_summary_content_raw, re.DOTALL)
+                
+                if match:
+                    new_summary_content = match.group(2).strip()
+                    summary_record.summary_content = new_summary_content
+                    db.add(summary_record)
+                    final_response_to_user = new_summary_content
+                else:
+                    # If the AI fails to follow the format, return its raw response
+                    final_response_to_user = new_summary_content_raw
+
+    # --- PATH 2: USER IS ASKING A GENERAL QUESTION ---
+    elif intent == 'ask_question':
+        logger.info(f"Answering a general question for job '{job.request_id}'.")
+        transcript_entry = db.exec(select(Transcription).where(Transcription.meeting_job_id == job.id, Transcription.language == job.language)).first()
+        transcript_text = "\n".join([seg['text'] for seg in transcript_entry.transcript_data]) if transcript_entry else ""
+        
+        summaries = db.exec(select(Summary).where(Summary.meeting_job_id == job.id)).all()
+        summary_texts = [f"--- SUMMARY ({s.summary_type.upper()}) ---\n{s.summary_content}" for s in summaries]
+
+        chat_history_db = db.exec(select(ChatHistory).where(ChatHistory.meeting_job_id == job.id).order_by(ChatHistory.created_at.desc()).limit(settings.LIMIT_TURN * 2)).all()
+        chat_history_formatted = [{"role": entry.role, "content": entry.message} for entry in reversed(chat_history_db)]
+        
+        full_context_for_llm = (f"--- MEETING TRANSCRIPT ---\n{transcript_text}\n\n" + "\n\n".join(summary_texts))
+        
+        final_response_to_user = await ai_service.get_response(
             task="chat",
-            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{context_for_llm}",
+            user_message=f"**User Question:**\n{chat_request.message}\n\n**Meeting Context:**\n{full_context_for_llm}",
             context={"history": chat_history_formatted}
         )
-    except Exception as e:
-        logger.error(f"AI service failed during chat for job '{job.request_id}': {e}", exc_info=True)
-        raise HTTPException(status_code=502, detail=f"Failed to get response from AI service: {e}")
 
-    # --- 5. PARSE RESPONSE AND UPDATE DATABASE (NEW LOGIC) ---
-    final_response_to_user = assistant_response_raw
-    update_pattern = r'\[UPDATE:(\w+)\]\s*(.*)'
-    match = re.match(update_pattern, assistant_response_raw, re.DOTALL)
+    # --- PATH 3: GENERAL CHIT-CHAT (OR FALLBACK) ---
+    else:
+        final_response_to_user = "Cảm ơn bạn. Tôi có thể giúp gì khác cho cuộc họp này không?"
 
-    if match and summary_to_update:
-        updated_type = match.group(1)
-        new_summary_content = match.group(2).strip()
-        
-        # Security check: ensure the AI wants to update the summary we gave it context for
-        if updated_type == summary_to_update.summary_type:
-            logger.info(f"AI requested update for summary type '{updated_type}' on job '{job.request_id}'.")
-            summary_to_update.summary_content = new_summary_content
-            db.add(summary_to_update)
-            # The commit will happen with the chat history save
-            final_response_to_user = new_summary_content # The user sees the full new summary
-        else:
-            logger.warning(f"AI tried to update '{updated_type}' but context was for '{summary_to_update.summary_type}'. Ignoring.")
-            
-    # --- 6. SAVE CHAT HISTORY AND COMMIT (MODIFIED) ---
-    user_message_entry = ChatHistory(
-        meeting_job_id=job.id,
-        role="user",
-        message=chat_request.message
-    )
-    assistant_message_entry = ChatHistory(
-        meeting_job_id=job.id,
-        role="assistant",
-        # Save the raw response to see the [UPDATE] tag in history if needed
-        message=assistant_response_raw 
-    )
-    db.add(user_message_entry)
-    db.add(assistant_message_entry)
-    
-    # This single commit saves both the chat history and any summary changes
+    # --- SAVE CONVERSATION TO HISTORY AND COMMIT ALL CHANGES ---
+    db.add(ChatHistory(meeting_job_id=job.id, role="user", message=chat_request.message))
+    db.add(ChatHistory(meeting_job_id=job.id, role="assistant", message=final_response_to_user))
     db.commit()
 
     return ChatResponse(response=final_response_to_user)
-    
+
 
 @router.get("/{request_id}/download/audio", summary="Download the original audio file")
 async def download_audio_file(
@@ -644,67 +723,41 @@ async def download_audio_file(
     )
 
 
-@router.get("/{request_id}/download/document", summary="Generate and download a formal meeting document")
-async def generate_and_download_document(
-    job: MeetingJob = Depends(get_job_with_any_transcript),
-    template_type: str = Query(..., enum=["bbh_hdqt", "nghi_quyet"], description="The type of document template to use."),
+@router.get("/{request_id}/download/document", summary="Download any summary as a DOCX document")
+async def download_summary_document(
+    job: MeetingJob = Depends(get_owned_job_from_path),
+    summary_type: str = Query(..., description="The type of summary to download."),
     db: Session = Depends(get_db_session)
 ):
-    transcription_entry = db.exec(
-        select(Transcription).where(
-            Transcription.meeting_job_id == job.id,
-            Transcription.language == job.language
+    """
+    Downloads the latest version of any given summary type as a .docx file.
+    It fetches the content from the database. If the summary hasn't been generated yet,
+    it will return an error.
+    """
+    # 1. Fetch the required summary from the database
+    summary = db.exec(
+        select(Summary).where(
+            Summary.meeting_job_id == job.id,
+            Summary.summary_type == summary_type
         )
     ).first()
-    transcript_text = "\n".join([seg['text'] for seg in transcription_entry.transcript_data])
 
-    local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+    if not summary:
+        logger.warning(f"Summary '{summary_type}' not found for download. Generating now...")
+        summary = await _generate_and_save_summary(db, job, summary_type)
 
-    start_time_utc_naive = job.upload_started_at
-    end_time_utc_naive = job.upload_finished_at
-
-    start_time_local = None
-    if start_time_utc_naive:
-        start_time_local = start_time_utc_naive.replace(tzinfo=timezone.utc).astimezone(local_tz)
-
-    end_time_local = None
-    if end_time_utc_naive:
-        end_time_local = end_time_utc_naive.replace(tzinfo=timezone.utc).astimezone(local_tz)
-
-    meeting_date_str = start_time_local.strftime('%d/%m/%Y') if start_time_local else "N/A"
-    start_time_str = start_time_local.strftime('%H:%M') if start_time_local else "N/A"
-    end_time_str = end_time_local.strftime('%H:%M') if end_time_local else "N/A"
-    
-    
-    context_header = (
-        f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
-        f"- Ngày họp: {meeting_date_str}\n"
-        f"- Giờ bắt đầu: {start_time_str}\n"
-        f"- Giờ kết thúc: {end_time_str}\n\n"
-        f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
-    )
-    full_llm_input = context_header + transcript_text
-    
     try:
-        task_name = f"summary_{template_type}"
-        llm_json_response = await ai_service.get_response(task=task_name, user_message=full_llm_input)
-
-        logger.info("="*50)
-        logger.info(F"RAW RESPONSE FROM AI for template '{template_type}':")
-        logger.info(llm_json_response)
-        logger.info("="*50)
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            document_buffer = generate_templated_document(summary_type.replace("summary_", ""), summary.summary_content)
+        else:
+            document_buffer = generate_docx_from_markdown(summary.summary_content)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to get data from AI service: {e}")
-
-    
-    try:
-        document_buffer = generate_templated_document(template_type, llm_json_response)
-    except Exception as e:
-        logger.error(f"Error during document generation: {e}", exc_info=True)
+        logger.error(f"Error during document generation for type '{summary_type}': {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to generate the document: {e}")
 
-    filename = f"{template_type}_{job.bbh_name.replace(' ', '_')}.docx"
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{filename}"}
+    safe_filename_part = job.bbh_name.replace(' ', '_').replace('/', '_')
+    encoded_filename = quote(f"{summary_type}_{safe_filename_part}.docx")
+    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
     
     return StreamingResponse(
         document_buffer,
