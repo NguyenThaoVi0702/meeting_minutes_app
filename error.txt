@@ -1,175 +1,87 @@
-Eventhough I have pandoc and pypandoc inside the container:
-"ubuntu@dr-bigdata-aiml-03:/u01/user-data/vint1/meeting_minutes_app$ sudo docker compose ps
-NAME                 IMAGE                        COMMAND                  SERVICE   CREATED          STATUS          PORTS
-meeting_api_server   meeting_minutes_app-api      "uvicorn app.main:ap…"   api       10 minutes ago   Up 10 minutes   8020/tcp, 8100/tcp, 8501/tcp, 0.0.0.0:8072->8072/tcp, :::8072->8072/tcp
-meeting_flower       meeting_minutes_app-flower   "celery -A app.worke…"   flower    10 minutes ago   Up 10 minutes   8020/tcp, 8072/tcp, 8100/tcp, 0.0.0.0:5555->5555/tcp, :::5555->5555/tcp, 8501/tcp
-meeting_worker       meeting_minutes_app-worker   "celery -A app.worke…"   worker    10 minutes ago   Up 10 minutes   8020/tcp, 8072/tcp, 8100/tcp, 8501/tcp
-ubuntu@dr-bigdata-aiml-03:/u01/user-data/vint1/meeting_minutes_app$ sudo docker exec -it meeting_worker bash
-root@49eb59a99343:/code# pip show pandoc
-Name: pandoc
-Version: 2.4
-Summary: Pandoc Documents for Python
-Home-page:
-Author: Sébastien Boisgérault
-Author-email: Sebastien.Boisgerault@minesparis.psl.eu
-License: MIT License
-Location: /usr/local/lib/python3.12/dist-packages
-Requires: plumbum, ply
-Required-by:
-root@49eb59a99343:/code# pip show pypandoc
-Name: pypandoc
-Version: 1.15
-Summary: Thin wrapper for pandoc.
-Home-page: https://github.com/JessicaTegner/pypandoc
-Author: b'Juho Veps\xc3\xa4l\xc3\xa4inen'
-Author-email: bebraw@gmail.com
-License: MIT
-Location: /usr/local/lib/python3.12/dist-packages
-Requires:
-Required-by:
-"
 
-There is still eror:
-"
-================================================================================
-===== STEP 2: GENERATING & DOWNLOADING SUMMARIES =====
-================================================================================
-
-
-Testing: POST /summary (type: topic)
-  -> [Generate 'topic' Summary] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759457427",
-  "summary_type": "topic",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Chuyển đổi số và quản trị tiến độ các sáng kiến  \n**Loại cuộc họp:** Định kỳ/Chuyên đề  \n**Chủ trì:** Anh Xin  \n**Thành viên tham gia:** Hồ Quang Ngân, các đại diện khối sức hiệp, khối bán lẻ, khố..."
-}
-Testing: GET /download/document (type: topic)
-  -> [Download Document 'topic'] Status: 500
-     Response (non-JSON): Internal Server Error...
-
-Testing: POST /summary (type: speaker)
-  -> [Generate 'speaker' Summary] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759457427",
-  "summary_type": "speaker",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT THEO NGƯỜI NÓI**\n**Chủ đề:** {bbh_name}\n**Loại cuộc họp:** {meeting_type}\n**Chủ trì:** {meeting_host}\n**Thành viên tham gia:** {meeting_members_str}\n-------------------------------------------\n\n### F - M\n- Báo cáo tổng quan về ..."
-}
-Testing: GET /download/document (type: speaker)
-  -> [Download Document 'speaker'] Status: 500
-     Response (non-JSON): Internal Server Error...
-
-Testing: POST /summary (type: summary_bbh_hdqt)
-  -> [Generate 'summary_bbh_hdqt' Summary] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"start_time\"'"
-}
-Testing: GET /download/document (type: summary_bbh_hdqt)
-  -> [Download Document 'summary_bbh_hdqt'] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"start_time\"'"
-}
-
-Testing: POST /summary (type: summary_nghi_quyet)
-  -> [Generate 'summary_nghi_quyet' Summary] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"ngay\"'"
-}
-Testing: GET /download/document (type: summary_nghi_quyet)
-  -> [Download Document 'summary_nghi_quyet'] Status: 502
-     Response: {
-  "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"ngay\"'"
-}
-
-
-Verifying that the summary edit was saved permanently...
-  -> FAILURE: The edited summary content was not found.
-  -> [Verify Saved Edit] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759457427",
-  "summary_type": "topic",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Chuyển đổi số và quản trị tiến độ các sáng kiến  \n**Loại cuộc họp:** Định kỳ/Chuyên đề  \n**Chủ trì:** Anh Xin  \n**Thành viên tham gia:** Hồ Quang Ngân, các đại diện khối sức hiệp, khối bán lẻ, khố..."
-}
-
-"
-this is the log:
-"
-meeting_api_server  | 2025-10-03 09:11:42,320 - INFO - pypandoc - See http://johnmacfarlane.net/pandoc/installing.html
-meeting_api_server  | for installation options
-meeting_api_server  |
-meeting_api_server  | [INFO] ---------------------------------------------------------------
-meeting_api_server  |
-meeting_api_server  |
-meeting_api_server  | 2025-10-03 09:11:42,320 - INFO - pypandoc - ---------------------------------------------------------------
-meeting_api_server  |
-meeting_api_server  |
-meeting_api_server  | 2025-10-03 09:11:42,320 - WARNING - app.services.document_generator - Pandoc conversion failed: No pandoc was found: either install pandoc and add it
-meeting_api_server  | to your PATH or or call pypandoc.download_pandoc(...) or
-meeting_api_server  | install pypandoc wheels with included pandoc.. Falling back to custom parser.
-meeting_api_server  | 2025-10-03 09:11:42,401 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-10-03 09:11:42,401 - INFO - sqlalchemy.engine.Engine - ROLLBACK
-meeting_api_server  | INFO:     172.26.0.5:39198 - "GET /api/v1/meeting/test_Hop%20TO%2011092025_1759457427/download/document?username=test_user_01&summary_type=speaker HTTP/1.1" 500 Internal Server Error
-meeting_api_server  | ERROR:    Exception in ASGI application
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-meeting_api_server  |     return await self.app(scope, receive, send)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
-meeting_api_server  |     await super().__call__(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
-meeting_api_server  |     await self.app(scope, receive, _send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
-meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
-meeting_api_server  |     await route.handle(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
-meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 735, in download_summary_document
-meeting_api_server  |     return StreamingResponse(
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/responses.py", line 230, in __init__
-meeting_api_server  |     self.init_headers(headers)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/responses.py", line 61, in init_headers
-meeting_api_server  |     raw_headers = [(k.lower().encode("latin-1"), v.encode("latin-1")) for k, v in headers.items()]
-meeting_api_server  |                                                  ^^^^^^^^^^^^^^^^^^^
-meeting_api_server  | UnicodeEncodeError: 'latin-1' codec can't encode character '\u1ed9' in position 39: ordinal not in range(256)
-
-
-meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
-meeting_api_server  | 2025-10-03 09:11:43,459 INFO sqlalchemy.engine.Engine [cached since 25.23s ago] {'meeting_job_id_1': 9, 'language_1': 'vi'}
-meeting_api_server  | 2025-10-03 09:11:43,459 - INFO - sqlalchemy.engine.Engine - [cached since 25.23s ago] {'meeting_job_id_1': 9, 'language_1': 'vi'}
-meeting_api_server  | 2025-10-03 09:11:43,469 - ERROR - app.services.ai_service - An unexpected error occurred in AIService for task 'summary_bbh_hdqt': '\n  "start_time"'
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/ai_service.py", line 87, in get_response
-meeting_api_server  |     system_prompt = system_prompt.format(**context["meeting_info"])
-meeting_api_server  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-"
+ => => transferring context: 4.54kB                                                                                                                                                             0.0s
+ => [worker  3/10] RUN pip config set global.trusted-host dso-nexus.vietinbank.vn                                                                                                               0.8s
+ => ERROR [worker  4/10] RUN apt-get update && apt-get install -y --no-install-recommends pandoc                                                                                              851.4s
+------
+ > [worker  4/10] RUN apt-get update && apt-get install -y --no-install-recommends pandoc:
+30.46 Ign:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
+30.60 Ign:2 http://archive.ubuntu.com/ubuntu jammy InRelease
+30.60 Ign:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
+30.60 Ign:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+60.61 Ign:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+60.97 Ign:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+61.49 Ign:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
+61.62 Ign:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
+88.12 Ign:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+90.72 Ign:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+93.65 Ign:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
+94.23 Ign:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
+121.3 Ign:2 http://archive.ubuntu.com/ubuntu jammy InRelease
+122.4 Err:4 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64  InRelease
+122.4   Temporary failure resolving 'developer.download.nvidia.com'
+127.7 Err:3 http://security.ubuntu.com/ubuntu jammy-security InRelease
+127.7   Temporary failure resolving 'security.ubuntu.com'
+133.3 Err:1 https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy InRelease
+133.3   Temporary failure resolving 'ppa.launchpadcontent.net'
+151.4 Ign:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+181.4 Ign:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+211.1 Ign:2 http://archive.ubuntu.com/ubuntu jammy InRelease
+241.1 Ign:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+271.1 Ign:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+301.5 Err:2 http://archive.ubuntu.com/ubuntu jammy InRelease
+301.5   Temporary failure resolving 'archive.ubuntu.com'
+331.3 Err:5 http://archive.ubuntu.com/ubuntu jammy-updates InRelease
+331.3   Temporary failure resolving 'archive.ubuntu.com'
+361.3 Err:6 http://archive.ubuntu.com/ubuntu jammy-backports InRelease
+361.3   Temporary failure resolving 'archive.ubuntu.com'
+361.3 Reading package lists...
+362.8 W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy/InRelease  Temporary failure resolving 'archive.ubuntu.com'
+362.8 W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-updates/InRelease  Temporary failure resolving 'archive.ubuntu.com'
+362.8 W: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-backports/InRelease  Temporary failure resolving 'archive.ubuntu.com'
+362.8 W: Failed to fetch http://security.ubuntu.com/ubuntu/dists/jammy-security/InRelease  Temporary failure resolving 'security.ubuntu.com'
+362.8 W: Failed to fetch https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/InRelease  Temporary failure resolving 'developer.download.nvidia.com'
+362.8 W: Failed to fetch https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/dists/jammy/InRelease  Temporary failure resolving 'ppa.launchpadcontent.net'
+362.8 W: Some index files failed to download. They have been ignored, or old ones used instead.
+362.8 Reading package lists...
+364.2 Building dependency tree...
+364.5 Reading state information...
+364.8 The following additional packages will be installed:
+364.8   libcmark-gfm-extensions0.29.0.gfm.3 libcmark-gfm0.29.0.gfm.3 pandoc-data
+364.8 Suggested packages:
+364.8   texlive-latex-recommended texlive-xetex texlive-luatex pandoc-citeproc
+364.8   texlive-latex-extra context wkhtmltopdf librsvg2-bin groff ghc nodejs php
+364.8   python ruby r-base-core libjs-mathjax libjs-katex
+364.8   citation-style-language-styles
+364.9 The following NEW packages will be installed:
+364.9   libcmark-gfm-extensions0.29.0.gfm.3 libcmark-gfm0.29.0.gfm.3 pandoc
+364.9   pandoc-data
+395.3 0 upgraded, 4 newly installed, 0 to remove and 83 not upgraded.
+395.3 Need to get 20.6 MB of archives.
+395.3 After this operation, 156 MB of additional disk space will be used.
+395.3 Ign:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+425.4 Ign:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+455.7 Ign:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
+485.8 Ign:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
+515.8 Ign:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+551.2 Ign:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+581.3 Ign:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
+610.8 Ign:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
+640.8 Ign:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+671.4 Ign:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+700.7 Ign:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
+730.7 Ign:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
+760.8 Err:1 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+760.8   Temporary failure resolving 'archive.ubuntu.com'
+791.3 Err:2 http://archive.ubuntu.com/ubuntu jammy/universe amd64 libcmark-gfm-extensions0.29.0.gfm.3 amd64 0.29.0.gfm.3-3
+791.3   Temporary failure resolving 'archive.ubuntu.com'
+820.7 Err:3 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc-data all 2.9.2.1-3ubuntu2
+820.7   Temporary failure resolving 'archive.ubuntu.com'
+851.3 Err:4 http://archive.ubuntu.com/ubuntu jammy/universe amd64 pandoc amd64 2.9.2.1-3ubuntu2
+851.3   Temporary failure resolving 'archive.ubuntu.com'
+851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/c/cmark-gfm/libcmark-gfm0.29.0.gfm.3_0.29.0.gfm.3-3_amd64.deb  Temporary failure resolving 'archive.ubuntu.com'
+851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/c/cmark-gfm/libcmark-gfm-extensions0.29.0.gfm.3_0.29.0.gfm.3-3_amd64.deb  Temporary failure resolving 'archive.ubuntu.com'
+851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/p/pandoc/pandoc-data_2.9.2.1-3ubuntu2_all.deb  Temporary failure resolving 'archive.ubuntu.com'
+851.3 E: Failed to fetch http://archive.ubuntu.com/ubuntu/pool/universe/p/pandoc/pandoc_2.9.2.1-3ubuntu2_amd64.deb  Temporary failure resolving 'archive.ubuntu.com'
+851.3 E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?
+------
+failed to solve: process "/bin/sh -c apt-get update && apt-get install -y --no-install-recommends pandoc" did not complete successfully: exit code: 100
