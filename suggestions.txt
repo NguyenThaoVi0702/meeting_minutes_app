@@ -1,213 +1,201 @@
-Of course. Thank you for providing the detailed test results and logs. This is excellent diagnostic information.
+Yes, absolutely. This is a very common situation in restricted environments. We can definitely work around the Pandoc dependency by modifying the code to only use the custom parser that relies on the python-docx library.
 
-You are facing three distinct and separate issues. Let's solve them one by one, from the most critical to the simplest.
+You have already confirmed that you like the output of your coworker's fallback code, which is excellent. This means we already have the logic we need. We just need to make it the primary and only method for converting Markdown summaries.
 
-Issue #1: UnicodeEncodeError in Download Headers (Critical)
+Here is the step-by-step guide to remove the Pandoc dependency completely and solve the errors.
 
-This is the error causing the 500 Internal Server Error when you try to download the topic and speaker summaries.
+The New Strategy
 
-The Problem:
-Your log file shows the exact error:
+Instead of trying Pandoc first and then falling back to the custom parser, we will go directly to the custom parser every time. This removes the need for the external Pandoc program and resolves all related errors.
+
+Step 1: Clean Up Dependencies (Optional but Recommended)
+
+To keep your project clean and avoid confusion, let's remove the now-unnecessary dependencies.
+
+Modify requirements.txt:
+Remove the lines for pandoc and pypandoc. Your requirements.txt file should look something like this (without those two packages):
 
 code
-Code
+Text
 download
 content_copy
 expand_less
-UnicodeEncodeError: 'latin-1' codec can't encode character '\u1ed9' in position 39: ordinal not in range(256)
+fastapi[all]
+uvicorn[standard]
+pydub
+openai
+sqlmodel
+requests
+sqlalchemy
+aiohttp
+httpx
+# pandoc   <-- DELETE THIS LINE
+# pypandoc <-- DELETE THIS LINE
+psycopg2-binary
+python-dotenv
+Werkzeug
+docxtpl
+flower
 
-This happens because your meeting's bbh_name (e.g., "Cuộc Họp...") contains Vietnamese characters. The default HTTP header encoding is latin-1 (a very limited character set), which cannot handle these characters. When FastAPI/Starlette tries to create the Content-Disposition header for the filename, it fails.
-
-The Solution:
-We need to properly URL-encode the filename so it's safe for use in an HTTP header.
-
-File to Edit: app/api/routes/meeting.py
-
-code
-Python
-download
-content_copy
-expand_less
-# app/api/routes/meeting.py
-
-# --- ADD `quote` to your imports from urllib.parse ---
-from urllib.parse import quote
-# (It might already be in another file, but ensure it's here)
-
-# ... (other code)
-
-@router.get("/{request_id}/download/document", summary="Download any summary as a DOCX document")
-async def download_summary_document(
-    # ... (function signature is unchanged)
-):
-    # ... (all the logic to get or generate the summary is unchanged)
-    
-    # --- THIS IS THE FIX ---
-    safe_filename_part = job.bbh_name.replace(' ', '_').replace('/', '_')
-    encoded_filename = quote(f"{summary_type}_{safe_filename_part}.docx")
-    
-    # Use the 'filename*' parameter which is the modern standard for non-ASCII filenames
-    headers = {"Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"}
-    # --- END OF FIX ---
-    
-    return StreamingResponse(
-        document_buffer,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers=headers
-    )
-
-This change ensures that any special characters in your meeting name are safely encoded, which will resolve the UnicodeEncodeError and allow the document downloads to succeed.
-
-Issue #2: Pandoc Not Found (High Priority)
-
-Even with the download error fixed, your logs clearly show the next problem.
-
-The Problem:
-
-code
-Code
-download
-content_copy
-expand_less
-WARNING - app.services.document_generator - Pandoc conversion failed: No pandoc was found: either install pandoc and add it to your PATH...
-
-This error is very specific. pypandoc is just a Python wrapper or "remote control" for the main Pandoc application. Your pip show command confirms that the wrapper is installed, but the underlying Pandoc program itself is missing from your Docker container's operating system. You cannot install it with pip.
-
-The Solution:
-Since your company's network restricts apt-get, we cannot install it the easy way. The most robust alternative is to download the Pandoc binary directly and copy it into your Docker image.
-
-Download Pandoc: Go to the official Pandoc releases page. Find a recent release and download the .deb file for Debian/Ubuntu. For example, pandoc-3.1.9-1-amd64.deb. Save this file in the root directory of your project (the same place as your Dockerfile).
-
-Modify Your Dockerfile: Add commands to copy and install this local .deb file.
-
-File to Edit: Dockerfile
+Modify Dockerfile:
+Remove the lines you added to try and install the Pandoc .deb file. This is no longer needed.
 
 code
 Dockerfile
 download
 content_copy
 expand_less
-FROM dso-nexus.vietinbank.vn/ai_docker/diarization_transcription_service:v1
+# --- DELETE THE SECTION YOU ADDED FOR PANDOC ---
+# COPY pandoc-3.1.9-1-amd64.deb /tmp/pandoc.deb
+# RUN apt-get update && apt-get install -y /tmp/pandoc.deb && rm /tmp/pandoc.deb
+# --- END OF DELETION ---
+Step 2: Modify the Document Generation Service
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Asia/Ho_Chi_Minh
-ENV PYTHONUNBUFFERED=1
+This is the core of the solution. We will simplify the generate_docx_from_markdown function to remove the Pandoc logic entirely.
 
-WORKDIR /code
+File to Edit: app/services/document_generator.py
 
-# --- ADD THIS SECTION TO INSTALL PANDOC FROM THE LOCAL FILE ---
-# 1. Copy the downloaded .deb file into the image
-COPY pandoc-3.1.9-1-amd64.deb /tmp/pandoc.deb
-
-# 2. Install the .deb package using dpkg
-RUN apt-get update && apt-get install -y /tmp/pandoc.deb && rm /tmp/pandoc.deb
-# --- END OF ADDITION ---
-
-# Your existing pip and code copying commands remain the same
-ENV PYTHONPATH=/app
-
-RUN pip config set global.index-url ***
-RUN pip config set global.trusted-host ***
-
-RUN pip install --no-cache-dir --upgrade pip
-
-COPY requirements.txt .
-
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --timeout 60 -r requirements.txt
-
-COPY ./app /code/app
-
-EXPOSE 8072
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8072"]
-
-(Note: Replace pandoc-3.1.9-1-amd64.deb with the exact filename you downloaded.)
-
-After rebuilding your image with docker-compose build --no-cache, the Pandoc program will be correctly installed, and your high-quality document conversion will work as intended.
-
-Issue #3: Missing Keys in AI Prompt (Medium Priority)
-
-This is the cause of the 502 Bad Gateway errors for summary_bbh_hdqt and summary_nghi_quyet.
-
-The Problem:
-The log shows a KeyError happening inside the ai_service.py file:
-
-code
-Code
-download
-content_copy
-expand_less
-File "/code/app/services/ai_service.py", line 87, in get_response
-  system_prompt = system_prompt.format(**context["meeting_info"])
-KeyError: 'start_time'
-
-This means your SUMMARY_BBH_HDQT_PROMPT contains placeholders like {start_time} that you are not providing in the meeting_info dictionary. Your code currently only adds bbh_name, meeting_type, and meeting_host.
-
-The Solution:
-We need to populate the meeting_info dictionary with all the required keys when generating these specific summaries.
-
-File to Edit: app/api/routes/meeting.py
+Replace the entire content of this file with the code below. I have removed all references to pypandoc and simplified the main function.
 
 code
 Python
 download
 content_copy
 expand_less
-# app/api/routes/meeting.py
+import json
+import logging
+import re
+from io import BytesIO
+from pathlib import Path
 
-# ... (in the _generate_and_save_summary helper function)
+from docx import Document
+from docxtpl import DocxTemplate
 
-async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
-    # ... (code to get transcript source text is unchanged)
+from app.utils import create_subdoc_from_structured_data
 
-    # Generate content using AI service
+logger = logging.getLogger(__name__)
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "templates"
+
+# ===================================================================
+#   DOCX Generation for Template-Based Summaries (bbh_hdqt, nghi_quyet)
+# ===================================================================
+def generate_templated_document(template_type: str, llm_json_output: str) -> BytesIO:
+    """
+    Generates a DOCX file from a template and JSON data.
+    """
+    template_map = {
+        "bbh_hdqt": "bbh_hdqt_template.docx",
+        "nghi_quyet": "nghi_quyet_template.docx",
+    }
+    template_filename = template_map.get(template_type)
+    if not template_filename:
+        raise ValueError(f"Invalid template type: {template_type}")
+
+    template_path = TEMPLATES_DIR / template_filename
+    if not template_path.exists():
+        raise FileNotFoundError(f"Template file not found at: {template_path}")
+
     try:
-        # --- THIS IS THE FIX ---
-        meeting_info = {
-            "bbh_name": job.bbh_name,
-            "meeting_type": job.meeting_type,
-            "meeting_host": job.meeting_host,
-            # Add default/fallback values for all keys used in the prompts
-            "start_time": "N/A",
-            "end_time": "N/A",
-            "ngay": "N/A",
-            "thang": "N/A",
-            "nam": "N/A",
-            "meeting_members_str": ", ".join(job.meeting_members) if job.meeting_members else "Không xác định"
-        }
+        doc = DocxTemplate(template_path)
+        context_data = json.loads(llm_json_output)
         
-        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
-            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
-            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
-            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
-            
-            # Overwrite defaults with real values if they exist
-            if start_time_local:
-                meeting_info["start_time"] = start_time_local.strftime('%H:%M')
-                meeting_info["ngay"] = start_time_local.strftime('%d')
-                meeting_info["thang"] = start_time_local.strftime('%m')
-                meeting_info["nam"] = start_time_local.strftime('%Y') # Use 4-digit year for clarity
-            
-            if end_time_local:
-                meeting_info["end_time"] = end_time_local.strftime('%H:%M')
-
-            # The source_text preparation remains the same
-            context_header = (
-                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
-                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
-                f"- Giờ bắt đầu: {meeting_info['start_time']}\n"
-                f"- Giờ kết thúc: {meeting_info['end_time']}\n\n"
-                f"**NỘI DUNG BIÊN BẢN (TRANSCRIPT):**\n"
-            )
-            source_text = context_header + source_text
-        # --- END OF FIX ---
+        render_context = {}
+        for key, value in context_data.items():
+            if isinstance(value, list):
+                render_context[key] = create_subdoc_from_structured_data(doc, value)
+            else:
+                render_context[key] = value
         
-        summary_content = await ai_service.get_response(
-            task=summary_type,
-            user_message=source_text,
-            context={"meeting_info": meeting_info} # This now contains all required keys
-        )
-    # ... (rest of function is unchanged)
+        doc.render(render_context)
+        
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        return buffer
 
-By pre-populating the meeting_info dictionary with default values and then overwriting them, you guarantee that the .format() call will never fail, resolving the 502 errors.
+    except json.JSONDecodeError:
+        logger.error(f"Failed to decode LLM JSON: {llm_json_output}")
+        raise ValueError("AI service returned invalid JSON.")
+    except Exception as e:
+        logger.error(f"Failed to generate document for template '{template_type}': {e}", exc_info=True)
+        raise RuntimeError("An unexpected error occurred during document generation.")
+
+
+# ===================================================================
+#   DOCX Generation for Markdown-Based Summaries (topic, speaker)
+# ===================================================================
+
+def _parse_inline_markdown(text: str, paragraph):
+    """
+    Parses a string for **bold** markdown and adds formatted
+    runs to a python-docx paragraph object.
+    """
+    # Use regex to find all parts that are bold (**) or just text
+    parts = re.split(r'(\*\*.*?\*\*)', text)
+    for part in parts:
+        if part.startswith('**') and part.endswith('**'):
+            # It's a bold part, remove the asterisks and add as a bold run
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+        elif part:
+            # It's a normal text part
+            paragraph.add_run(part)
+
+def generate_docx_from_markdown(markdown_content: str) -> BytesIO:
+    """
+    Converts a markdown string to a well-formatted DOCX file in memory
+    using the python-docx library. This is the sole method used, with no
+    dependency on external Pandoc.
+    """
+    logger.info("Generating DOCX from markdown using custom python-docx parser...")
+    try:
+        doc = Document()
+        lines = markdown_content.strip().split('\n')
+
+        for line in lines:
+            line = line.rstrip()
+            if not line.strip():
+                # Add an empty paragraph for newlines
+                doc.add_paragraph()
+                continue
+
+            # Headings
+            if line.startswith('#'):
+                level = len(line) - len(line.lstrip('#'))
+                text = line.lstrip('#').strip()
+                doc.add_heading(text, level=min(level, 4))
+            # Unordered list
+            elif line.strip().startswith(('-', '*')):
+                text = line.strip().lstrip('-* ').strip()
+                # Use 'List Bullet' style for proper indentation
+                p = doc.add_paragraph(style='List Bullet')
+                _parse_inline_markdown(text, p)
+            # Ordered list (simple check)
+            elif line.strip() and line.strip()[0].isdigit() and '.' in line:
+                text = line.split('.', 1)[1].strip()
+                p = doc.add_paragraph(style='List Number')
+                _parse_inline_markdown(text, p)
+            # Normal paragraph
+            else:
+                p = doc.add_paragraph()
+                _parse_inline_markdown(line, p)
+
+        buffer = BytesIO()
+        doc.save(buffer)
+        buffer.seek(0)
+        logger.info("Custom parser successfully generated DOCX buffer.")
+        return buffer
+    except Exception as e:
+        logger.error(f"Custom DOCX parser failed: {e}", exc_info=True)
+        raise RuntimeError(f"Failed to generate DOCX from markdown: {e}")
+Summary of the Solution
+
+No More Pandoc: We have completely removed the pypandoc library and its logic. Your application no longer attempts to call an external program it can't find.
+
+Reliable Custom Parser: The generate_docx_from_markdown function now exclusively uses the custom, line-by-line parser. This function correctly interprets headings (#), bullet points (-), and bold text (**...**) and translates them into native Word document styles, ensuring your documents look professional.
+
+Error Solved: The 500 Internal Server Error on your topic and speaker downloads will be resolved because the code path that failed (calling Pandoc) no longer exists.
+
+No Other Changes Needed: Your download_summary_document endpoint in meeting.py does not need to be changed. It already calls generate_docx_from_markdown, which now contains the correct, reliable logic.
+
+After making these changes, run docker-compose build --no-cache and docker-compose up again. Your document download feature for topic and speaker summaries should now work perfectly without requiring Pandoc.
