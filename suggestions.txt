@@ -1,246 +1,206 @@
-import requests
-import os
-import time
-import glob
-import json
-import threading
-import websocket
-from requests.exceptions import JSONDecodeError
-from urllib.parse import quote
+You've provided excellent logs. Thank you. This is a classic case where one initial problem causes a cascade of different, seemingly unrelated errors.
 
-# --- CONFIGURATION ---
-API_BASE_URL = "http://localhost:8072/api/v1"
-MEETING_AUDIO_DIR = "ING" # Folder containing audio chunks like 'meeting_0.wav', 'meeting_1.wav', etc.
-TEST_USERNAME = "test_user_01"
-DOWNLOAD_DIR = "downloads"
-REQUEST_TIMEOUT = 120 # Timeout for API requests in seconds
-WEBSOCKET_TIMEOUT = 600 # Max time to wait for a websocket event in seconds
+Let's break down each issue, starting with the most critical one that is causing everything else to fail.
 
-# --- HELPER FUNCTIONS ---
-def print_separator(title):
-    print("\n" + "="*80)
-    print(f"===== {title.upper()} =====")
-    print("="*80 + "\n")
+The Core Problem: A KeyError in Your AI Prompts
 
-def print_response(response, step_name):
-    print(f"  -> [{step_name}] Status: {response.status_code}")
+The traceback log points to the exact line of code that is failing and explains all the 502 Bad Gateway errors you're seeing for the bbh_hdqt and nghi_quyet summaries:
+
+Log Snippet:
+
+code
+Code
+download
+content_copy
+expand_less
+meeting_api_server  |   File "/code/app/services/ai_service.py", line 87, in get_response
+meeting_api_server  |     system_prompt = system_prompt.format(**context["meeting_info"])
+meeting_api_server  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+"
+...
+meeting_api_server  | "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"start_time\"'"
+meeting_api_server  | "detail": "Failed to get response from AI service: An unexpected error occurred: '\\n  \"ngay\"'"
+
+Explanation:
+This error means you are trying to format a string with placeholders (like {start_time} or {ngay}), but you haven't provided a value for those placeholders in the dictionary.
+
+Your prompts for summary_bbh_hdqt and summary_nghi_quyet expect detailed context like start time, end time, date, etc.
+
+However, your generic meeting_info dictionary in the _generate_and_save_summary function only contains bbh_name, meeting_type, and meeting_host.
+
+The KeyError happens because the code is trying to find start_time and other keys in a dictionary that doesn't have them. This immediately crashes the AI call, leading to the 502 error.
+
+Problem #2: The Pandoc 500 Internal Server Error
+
+This is a two-part problem.
+
+Part A: Pandoc is Not Actually Installed
+
+The log clearly states the root cause:
+
+code
+Code
+download
+content_copy
+expand_less
+WARNING - app.services.document_generator - Pandoc conversion failed: No pandoc was found: either install pandoc and add it to your PATH...
+
+This is a very common and confusing issue. pip install pandoc and pip install pypandoc do not install the Pandoc program itself. They only install the Python wrapper libraries that talk to the Pandoc program.
+
+You need to add a command to your Dockerfile to install the actual Pandoc command-line tool.
+
+Part B: A Unicode Character Encoding Error
+
+The final part of the traceback reveals what happens after Pandoc fails:
+
+code
+Code
+download
+content_copy
+expand_less
+UnicodeEncodeError: 'latin-1' codec can't encode character '\u1ed9' in position 39: ordinal not in range(256)
+
+This error happens because your filename (test_Hop TO 11092025_1759457427) contains Vietnamese characters. The HTTP headers are trying to encode this filename using a very old and limited character set (latin-1) that cannot handle these characters.
+
+The Solution: A Three-Step Fix
+
+Let's fix all these issues methodically.
+
+Step 1: Fix the KeyError in the AI Prompts
+
+We need to ensure that when we generate bbh_hdqt or nghi_quyet summaries, we provide the full, rich context that the prompts expect.
+
+File to Edit: app/api/routes/meeting.py
+
+code
+Python
+download
+content_copy
+expand_less
+# app/api/routes/meeting.py
+# ... (imports, especially for ZoneInfo, datetime, timezone)
+
+async def _generate_and_save_summary(db: Session, job: MeetingJob, summary_type: str) -> Summary:
+    # ... (code to get transcript_source and source_text is unchanged)
+
+    # Generate content using AI service
     try:
-        # Limit long summary content for cleaner logs
-        json_data = response.json()
-        if "summary_content" in json_data and len(json_data["summary_content"]) > 250:
-            json_data["summary_content"] = json_data["summary_content"][:250] + "..."
-        if "data" in json_data and "summary_content" in json_data["data"] and len(json_data["data"]["summary_content"]) > 250:
-             json_data["data"]["summary_content"] = json_data["data"]["summary_content"][:250] + "..."
+        # --- THIS IS THE CRITICAL FIX ---
         
-        print(f"     Response: {json.dumps(json_data, indent=2, ensure_ascii=False)}")
-    except JSONDecodeError:
-        print(f"     Response (non-JSON): {response.text[:500]}...")
+        # Start with the basic context
+        meeting_info = { 
+            "bbh_name": job.bbh_name, 
+            "meeting_type": job.meeting_type, 
+            "meeting_host": job.meeting_host,
+            "meeting_members_str": ", ".join(job.meeting_members) if job.meeting_members else "Không xác định"
+        }
 
-def group_meeting_chunks():
-    meetings = {}
-    search_path = os.path.join(MEETING_AUDIO_DIR, '*.wav')
-    for chunk_path in glob.glob(search_path):
-        filename = os.path.basename(chunk_path)
-        # Assumes format like 'meeting_0.wav', 'meeting_1.wav'
-        try:
-            meeting_name = "_".join(filename.split('_')[:-1])
-            chunk_num = int(filename.split('_')[-1].split('.')[0])
-            if meeting_name not in meetings:
-                meetings[meeting_name] = []
-            meetings[meeting_name].append((chunk_num, chunk_path))
-        except (ValueError, IndexError):
-            print(f"Warning: Skipping file with unexpected format: {filename}")
-            continue
+        # If it's a special document type, add all the extra required fields
+        if summary_type in ["summary_bbh_hdqt", "summary_nghi_quyet"]:
+            local_tz = ZoneInfo("Asia/Ho_Chi_Minh")
+            start_time_local = job.upload_started_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_started_at else None
+            end_time_local = job.upload_finished_at.replace(tzinfo=timezone.utc).astimezone(local_tz) if job.upload_finished_at else None
 
-    for name, chunks in meetings.items():
-        chunks.sort() # Sort by chunk number
-        meetings[name] = [path for _, path in chunks] # Keep only the path
+            # Add the specific fields the prompts need to the dictionary
+            meeting_info['start_time'] = start_time_local.strftime('%H:%M') if start_time_local else "N/A"
+            meeting_info['end_time'] = end_time_local.strftime('%H:%M') if end_time_local else "N/A"
+            meeting_info['ngay'] = start_time_local.strftime('%d') if start_time_local else "N/A"
+            meeting_info['thang'] = start_time_local.strftime('%m') if start_time_local else "N/A"
+            meeting_info['nam'] = start_time_local.strftime('%Y') if start_time_local else "N/A"
+            
+            # The full transcript still needs to be passed as the main message
+            context_header = (
+                f"**THÔNG TIN BỐI CẢNH CUỘC HỌP:**\n"
+                f"- Ngày họp: {start_time_local.strftime('%d/%m/%Y') if start_time_local else 'N/A'}\n"
+                # ... other context header info
+            )
+            source_text = context_header + source_text
 
-    print(f"Found {len(meetings)} meetings to process in '{MEETING_AUDIO_DIR}'.")
-    return meetings
-
-# --- WEBSOCKET CLIENT CLASS ---
-class WebSocketClient:
-    """A threaded WebSocket client to listen for status updates without blocking."""
-    def __init__(self, request_id: str):
-        encoded_id = quote(request_id)
-        ws_url = f"{API_BASE_URL.replace('http', 'ws')}/meeting/ws/{encoded_id}"
-        self.ws_app = websocket.WebSocketApp(
-            ws_url,
-            on_open=self.on_open,
-            on_message=self.on_message,
-            on_error=self.on_error,
-            on_close=self.on_close
+        # --- END OF FIX ---
+        
+        summary_content = await ai_service.get_response(
+            task=summary_type,
+            user_message=source_text,
+            context={"meeting_info": meeting_info} # Now this contains all the keys
         )
-        self.last_message = {}
-        self.is_done_event = threading.Event()
-        self.thread = threading.Thread(target=self.ws_app.run_forever)
+    # ... (rest of the function is unchanged)
+Step 2: Install the Real Pandoc in Your Dockerfile
 
-    def on_open(self, ws):
-        print("\n[WebSocket] Connection opened.")
+Add the apt-get install command for Pandoc to your Dockerfile.
 
-    def on_message(self, ws, message):
-        data = json.loads(message)
-        status = data.get('status')
-        print(f"\n[WebSocket] <<<< STATUS UPDATE: {status} >>>>")
-        print(json.dumps(data, indent=2, ensure_ascii=False))
-        self.last_message = data
-        # Signal completion on final states
-        if status in ['transcription_complete', 'completed', 'failed', 'cancelled']:
-            self.is_done_event.set()
+File to Edit: Dockerfile
 
-    def on_error(self, ws, error):
-        print(f"[WebSocket] Error: {error}")
-        self.is_done_event.set() # Don't hang if there's an error
+code
+Dockerfile
+download
+content_copy
+expand_less
+FROM dso-nexus.vietinbank.vn/ai_docker/diarization_transcription_service:v1
 
-    def on_close(self, ws, close_status_code, close_msg):
-        print("[WebSocket] Connection closed.")
-        self.is_done_event.set() # Ensure waiting threads are released on close
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Ho_Chi_Minh
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
-    def start(self):
-        self.thread.start()
+RUN pip config set global.index-url ***
+RUN pip config set global.trusted-host ***
 
-    def wait_for_completion(self, timeout=WEBSOCKET_TIMEOUT):
-        print(f"\n[Main Thread] Waiting for WebSocket to signal completion (max {timeout}s)...")
-        completed = self.is_done_event.wait(timeout=timeout)
-        if not completed:
-            print("[Main Thread] TIMEOUT waiting for WebSocket signal.")
-            self.ws_app.close()
-        else:
-            print("[Main Thread] WebSocket signal received.")
-        self.thread.join(timeout=2)
-        return completed
+# --- THIS IS THE FIX ---
+# Install the pandoc command-line tool from the system's package manager
+RUN apt-get update && apt-get install -y --no-install-recommends pandoc
+# --- END OF FIX ---
 
-    def reset(self):
-        self.is_done_event.clear()
+WORKDIR /code
+# ... (rest of the Dockerfile is unchanged)
+Step 3: Fix the Unicode Filename Error
 
+We need to properly URL-encode the filename in the HTTP headers to handle special characters.
 
-# --- MAIN TEST SCRIPT ---
-def run_full_test():
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-    meetings = group_meeting_chunks()
-    if not meetings:
-        print(f"No meeting chunk files found in the '{MEETING_AUDIO_DIR}' directory. Aborting test.")
-        return
+File to Edit: app/api/routes/meeting.py
 
-    meeting_name, chunks = list(meetings.items())[0]
-    request_id = f"test_{meeting_name}_{int(time.time())}"
+code
+Python
+download
+content_copy
+expand_less
+# app/api/routes/meeting.py
+# --- ADD THIS IMPORT AT THE TOP ---
+from urllib.parse import quote as url_quote
 
-    # ==================================================================
-    # STEP 1: UPLOAD & PROCESS MEETING (TRANSCRIPTION & DIARIZATION)
-    # ==================================================================
-    print_separator(f"STEP 1: PROCESSING MEETING '{meeting_name}' (ID: {request_id})")
+# ... (other code)
 
-    # Start WebSocket listener in the background
-    ws_client = WebSocketClient(request_id)
-    ws_client.start()
-    time.sleep(2) # Give the websocket time to connect
+@router.get("/{request_id}/download/document", summary="Download any summary as a DOCX document")
+async def download_summary_document(
+    # ... (function signature and body are unchanged until the end)
 
-    # Start the meeting
-    start_payload = {
-        'requestId': request_id, 'username': TEST_USERNAME, 'language': 'vi',
-        'filename': f"{meeting_name}.wav", 'bbhName': "Cuộc Họp Đánh Giá Dự Án",
-        'Type': "Kiểm tra định kỳ", 'Host': "Giám đốc",
-        'meetingMembers': json.dumps(["Anh Toàn", "Chị Linh", "Bạn Hùng"])
+    # --- THIS IS THE FIX ---
+    # Sanitize the filename for headers
+    safe_filename_base = f"{summary_type}_{job.bbh_name.replace(' ', '_')}"
+    # URL-encode the filename to handle Unicode characters correctly
+    encoded_filename = url_quote(safe_filename_base)
+    
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}.docx"
     }
-    print("Testing: POST /meeting/start-bbh")
-    response = requests.post(f"{API_BASE_URL}/meeting/start-bbh", data=start_payload, timeout=REQUEST_TIMEOUT)
-    print_response(response, "Start Meeting")
-
-    # Upload chunks
-    print(f"\nUploading {len(chunks)} audio chunks...")
-    for i, chunk_path in enumerate(chunks):
-        is_last = (i == len(chunks) - 1)
-        chunk_payload = {'requestId': request_id, 'isLastChunk': str(is_last)}
-        files = {'FileData': (os.path.basename(chunk_path), open(chunk_path, 'rb'), 'audio/wav')}
-        requests.post(f"{API_BASE_URL}/meeting/upload-file-chunk", data=chunk_payload, files=files, timeout=REQUEST_TIMEOUT)
-        print(f"  - Uploaded chunk {i+1}/{len(chunks)} (isLastChunk={is_last})")
-
-    # Wait for transcription to complete
-    ws_client.wait_for_completion()
-    if ws_client.last_message.get("status") != "transcription_complete":
-        print("ERROR: Transcription did not complete successfully. Aborting further tests.")
-        return
+    # --- END OF FIX ---
     
-    ws_client.reset()
+    return StreamingResponse(
+        document_buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers=headers
+    )
+How to Apply the Fixes
 
-    # Trigger and wait for diarization
-    print("\nTesting: POST /diarize")
-    requests.post(f"{API_BASE_URL}/meeting/{quote(request_id)}/diarize?username={TEST_USERNAME}", timeout=REQUEST_TIMEOUT)
-    ws_client.wait_for_completion()
-    if ws_client.last_message.get("status") != "completed":
-        print("ERROR: Diarization did not complete successfully. Aborting further tests.")
-        return
+Stop Your Application: docker-compose down
 
-    # ==================================================================
-    # STEP 2: GENERATE AND DOWNLOAD ALL SUMMARY TYPES
-    # ==================================================================
-    print_separator("STEP 2: GENERATING & DOWNLOADING SUMMARIES")
-    summary_types_to_test = ['topic', 'speaker', 'summary_bbh_hdqt', 'summary_nghi_quyet']
-    
-    for s_type in summary_types_to_test:
-        # Generate/Get Summary
-        print(f"\nTesting: POST /summary (type: {s_type})")
-        summary_payload = {"summary_type": s_type}
-        summary_response = requests.post(f"{API_BASE_URL}/meeting/{quote(request_id)}/summary?username={TEST_USERNAME}", json=summary_payload, timeout=REQUEST_TIMEOUT)
-        print_response(summary_response, f"Generate '{s_type}' Summary")
+Force Rebuild: Run docker-compose build --no-cache. This is essential for the Dockerfile changes to take effect.
 
-        # Download Document
-        print(f"Testing: GET /download/document (type: {s_type})")
-        doc_params = {'username': TEST_USERNAME, 'summary_type': s_type}
-        doc_dl_response = requests.get(f"{API_BASE_URL}/meeting/{quote(request_id)}/download/document", params=doc_params, timeout=REQUEST_TIMEOUT)
-        if doc_dl_response.status_code == 200:
-            save_path = os.path.join(DOWNLOAD_DIR, f"{request_id}_{s_type}.docx")
-            with open(save_path, 'wb') as f:
-                f.write(doc_dl_response.content)
-            print(f"  -> [Download Document] OK. File saved to '{save_path}'")
-        else:
-            print_response(doc_dl_response, f"Download Document '{s_type}'")
-        time.sleep(1) # Small delay between heavy AI calls
+Start Again: docker-compose up
 
-    # ==================================================================
-    # STEP 3: CHAT SCENARIOS FOR SUMMARY EDITING
-    # ==================================================================
-    print_separator("STEP 3: TESTING CHAT EDITING SCENARIOS")
+After these three changes, your application should work correctly:
 
-    def send_chat_and_print(message, summary_context=None):
-        payload = {"requestId": request_id, "username": TEST_USERNAME, "message": message}
-        if summary_context:
-            payload["summary_type_context"] = summary_context
-        print(f"\n>>> Sending Chat (context: {summary_context}): '{message}'")
-        response = requests.post(f"{API_BASE_URL}/meeting/chat", json=payload, timeout=REQUEST_TIMEOUT)
-        print_response(response, "Chat Response")
-        return response.json().get("response", "")
+The bbh_hdqt and nghi_quyet summaries will generate successfully because the prompts will have all the data they need.
 
-    # --- Scenario 1: Ambiguous edit request ---
-    send_chat_and_print("Sửa tóm tắt này cho tôi")
+The Pandoc conversion will succeed because the actual program will be installed in the container.
 
-    # --- Scenario 2: Edit a summary that has NOT been generated yet ---
-    # (Assuming 'speaker' summary wasn't generated above, but our code does generate it.
-    # We will test the logic by trying to edit a non-existent type.)
-    send_chat_and_print("Sửa biên bản họp theo công việc cho tôi", summary_context="action_items")
-
-    # --- Scenario 3: Successful Edit ---
-    # We already generated 'topic' summary in Step 2.
-    edit_instruction = "Sửa lại tóm tắt theo chủ đề, hãy nhấn mạnh rằng kế hoạch marketing cho Quý 4 là ưu tiên hàng đầu."
-    send_chat_and_print(edit_instruction, summary_context="topic")
-
-    # --- Scenario 4: Simple Question (no editing) ---
-    send_chat_and_print("Ai là người chủ trì cuộc họp này?")
-    
-    # --- Scenario 5: Verify the edit was saved ---
-    print("\nVerifying that the summary edit was saved permanently...")
-    summary_payload = {"summary_type": "topic"}
-    verify_response = requests.post(f"{API_BASE_URL}/meeting/{quote(request_id)}/summary?username={TEST_USERNAME}", json=summary_payload, timeout=REQUEST_TIMEOUT)
-    summary_content = verify_response.json().get("data", {}).get("summary_content", "")
-    if "marketing" in summary_content.lower() and "quý 4" in summary_content:
-        print("  -> SUCCESS: The new summary content was correctly fetched from the database.")
-    else:
-        print("  -> FAILURE: The edited summary content was not found.")
-    print_response(verify_response, "Verify Saved Edit")
-
-
-    print_separator("ALL TESTS COMPLETE")
-
-if __name__ == "__main__":
-    run_full_test()
+The file downloads will work even with Vietnamese characters in the meeting name.
