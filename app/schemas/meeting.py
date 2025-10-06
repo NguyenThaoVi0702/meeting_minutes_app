@@ -107,6 +107,14 @@ class SummaryResponse(BaseModel):
     summary_type: str = Field(..., description="The type of the summary provided.")
     summary_content: str = Field(..., description="The generated summary content in Markdown or plain text.")
 
+class SummaryResponseWrapper(BaseModel):
+    """
+    Standard wrapper for the summary response for API consistency
+    """
+    status: int = 200
+    message: str = "Success"
+    data: SummaryResponse
+
 class ChatResponse(BaseModel):
     success: int = 0
     response: str
