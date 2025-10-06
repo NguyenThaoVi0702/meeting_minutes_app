@@ -1,16 +1,178 @@
->>> Sending Chat (context: None): 'Ai là người chủ trì cuộc họp này?'
-  -> [Chat Response] Status: 200
-     Response: {
-  "success": 0,
-  "response": "Người chủ trì cuộc họp này là Giám đốc."
-}
 
-Verifying that the summary edit was saved permanently...
-  -> FAILURE: The edited summary content was not found.
-  -> [Verify Saved Edit] Status: 200
-     Response: {
-  "request_id": "test_Hop TO 11092025_1759717912",
-  "summary_type": "topic",
-  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**Thành viên tham gia:** Anh Toàn, Chị Linh, Bạn Hùng  \n-------------------------------------------\n\n### I. ..."
-}
-
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:21,280 - INFO - sqlalchemy.engine.Engine - [cached since 89.1s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:21,283 - INFO - app.services.ai_service - Sending request to LLM for task 'intent_analysis' with model 'gpt-4.1-GS'.
+meeting_api_server  | 2025-10-06 09:33:21,985 - INFO - httpx - HTTP Request: POST https://ai-platform.vietinbank.vn/chat/completions "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-10-06 09:33:21,986 - INFO - app.services.ai_service - Successfully received and cleaned response for task 'intent_analysis'.
+meeting_api_server  | 2025-10-06 09:33:21,990 - INFO - sqlalchemy.engine.Engine - INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:21,990 INFO sqlalchemy.engine.Engine INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:21,990 - INFO - sqlalchemy.engine.Engine - [generated in 0.00014s (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 21, 987400, tzinfo=datetime.timezone.utc), 'message__0': 'Sửa tóm tắt này cho tôi', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 21, 987690, tzinfo=datetime.timezone.utc), 'message__1': 'Bạn muốn sửa loại tóm tắt nào? (ví dụ: theo chủ đề, theo người nói, các công việc cần làm...)', 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:21,990 INFO sqlalchemy.engine.Engine [generated in 0.00014s (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 21, 987400, tzinfo=datetime.timezone.utc), 'message__0': 'Sửa tóm tắt này cho tôi', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 21, 987690, tzinfo=datetime.timezone.utc), 'message__1': 'Bạn muốn sửa loại tóm tắt nào? (ví dụ: theo chủ đề, theo người nói, các công việc cần làm...)', 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:21,992 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-10-06 09:33:21,992 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     172.26.0.5:50962 - "POST /api/v1/meeting/chat HTTP/1.1" 200 OK
+meeting_api_server  | 2025-10-06 09:33:22,002 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:22,002 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:22,002 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:22,003 INFO sqlalchemy.engine.Engine [cached since 89.82s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:22,002 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:22,003 - INFO - sqlalchemy.engine.Engine - [cached since 89.82s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:22,005 - INFO - app.services.ai_service - Sending request to LLM for task 'intent_analysis' with model 'gpt-4.1-GS'.
+meeting_api_server  | 2025-10-06 09:33:22,649 - INFO - httpx - HTTP Request: POST https://ai-platform.vietinbank.vn/chat/completions "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-10-06 09:33:22,651 - INFO - app.services.ai_service - Successfully received and cleaned response for task 'intent_analysis'.
+meeting_api_server  | 2025-10-06 09:33:22,651 INFO sqlalchemy.engine.Engine SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
+meeting_api_server  | 2025-10-06 09:33:22,651 - INFO - sqlalchemy.engine.Engine - SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
+meeting_api_server  | 2025-10-06 09:33:22,652 - INFO - sqlalchemy.engine.Engine - [cached since 43.01s ago] {'meeting_job_id_1': 18, 'summary_type_1': 'action_items'}
+meeting_api_server  | 2025-10-06 09:33:22,652 INFO sqlalchemy.engine.Engine [cached since 43.01s ago] {'meeting_job_id_1': 18, 'summary_type_1': 'action_items'}
+meeting_api_server  | 2025-10-06 09:33:22,655 INFO sqlalchemy.engine.Engine INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:22,655 INFO sqlalchemy.engine.Engine [cached since 0.6655s ago (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 22, 654284, tzinfo=datetime.timezone.utc), 'message__0': 'Sửa biên bản họp theo công việc cho tôi', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 22, 654538, tzinfo=datetime.timezone.utc), 'message__1': "Biên bản họp theo 'action_items' chưa được tạo. Vui lòng nhấn nút tương ứng để tạo tóm tắt trước khi bạn có thể chỉnh sửa.", 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:22,655 - INFO - sqlalchemy.engine.Engine - INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:22,655 - INFO - sqlalchemy.engine.Engine - [cached since 0.6655s ago (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 22, 654284, tzinfo=datetime.timezone.utc), 'message__0': 'Sửa biên bản họp theo công việc cho tôi', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 22, 654538, tzinfo=datetime.timezone.utc), 'message__1': "Biên bản họp theo 'action_items' chưa được tạo. Vui lòng nhấn nút tương ứng để tạo tóm tắt trước khi bạn có thể chỉnh sửa.", 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:22,657 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-10-06 09:33:22,657 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     172.26.0.5:50978 - "POST /api/v1/meeting/chat HTTP/1.1" 200 OK
+meeting_api_server  | 2025-10-06 09:33:22,667 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:22,667 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:22,667 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:22,668 INFO sqlalchemy.engine.Engine [cached since 90.49s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:22,667 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:22,668 - INFO - sqlalchemy.engine.Engine - [cached since 90.49s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:22,670 - INFO - app.services.ai_service - Sending request to LLM for task 'intent_analysis' with model 'gpt-4.1-GS'.
+meeting_api_server  | 2025-10-06 09:33:23,399 - INFO - httpx - HTTP Request: POST https://ai-platform.vietinbank.vn/chat/completions "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-10-06 09:33:23,401 - INFO - app.services.ai_service - Successfully received and cleaned response for task 'intent_analysis'.
+meeting_api_server  | 2025-10-06 09:33:23,402 INFO sqlalchemy.engine.Engine SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
+meeting_api_server  | 2025-10-06 09:33:23,402 INFO sqlalchemy.engine.Engine [cached since 43.76s ago] {'meeting_job_id_1': 18, 'summary_type_1': 'topic'}
+meeting_api_server  | 2025-10-06 09:33:23,402 - INFO - sqlalchemy.engine.Engine - SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
+meeting_api_server  | 2025-10-06 09:33:23,402 - INFO - sqlalchemy.engine.Engine - [cached since 43.76s ago] {'meeting_job_id_1': 18, 'summary_type_1': 'topic'}
+meeting_api_server  | 2025-10-06 09:33:23,404 - INFO - app.api.routes.meeting - Performing summary edit for type 'topic' on job 'test_Hop TO 11092025_1759717912'.
+meeting_api_server  | 2025-10-06 09:33:23,404 - INFO - app.services.ai_service - Sending request to LLM for task 'chat' with model 'gpt-4.1-GS'.
+meeting_api_server  | 2025-10-06 09:33:30,377 - INFO - httpx - HTTP Request: POST https://ai-platform.vietinbank.vn/chat/completions "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-10-06 09:33:30,379 - INFO - app.services.ai_service - Successfully received and cleaned response for task 'chat'.
+meeting_api_server  | 2025-10-06 09:33:30,380 - INFO - sqlalchemy.engine.Engine - UPDATE summary SET summary_content=%(summary_content)s, updated_at=%(updated_at)s WHERE summary.id = %(summary_id)s
+meeting_api_server  | 2025-10-06 09:33:30,380 INFO sqlalchemy.engine.Engine UPDATE summary SET summary_content=%(summary_content)s, updated_at=%(updated_at)s WHERE summary.id = %(summary_id)s
+meeting_api_server  | 2025-10-06 09:33:30,380 INFO sqlalchemy.engine.Engine [generated in 0.00029s] {'summary_content': '**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**T ... (4299 characters truncated) ... à triển khai kế hoạch marketing Quý 4, phối hợp với các bộ phận liên quan, báo cáo tiến độ định kỳ cho Ban Giám đốc, thời hạn: xuyên suốt Quý 4/2024.', 'updated_at': datetime.datetime(2025, 10, 6, 2, 33, 30, 380615, tzinfo=datetime.timezone.utc), 'summary_id': 25}
+meeting_api_server  | 2025-10-06 09:33:30,380 - INFO - sqlalchemy.engine.Engine - [generated in 0.00029s] {'summary_content': '**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**T ... (4299 characters truncated) ... à triển khai kế hoạch marketing Quý 4, phối hợp với các bộ phận liên quan, báo cáo tiến độ định kỳ cho Ban Giám đốc, thời hạn: xuyên suốt Quý 4/2024.', 'updated_at': datetime.datetime(2025, 10, 6, 2, 33, 30, 380615, tzinfo=datetime.timezone.utc), 'summary_id': 25}
+meeting_api_server  | 2025-10-06 09:33:30,384 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-10-06 09:33:30,384 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-10-06 09:33:30,387 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:30,387 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:30,387 INFO sqlalchemy.engine.Engine SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.id = %(pk_1)s
+meeting_api_server  | 2025-10-06 09:33:30,387 - INFO - sqlalchemy.engine.Engine - SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.id = %(pk_1)s
+meeting_api_server  | 2025-10-06 09:33:30,388 - INFO - sqlalchemy.engine.Engine - [cached since 36.74s ago] {'pk_1': 25}
+meeting_api_server  | 2025-10-06 09:33:30,388 INFO sqlalchemy.engine.Engine [cached since 36.74s ago] {'pk_1': 25}
+meeting_api_server  | 2025-10-06 09:33:30,390 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.meeting_members AS meetingjob_meeting_members, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | 2025-10-06 09:33:30,390 INFO sqlalchemy.engine.Engine SELECT meetingjob.id AS meetingjob_id, meetingjob.request_id AS meetingjob_request_id, meetingjob.user_id AS meetingjob_user_id, meetingjob.original_filename AS meetingjob_original_filename, meetingjob.bbh_name AS meetingjob_bbh_name, meetingjob.meeting_type AS meetingjob_meeting_type, meetingjob.meeting_host AS meetingjob_meeting_host, meetingjob.meeting_members AS meetingjob_meeting_members, meetingjob.language AS meetingjob_language, meetingjob.upload_started_at AS meetingjob_upload_started_at, meetingjob.upload_finished_at AS meetingjob_upload_finished_at, meetingjob.status AS meetingjob_status, meetingjob.diarization_job_id AS meetingjob_diarization_job_id, meetingjob.error_message AS meetingjob_error_message, meetingjob.created_at AS meetingjob_created_at, meetingjob.updated_at AS meetingjob_updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-10-06 09:33:30,390 INFO sqlalchemy.engine.Engine [cached since 94.8s ago] {'pk_1': 18}
+meeting_api_server  | WHERE meetingjob.id = %(pk_1)s
+meeting_api_server  | 2025-10-06 09:33:30,390 - INFO - sqlalchemy.engine.Engine - [cached since 94.8s ago] {'pk_1': 18}
+meeting_api_server  | 2025-10-06 09:33:30,392 INFO sqlalchemy.engine.Engine INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:30,392 - INFO - sqlalchemy.engine.Engine - INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:30,392 INFO sqlalchemy.engine.Engine [cached since 8.403s ago (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 30, 391680, tzinfo=datetime.timezone.utc), 'message__0': 'Sửa lại tóm tắt theo chủ đề, hãy nhấn mạnh rằng kế hoạch marketing cho Quý 4 là ưu tiên hàng đầu.', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 30, 391879, tzinfo=datetime.timezone.utc), 'message__1': '**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**T ... (4299 characters truncated) ... à triển khai kế hoạch marketing Quý 4, phối hợp với các bộ phận liên quan, báo cáo tiến độ định kỳ cho Ban Giám đốc, thời hạn: xuyên suốt Quý 4/2024.', 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:30,392 - INFO - sqlalchemy.engine.Engine - [cached since 8.403s ago (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 30, 391680, tzinfo=datetime.timezone.utc), 'message__0': 'Sửa lại tóm tắt theo chủ đề, hãy nhấn mạnh rằng kế hoạch marketing cho Quý 4 là ưu tiên hàng đầu.', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 30, 391879, tzinfo=datetime.timezone.utc), 'message__1': '**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**T ... (4299 characters truncated) ... à triển khai kế hoạch marketing Quý 4, phối hợp với các bộ phận liên quan, báo cáo tiến độ định kỳ cho Ban Giám đốc, thời hạn: xuyên suốt Quý 4/2024.', 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:30,395 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | 2025-10-06 09:33:30,395 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | INFO:     172.26.0.5:50994 - "POST /api/v1/meeting/chat HTTP/1.1" 200 OK
+meeting_api_server  | 2025-10-06 09:33:30,406 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:30,406 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:30,407 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:30,407 INFO sqlalchemy.engine.Engine [cached since 98.23s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:30,407 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:30,407 - INFO - sqlalchemy.engine.Engine - [cached since 98.23s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:30,409 - INFO - app.services.ai_service - Sending request to LLM for task 'intent_analysis' with model 'gpt-4.1-GS'.
+meeting_api_server  | 2025-10-06 09:33:31,062 - INFO - httpx - HTTP Request: POST https://ai-platform.vietinbank.vn/chat/completions "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-10-06 09:33:31,064 - INFO - app.services.ai_service - Successfully received and cleaned response for task 'intent_analysis'.
+meeting_api_server  | 2025-10-06 09:33:31,064 - INFO - app.api.routes.meeting - Answering a general question for job 'test_Hop TO 11092025_1759717912'.
+meeting_api_server  | 2025-10-06 09:33:31,065 - INFO - sqlalchemy.engine.Engine - SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.word_level_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-10-06 09:33:31,065 - INFO - sqlalchemy.engine.Engine - [cached since 51.42s ago] {'meeting_job_id_1': 18, 'language_1': 'vi'}
+meeting_api_server  | 2025-10-06 09:33:31,065 INFO sqlalchemy.engine.Engine SELECT transcription.id, transcription.meeting_job_id, transcription.language, transcription.transcript_data, transcription.word_level_data, transcription.is_edited, transcription.created_at, transcription.updated_at
+meeting_api_server  | FROM transcription
+meeting_api_server  | WHERE transcription.meeting_job_id = %(meeting_job_id_1)s AND transcription.language = %(language_1)s
+meeting_api_server  | 2025-10-06 09:33:31,065 INFO sqlalchemy.engine.Engine [cached since 51.42s ago] {'meeting_job_id_1': 18, 'language_1': 'vi'}
+meeting_api_server  | 2025-10-06 09:33:31,079 INFO sqlalchemy.engine.Engine SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s
+meeting_api_server  | 2025-10-06 09:33:31,080 INFO sqlalchemy.engine.Engine [generated in 0.00022s] {'meeting_job_id_1': 18}
+meeting_api_server  | 2025-10-06 09:33:31,079 - INFO - sqlalchemy.engine.Engine - SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s
+meeting_api_server  | 2025-10-06 09:33:31,080 - INFO - sqlalchemy.engine.Engine - [generated in 0.00022s] {'meeting_job_id_1': 18}
+meeting_api_server  | 2025-10-06 09:33:31,083 INFO sqlalchemy.engine.Engine SELECT chathistory.id, chathistory.meeting_job_id, chathistory.role, chathistory.message, chathistory.created_at
+meeting_api_server  | FROM chathistory
+meeting_api_server  | WHERE chathistory.meeting_job_id = %(meeting_job_id_1)s ORDER BY chathistory.created_at DESC
+meeting_api_server  |  LIMIT %(param_1)s
+meeting_api_server  | 2025-10-06 09:33:31,084 INFO sqlalchemy.engine.Engine [generated in 0.00022s] {'meeting_job_id_1': 18, 'param_1': 12}
+meeting_api_server  | 2025-10-06 09:33:31,083 - INFO - sqlalchemy.engine.Engine - SELECT chathistory.id, chathistory.meeting_job_id, chathistory.role, chathistory.message, chathistory.created_at
+meeting_api_server  | FROM chathistory
+meeting_api_server  | WHERE chathistory.meeting_job_id = %(meeting_job_id_1)s ORDER BY chathistory.created_at DESC
+meeting_api_server  |  LIMIT %(param_1)s
+meeting_api_server  | 2025-10-06 09:33:31,084 - INFO - sqlalchemy.engine.Engine - [generated in 0.00022s] {'meeting_job_id_1': 18, 'param_1': 12}
+meeting_api_server  | 2025-10-06 09:33:31,086 - INFO - app.services.ai_service - Sending request to LLM for task 'chat' with model 'gpt-4.1-GS'.
+meeting_api_server  | 2025-10-06 09:33:32,456 - INFO - httpx - HTTP Request: POST https://ai-platform.vietinbank.vn/chat/completions "HTTP/1.1 200 OK"
+meeting_api_server  | 2025-10-06 09:33:32,457 - INFO - app.services.ai_service - Successfully received and cleaned response for task 'chat'.
+meeting_api_server  | 2025-10-06 09:33:32,459 - INFO - sqlalchemy.engine.Engine - INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:32,459 INFO sqlalchemy.engine.Engine INSERT INTO chathistory (meeting_job_id, role, message, created_at) SELECT p0::INTEGER, p1::VARCHAR, p2::VARCHAR, p3::TIMESTAMP WITHOUT TIME ZONE FROM (VALUES (%(meeting_job_id__0)s, %(role__0)s, %(message__0)s, %(created_at__0)s, 0), (%(meeting_job_id__1)s, %(role__1)s, %(message__1)s, %(created_at__1)s, 1)) AS imp_sen(p0, p1, p2, p3, sen_counter) ORDER BY sen_counter RETURNING chathistory.id, chathistory.id AS id__1
+meeting_api_server  | 2025-10-06 09:33:32,459 - INFO - sqlalchemy.engine.Engine - [cached since 10.47s ago (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 32, 458117, tzinfo=datetime.timezone.utc), 'message__0': 'Ai là người chủ trì cuộc họp này?', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 32, 458323, tzinfo=datetime.timezone.utc), 'message__1': 'Người chủ trì cuộc họp này là Giám đốc.', 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:32,459 INFO sqlalchemy.engine.Engine [cached since 10.47s ago (insertmanyvalues) 1/1 (ordered)] {'created_at__0': datetime.datetime(2025, 10, 6, 2, 33, 32, 458117, tzinfo=datetime.timezone.utc), 'message__0': 'Ai là người chủ trì cuộc họp này?', 'role__0': 'user', 'meeting_job_id__0': 18, 'created_at__1': datetime.datetime(2025, 10, 6, 2, 33, 32, 458323, tzinfo=datetime.timezone.utc), 'message__1': 'Người chủ trì cuộc họp này là Giám đốc.', 'role__1': 'assistant', 'meeting_job_id__1': 18}
+meeting_api_server  | 2025-10-06 09:33:32,461 - INFO - sqlalchemy.engine.Engine - COMMIT
+meeting_api_server  | 2025-10-06 09:33:32,461 INFO sqlalchemy.engine.Engine COMMIT
+meeting_api_server  | INFO:     172.26.0.5:40566 - "POST /api/v1/meeting/chat HTTP/1.1" 200 OK
+meeting_api_server  | 2025-10-06 09:33:32,472 - INFO - sqlalchemy.engine.Engine - BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:32,472 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+meeting_api_server  | 2025-10-06 09:33:32,473 - INFO - sqlalchemy.engine.Engine - SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | 2025-10-06 09:33:32,473 INFO sqlalchemy.engine.Engine SELECT "user".id, "user".username, "user".display_name, "user".created_at
+meeting_api_server  | FROM "user"
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | WHERE "user".username = %(username_1)s
+meeting_api_server  | 2025-10-06 09:33:32,473 INFO sqlalchemy.engine.Engine [cached since 98.3s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-10-06 09:33:32,473 - INFO - sqlalchemy.engine.Engine - [cached since 98.3s ago] {'username_1': 'test_user_01'}
+meeting_api_server  | 2025-10-06 09:33:32,475 - INFO - sqlalchemy.engine.Engine - SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:32,475 - INFO - sqlalchemy.engine.Engine - [cached since 100.3s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:32,475 INFO sqlalchemy.engine.Engine SELECT meetingjob.id, meetingjob.request_id, meetingjob.user_id, meetingjob.original_filename, meetingjob.bbh_name, meetingjob.meeting_type, meetingjob.meeting_host, meetingjob.meeting_members, meetingjob.language, meetingjob.upload_started_at, meetingjob.upload_finished_at, meetingjob.status, meetingjob.diarization_job_id, meetingjob.error_message, meetingjob.created_at, meetingjob.updated_at
+meeting_api_server  | FROM meetingjob
+meeting_api_server  | WHERE meetingjob.request_id = %(request_id_1)s
+meeting_api_server  | 2025-10-06 09:33:32,475 INFO sqlalchemy.engine.Engine [cached since 100.3s ago] {'request_id_1': 'test_Hop TO 11092025_1759717912'}
+meeting_api_server  | 2025-10-06 09:33:32,477 INFO sqlalchemy.engine.Engine SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
+meeting_api_server  | 2025-10-06 09:33:32,477 INFO sqlalchemy.engine.Engine [cached since 52.83s ago] {'meeting_job_id_1': 18, 'summary_type_1': 'topic'}
+meeting_api_server  | 2025-10-06 09:33:32,477 - INFO - sqlalchemy.engine.Engine - SELECT summary.id, summary.meeting_job_id, summary.summary_type, summary.summary_content, summary.created_at, summary.updated_at
+meeting_api_server  | FROM summary
+meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
+meeting_api_server  | 2025-10-06 09:33:32,477 - INFO - sqlalchemy.engine.Engine - [cached since 52.83s ago] {'meeting_job_id_1': 18, 'summary_type_1': 'topic'}
+meeting_api_server  | 2025-10-06 09:33:32,480 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+meeting_api_server  | 2025-10-06 09:33:32,480 INFO sqlalchemy.engine.Engine ROLLBACK
+meeting_api_server  | INFO:     172.26.0.5:40572 - "POST /api/v1/meeting/test_Hop%20TO%2011092025_1759717912/summary?username=test_user_01 HTTP/1.1" 200 OK
+meeting_api_server  | 2025-10-06 09:33:53,566 - INFO - app.api.routes.meeting - WebSocket disconnected for request_id 'test_Hop TO 11092025_1759717912'.
+meeting_api_server  | 2025-10-06 09:33:53,566 - INFO - app.services.websocket_manager - WebSocket disconnected for request_id 'test_Hop TO 11092025_1759717912'.
