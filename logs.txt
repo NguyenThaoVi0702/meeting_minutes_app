@@ -1,55 +1,16 @@
-pi_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-meeting_api_server  |     result = await app(  # type: ignore[func-returns-value]
-meeting_api_server  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-meeting_api_server  |     return await self.app(scope, receive, send)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/applications.py", line 1054, in __call__
-meeting_api_server  |     await super().__call__(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/applications.py", line 112, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 187, in __call__
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/errors.py", line 165, in __call__
-meeting_api_server  |     await self.app(scope, receive, _send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/cors.py", line 85, in __call__
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/middleware/exceptions.py", line 62, in __call__
-meeting_api_server  |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 714, in __call__
-meeting_api_server  |     await self.middleware_stack(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 734, in app
-meeting_api_server  |     await route.handle(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 288, in handle
-meeting_api_server  |     await self.app(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 76, in app
-meeting_api_server  |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-meeting_api_server  |     raise exc
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-meeting_api_server  |     await app(scope, receive, sender)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/starlette/routing.py", line 73, in app
-meeting_api_server  |     response = await f(request)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 301, in app
-meeting_api_server  |     raw_response = await run_endpoint_function(
-meeting_api_server  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/fastapi/routing.py", line 212, in run_endpoint_function
-meeting_api_server  |     return await dependant.call(**values)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 374, in update_plain_transcript
-meeting_api_server  |     db.add(job)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 3481, in add
-meeting_api_server  |     self._save_or_update_state(state)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 3511, in _save_or_update_state
-meeting_api_server  |     self._save_or_update_impl(st_)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 4195, in _save_or_update_impl
-meeting_api_server  |     self._update_impl(state)
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/sqlalchemy/orm/session.py", line 4165, in _update_impl
-meeting_api_server  |     raise sa_exc.InvalidRequestError(
-meeting_api_server  | sqlalchemy.exc.InvalidRequestError: Instance '<Summary at 0x7fc220a8ebc0>' has been deleted.  Use the make_transient() function to send this object back to the transient state.
-meeting_api_server  | 2025-09-25 10:54:35,156 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+>>> Sending Chat (context: None): 'Ai là người chủ trì cuộc họp này?'
+  -> [Chat Response] Status: 200
+     Response: {
+  "success": 0,
+  "response": "Người chủ trì cuộc họp này là Giám đốc."
+}
+
+Verifying that the summary edit was saved permanently...
+  -> FAILURE: The edited summary content was not found.
+  -> [Verify Saved Edit] Status: 200
+     Response: {
+  "request_id": "test_Hop TO 11092025_1759717912",
+  "summary_type": "topic",
+  "summary_content": "**BIÊN BẢN HỌP TÓM TẮT NỘI DUNG CHÍNH**  \n**Chủ đề:** Cuộc Họp Đánh Giá Dự Án  \n**Loại cuộc họp:** Kiểm tra định kỳ  \n**Chủ trì:** Giám đốc  \n**Thành viên tham gia:** Anh Toàn, Chị Linh, Bạn Hùng  \n-------------------------------------------\n\n### I. ..."
+}
+
