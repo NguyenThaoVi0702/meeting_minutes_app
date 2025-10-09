@@ -1,0 +1,91 @@
+BBH HDQT
+
+
+{{ngay}} (Ngày):
+
+Hướng dẫn viết: Điền ngày diễn ra cuộc họp theo định dạng số.
+
+{{thang}} (Tháng):
+
+Hướng dẫn viết: Điền tháng diễn ra cuộc họp theo định dạng số.
+
+{{nam}} (Năm):
+
+Hướng dẫn viết: Điền năm diễn ra cuộc họp theo định dạng số.
+
+{{ds_thanh_vien_hdqt}} (Danh sách thành viên Hội đồng quản trị):
+
+Hướng dẫn viết: Liệt kê đầy đủ họ tên các thành viên HĐQT tham dự cuộc họp.
+
+{{thanh_vien_BKS}} (Danh sách thành viên Ban kiểm soát):
+
+Hướng dẫn viết: Liệt kê đầy đủ họ tên các thành viên Ban kiểm soát tham dự cuộc họp.
+
+{{thu_ky_cuoc_hop}} (Thư ký cuộc họp):
+
+Hướng dẫn viết: Ghi rõ họ tên người làm thư ký cuộc họp.
+
+{{ds_thanh_phan_vang_mat}} (Danh sách thành phần vắng mặt):
+
+Hướng dẫn viết: Liệt kê họ tên các thành viên vắng mặt trong cuộc họp.
+
+{{uy_quyen_bieu_quyet}} (Ủy quyền biểu quyết):
+
+Hướng dẫn viết: Ghi rõ thông tin về các trường hợp ủy quyền biểu quyết (nếu có), bao gồm người ủy quyền và người được ủy quyền.
+
+{{dien_bien_chinh_cuoc_hop}} (Diễn biến chính cuộc họp):
+
+Hướng dẫn viết: Tóm tắt các báo cáo, trình bày, thảo luận và kết luận của Chủ tịch HĐQT và các thành viên trong cuộc họp.
+
+{{y_kien_tung_thanh_vien}} (Ý kiến trao đổi của từng thành viên dự họp):
+
+Hướng dẫn viết: 
+- Đối với mỗi thành viên HĐQT, tạo một mục riêng biệt, đánh số thứ tự (2.1, 2.2, 2.3, ...) theo thứ tự xuất hiện trong biên bản.
+- Đầu mục của mỗi thành viên phải được in đậm toàn bộ, ví dụ: 2.8. Ý kiến của Thành viên HĐQT Phạm Thị Thanh Hoài:
+- Bên dưới mỗi đầu mục thành viên, liệt kê các ý kiến, nhận xét, đề xuất, kiến nghị của thành viên đó, mỗi ý nhỏ đánh dấu bằng a), b), c), ...
+- Nội dung mỗi ý nhỏ phải rõ ràng, súc tích, tập trung vào nhận xét, đề xuất, giải pháp, hoặc chỉ đạo liên quan đến lĩnh vực thành viên phụ trách.
+- Nếu thành viên có nhiều nhóm ý, chia thành các nhóm nhỏ, mỗi nhóm liệt kê các ý nhỏ bên trong.
+- Nếu không có ý kiến, ghi rõ: "Không có ý kiến."
+
+{{ket_luan_chi_dao_chung}} (Kết luận, chỉ đạo chung):
+
+Hướng dẫn viết: Tổng hợp các chỉ đạo, yêu cầu thực hiện chung cho toàn hệ thống hoặc các khối/đơn vị, căn cứ vào các văn bản, công văn, quy định liên quan.
+
+{{cong_tac_tin_dung}} (Công tác tín dụng):
+
+Hướng dẫn viết: Nêu các chỉ đạo, giải pháp về phát triển tín dụng, sản phẩm tín dụng, phối hợp các khối liên quan; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_nguon_von}} (Công tác nguồn vốn):
+
+Hướng dẫn viết: Nêu các chỉ đạo về quản lý, cơ cấu nguồn vốn, các khoản vay, kế hoạch huy động vốn; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_ke_hoach}} (Công tác kế hoạch, quản trị tài chính):
+
+Hướng dẫn viết: Nêu các chỉ đạo về xây dựng, giao kế hoạch kinh doanh, kiểm soát chi phí, công cụ quản trị; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_mo_hinh}} (Công tác mô hình, nhân sự, mạng lưới):
+
+Hướng dẫn viết: Nêu các chỉ đạo về cơ cấu tổ chức, phát triển nhân sự, xây dựng bộ chỉ tiêu, mô hình hoạt động; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_chat_luong}} (Công tác chất lượng dịch vụ):
+
+Hướng dẫn viết: Nêu các chỉ đạo về nâng cao chất lượng dịch vụ, trải nghiệm khách hàng, quy trình vận hành; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_quan_tri_rui_ro}} (Công tác quản trị rủi ro, xử lý, thu hồi nợ):
+
+Hướng dẫn viết: Nêu các chỉ đạo về kiểm soát rủi ro, thành lập bộ phận quản lý rủi ro, xử lý và thu hồi nợ; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_mua_sam}} (Công tác mua sắm, XDCB):
+
+Hướng dẫn viết: Nêu các chỉ đạo về quản lý, vận hành tài sản, mua sắm, đầu tư xây dựng cơ bản; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_tac_chuyen_doi_so}} (Công tác chuyển đổi số và CNTT):
+
+Hướng dẫn viết: Nêu các chỉ đạo về triển khai chuyển đổi số, ứng dụng CNTT, phân bổ chi phí, đảm bảo an toàn hệ thống; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{cong_viec_khac}} (Các công việc khác):
+
+Hướng dẫn viết: Nêu các chỉ đạo, nhiệm vụ bổ sung, các vấn đề phát sinh, điều chỉnh tiến độ, các hoạt động đặc thù; liệt kê các ý nhỏ bằng a), b), c)...
+
+{{end_time}} (Thời điểm kết thúc cuộc họp):
+Hướng dẫn viết: Ghi rõ thời gian kết thúc cuộc họp theo định dạng giờ, phút.
