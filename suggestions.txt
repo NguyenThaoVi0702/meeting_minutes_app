@@ -1,187 +1,50 @@
-Excellent points. You've identified a critical aspect of advanced prompt engineering: you must instruct, not just show. The LLM can become lazy and copy examples if not explicitly told to generate content based on the source material. You also have a great idea for differentiating the list styles for clarity.
-
-Let's implement this. I will provide a completely new, much more robust prompt and the corresponding code changes to handle the dual bullet styles dynamically.
-
-Part 1: The New "Instruct and Exemplify" LLM Prompt
-
-This new prompt is designed to be as unambiguous as possible. It uses comments (//) directly within the JSON structure to give the LLM field-specific instructions, ensuring it understands its task is to extract and transform, not just copy.
-
-Replace the entire SUMMARY_BBH_HDQT_PROMPT in your app/core/ai_prompts.py file with this enhanced version:
-
-code
-Python
-download
-content_copy
-expand_less
 # In app/core/ai_prompts.py
 
-SUMMARY_BBH_HDQT_PROMPT = """Bạn là một Thư ký Hội đồng Quản trị chuyên nghiệp và cực kỳ cẩn thận của VietinBank. Nhiệm vụ của bạn là phân tích sâu bản ghi thô (transcript) được cung cấp và biên soạn một biên bản họp chi tiết, tuân thủ nghiêm ngặt cấu trúc và hướng dẫn trong file JSON dưới đây.
+SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một Trợ lý AI chuyên trách việc biên soạn văn bản Nghị quyết của Hội đồng Quản trị VietinBank. Nhiệm vụ của bạn là phân tích sâu bản ghi thô (transcript) của cuộc họp, chỉ chắt lọc các QUYẾT NGHỊ, KẾT LUẬN, và CHỈ ĐẠO CUỐI CÙNG để tạo ra một đối tượng JSON duy nhất theo cấu trúc và hướng dẫn chi tiết dưới đây.
 
 ## YÊU CẦU BẮT BUỘC:
-1.  **Phân tích & Trích xuất:** Đọc kỹ toàn bộ transcript để trích xuất chính xác thông tin cho TẤT CẢ các trường. **Nhiệm vụ của bạn là điền thông tin, không phải sao chép hướng dẫn.**
-2.  **Định dạng JSON:** Phải trả về DUY NHẤT một đối tượng JSON hợp lệ.
+1.  **Chắt lọc thông tin:** Chỉ tập trung vào các quyết định, chỉ đạo đã được chốt. Bỏ qua toàn bộ phần diễn biến, thảo luận, và các ý kiến cá nhân không dẫn đến kết luận.
+2.  **Định dạng JSON:** Phải trả về DUY NHẤT một đối tượng JSON hợp lệ. **Nhiệm vụ của bạn là điền thông tin vào cấu trúc, không phải sao chép lại hướng dẫn.**
 3.  **Cấu trúc Nội dung:** Với các trường yêu cầu cấu trúc, hãy trả về một MẢNG CÁC ĐỐI TƯỢNG. Mỗi đối tượng phải có `"type"` và `"content"`.
-    *   `"type": "heading"`: Dùng cho tiêu đề, đầu mục (ví dụ: tên thành viên).
-    *   `"type": "alpha_bullet"`: Dùng cho các mục có thứ tự a), b), c)...
-    *   `"type": "bullet"`: Dùng cho các mục danh sách có dấu gạch đầu dòng "-".
+    *   `"type": "paragraph"`: Dùng cho một đoạn văn diễn giải, định hướng chung.
+    *   `"type": "alpha_bullet"`: Dùng cho các nhiệm vụ, giải pháp cụ thể có thứ tự a), b), c)...
 4.  **Định dạng In đậm:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. TUYỆT ĐỐI KHÔNG sử dụng Markdown `**`.
-5.  **Sự chính xác:** Nếu không tìm thấy thông tin cho một trường, hãy trả về giá trị là một chuỗi rỗng `""` hoặc một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
+5.  **Sự chính xác:** Nếu không tìm thấy thông tin cho một trường nào, hãy trả về một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
 
 ## HƯỚNG DẪN CHI TIẾT VÀ CẤU TRÚC JSON ĐẦU RA BẮT BUỘC:
 ```json
 {
-  "ngay": "dd", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền ngày diễn ra theo định dạng số.",
-  "thang": "mm", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền tháng diễn ra theo định dạng số.",
-  "nam": "yyyy", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền năm diễn ra theo định dạng số.",
-  "start_time": "HH:mm", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền giờ bắt đầu.",
-  "end_time": "HH:mm", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền giờ kết thúc.",
-  "ds_thanh_vien_hdqt": [
-    // Hướng dẫn viết: Từ nội dung cuộc họp, xác định và liệt kê đầy đủ họ tên các thành viên HĐQT tham dự. Mỗi thành viên là một mục "bullet".
-    {"type": "bullet", "content": "Ông Trần Minh Bình - Chủ tịch HĐQT"},
-    {"type": "bullet", "content": "Bà Phạm Thị Thanh Hoài - Thành viên HĐQT"}
-  ],
-  "thanh_vien_BKS": [
-    // Hướng dẫn viết: Tương tự, liệt kê các thành viên Ban kiểm soát tham dự. Mỗi thành viên là một mục "bullet".
-    {"type": "bullet", "content": "Ông Lê Thanh Tùng - Trưởng Ban kiểm soát"}
-  ],
-  "thu_ky_cuoc_hop": "Họ tên người làm thư ký cuộc họp.", "// Hướng dẫn viết: Ghi rõ họ tên người làm thư ký.",
-  "ds_thanh_phan_vang_mat": [
-    // Hướng dẫn viết: Liệt kê họ tên các thành viên vắng mặt và lý do (nếu có). Mỗi người một mục "bullet".
-    {"type": "bullet", "content": "Ông Nguyễn Đức Thành - Thành viên HĐQT (vắng mặt có lý do)"}
-  ],
-  "uy_quyen_bieu_quyet": [
-     // Hướng dẫn viết: Ghi rõ thông tin về các trường hợp ủy quyền biểu quyết (nếu có). Mỗi trường hợp một mục "bullet".
-    {"type": "bullet", "content": "Không có"}
-  ],
-  "dien_bien_chinh_cuoc_hop": [
-    // Hướng dẫn viết: Dựa vào transcript, tóm tắt các báo cáo, trình bày, và thảo luận chính theo trình tự thời gian. Mỗi ý là một sự kiện hoặc một phát biểu quan trọng, sử dụng "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Ông Đỗ Thanh Sơn, PTGĐ phụ trách BĐH trình bày báo cáo về tình hình hoạt động tháng 08/2024 và triển khai nhiệm vụ trong tháng 09/2024."},
-    {"type": "alpha_bullet", "content": "Bà Phạm Thị Thanh Hoài, Thành viên HĐQT, báo cáo về tiến độ các sáng kiến chuyển đổi số thuộc khối bán lẻ."}
-  ],
-  "y_kien_tung_thanh_vien": [
-    // Hướng dẫn viết: Phân tích kỹ transcript để tổng hợp ý kiến của từng thành viên. Nhóm các ý kiến theo từng người, tạo một tiêu đề "heading" cho mỗi người, và liệt kê các ý kiến cụ thể của họ bằng "alpha_bullet".
-    {"type": "heading", "content": "2.1. Ý kiến của Chủ tịch HĐQT Trần Minh Bình:"},
-    {"type": "alpha_bullet", "content": "Nhấn mạnh tầm quan trọng của việc theo dõi sát sao, minh bạch và hiệu quả thực tế của các sáng kiến chuyển đổi số."},
-    {"type": "alpha_bullet", "content": "Yêu cầu các khối báo cáo rõ hơn về các khó khăn liên quan đến chuẩn hóa dữ liệu và năng lực nhân sự."},
-    {"type": "heading", "content": "2.2. Ý kiến của Thành viên HĐQT Phạm Thị Thanh Hoài:"},
-    {"type": "alpha_bullet", "content": "Đề xuất cần có giai đoạn thí điểm (pilot) cho tất cả các mô hình AI mới trước khi triển khai trên diện rộng."}
-  ],
-  "ket_luan_chi_dao_chung": [
-    // Hướng dẫn viết: Tổng hợp các chỉ đạo, yêu cầu thực hiện chung cho toàn hệ thống hoặc các khối/đơn vị từ transcript, sử dụng "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Tiếp tục đẩy mạnh chương trình chuyển đổi số trên toàn hệ thống, tập trung vào <b>hiệu quả cuối cùng</b>."}
+  "ngay": "dd", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền ngày ban hành nghị quyết.",
+  "thang": "mm", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền tháng ban hành nghị quyết.",
+  "nam": "yyyy", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền năm ban hành nghị quyết.",
+  "chi_dao_chung": [
+    // Hướng dẫn viết: Trình bày các chỉ đạo tổng thể, định hướng lớn. Có thể dùng "paragraph" cho các định hướng và "alpha_bullet" cho các nguyên tắc chung.
+    {"type": "paragraph", "content": "Toàn hệ thống tiếp tục kiên định với mục tiêu chuyển đổi số toàn diện, lấy hiệu quả thực tế làm thước đo cao nhất cho sự thành công của các sáng kiến."},
+    {"type": "alpha_bullet", "content": "Tăng cường minh bạch và trách nhiệm trong việc theo dõi, báo cáo tiến độ thông qua các công cụ quản trị tập trung như dashboard."},
+    {"type": "alpha_bullet", "content": "Ưu tiên nguồn lực cho việc chuẩn hóa và làm giàu dữ liệu, coi đây là tài sản cốt lõi cho các hoạt động AI và phân tích kinh doanh."}
   ],
   "cong_tac_tin_dung": [
-    // Hướng dẫn viết: Trích xuất tất cả các kết luận, chỉ đạo, và quyết định cuối cùng liên quan đến công tác tín dụng, sử dụng "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Giao Khối Bán lẻ đẩy mạnh các sản phẩm cho vay SME."}
+    // Hướng dẫn viết: Trích xuất tất cả các nhiệm vụ, giải pháp, chỉ tiêu cụ thể về phát triển tín dụng. Mỗi nhiệm vụ là một "alpha_bullet".
+    {"type": "alpha_bullet", "content": "Giao <b>Khối Bán lẻ</b> chủ trì, phối hợp với <b>Khối Dữ liệu</b> đánh giá lại hiệu quả của <b>15 mô hình</b> thí điểm dự đoán khách hàng rời bỏ. Báo cáo kết quả và đề xuất kế hoạch nhân rộng trước ngày 30/10."}
   ],
-  "cong_tac_nguon_von": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến nguồn vốn.
-  "cong_tac_ke_hoach": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến kế hoạch, tài chính.
-  "cong_tac_mo_hinh": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến mô hình, nhân sự.
-  "cong_tac_chat_luong": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến chất lượng dịch vụ.
-  "cong_tac_quan_tri_rui_ro": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến quản trị rủi ro.
-  "cong_tac_mua_sam": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến mua sắm, XDCB.
-  "cong_tac_chuyen_doi_so": [], // Hướng dẫn viết: Trích xuất chỉ đạo liên quan đến chuyển đổi số, CNTT.
-  "cong_viec_khac": [] // Hướng dẫn viết: Trích xuất các chỉ đạo, nhiệm vụ bổ sung khác.
+  "cong_tac_nguon_von": [
+    // Hướng dẫn viết: Trích xuất các nhiệm vụ về quản lý nguồn vốn, tăng trưởng phí, giải pháp thanh toán. Mỗi nhiệm vụ là một "alpha_bullet".
+    {"type": "alpha_bullet", "content": "Yêu cầu <b>Khối Nguồn vốn</b> xây dựng kế hoạch huy động vốn trung và dài hạn, trình HĐQT trong Quý 4."}
+  ],
+  "cong_tac_mo_hinh": [
+    // Hướng dẫn viết: Trích xuất các quyết nghị về cơ cấu tổ chức, phát triển nhân lực, đổi mới mô hình. Mỗi quyết nghị là một "alpha_bullet".
+    {"type": "alpha_bullet", "content": "Giao <b>Khối Nhân sự</b> phối hợp với <b>Khối Dữ liệu và AI</b> hoàn thiện kế hoạch tuyển dụng các vị trí Data Scientist và AI Engineer cho năm tới, trình HĐQT phê duyệt trong tháng 11."}
+  ],
+  "cong_tac_quan_tri_rui_ro": [
+    // Hướng dẫn viết: Trích xuất các giải pháp kiểm soát rủi ro, phương án xử lý nợ. Mỗi giải pháp là một "alpha_bullet".
+    {"type": "alpha_bullet", "content": "Thành lập tổ công tác chuyên trách về quản lý rủi ro mô hình AI, báo cáo trực tiếp cho <b>Ban Quản trị Rủi ro</b>."}
+  ],
+  "cong_tac_mua_sam": [], "// Hướng dẫn viết: Trích xuất các nhiệm vụ về rà soát, quản lý tài sản, mua sắm. Mỗi nhiệm vụ là một 'alpha_bullet'.",
+  "cong_tac_chuyen_doi_so": [
+    // Hướng dẫn viết: Trích xuất các nhiệm vụ về thúc đẩy chuyển đổi số, ứng dụng công nghệ, đảm bảo an toàn hệ thống. Mỗi nhiệm vụ là một "alpha_bullet".
+    {"type": "alpha_bullet", "content": "Yêu cầu tất cả các Chủ nhiệm sáng kiến chịu trách nhiệm cập nhật tiến độ lên hệ thống dashboard định kỳ vào <b>thứ Sáu hàng tuần</b>."}
+  ],
+  "hoat_dong_cty_con": [], "// Hướng dẫn viết: Trích xuất các cơ chế phối hợp, quản lý chỉ tiêu với các công ty con. Mỗi cơ chế là một 'alpha_bullet'.",
+  "cong_viec_khac": [] "// Hướng dẫn viết: Trích xuất các nhiệm vụ bổ sung, các vấn đề phát sinh khác. Mỗi nhiệm vụ là một 'alpha_bullet'."
 }
 """
-Part 2: Handling Dual Bullet Styles Dynamically in DOCX
-
-Now that the LLM will produce both "type": "bullet" (for members) and "type": "alpha_bullet" (for content), we need to update our document generation logic. We will follow the same robust pattern of using named styles in Word.
-
-Step 1: Modify Your Word Template (bbh_hdqt_template.docx)
-
-You need to define a second list style in your template for the simple dash (-).
-
-Open the Template: Open templates/bbh_hdqt_template.docx in Microsoft Word.
-
-Define a New List Style for Dashes:
-
-On the Home tab, in the Paragraph group, click the dropdown for Multilevel List.
-
-Click Define New List Style....
-
-Name this new style "DashList".
-
-Click Format -> Numbering....
-
-In the "Number style for this level" dropdown, select a bullet character (e.g., the solid circle).
-
-In the "Enter formatting for number" field, delete the character and type a hyphen (-).
-
-Click OK on all dialogs.
-
-Verify Both Styles Exist: You should now have two custom list styles defined in your template: AlphabetList (from before) and DashList.
-
-Save the Template.
-
-Step 2: Update the Document Generation Code (app/utils.py)
-
-Now, we'll update the create_subdoc_from_structured_data function to recognize both alpha_bullet and bullet types and apply the correct style.
-
-code
-Python
-download
-content_copy
-expand_less
-# In app/utils.py
-
-import logging
-import re
-from docxtpl import DocxTemplate, Subdoc
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from typing import List, Dict, Any
-
-logger = logging.getLogger(__name__)
-
-# ... (_add_runs_with_bolding function remains the same) ...
-
-def create_subdoc_from_structured_data(template: DocxTemplate, structured_data: List[Dict[str, Any]]) -> Subdoc:
-    """
-    Takes a list of structured content objects (e.g., from an LLM) and
-    builds a docxtpl Subdoc object with appropriate formatting by applying
-    named styles defined in the Word template.
-    """
-    subdoc = template.new_subdoc()
-
-    if not isinstance(structured_data, list):
-        # Handle cases where the LLM might return a simple string for fields
-        # that are usually lists but have no content.
-        if isinstance(structured_data, str) and structured_data:
-             p = subdoc.add_paragraph(str(structured_data))
-             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        return subdoc
-
-    for item in structured_data:
-        content_type = item.get("type", "paragraph")
-        content = item.get("content", "")
-        
-        p = None
-        if content_type == "heading":
-            p = subdoc.add_heading(level=3)
-        
-        # --------------------- MODIFICATION STARTS HERE ---------------------
-        elif content_type == "alpha_bullet":
-            # Apply the 'a), b), c)...' style from the template
-            p = subdoc.add_paragraph(style='AlphabetList')
-            
-        elif content_type == "bullet":
-            # Apply the simple '-' dash style from the template
-            p = subdoc.add_paragraph(style='DashList')
-        # ---------------------- MODIFICATION ENDS HERE ----------------------
-
-        else: # Default to a normal paragraph
-            p = subdoc.add_paragraph()
-
-        _add_runs_with_bolding(p, content)
-        
-        # Justify all text content that isn't a heading
-        if content_type != "heading":
-            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-    return subdoc
-
-With these changes, your application is now significantly more powerful and precise:
-
-Clearer LLM Instructions: The new prompt minimizes ambiguity and dramatically increases the likelihood of getting a perfectly structured JSON output every time.
-
-Flexible Styling: The code is not hard-coded to produce any specific bullet character. It simply applies a named style ('AlphabetList' or 'DashList'). This means you can change the entire look of your lists (indentation, bullet character, font) just by editing the styles in your .docx template, without ever touching the Python code again.
