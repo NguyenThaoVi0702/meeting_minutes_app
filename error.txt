@@ -1,72 +1,97 @@
-meeting_api_server  | WHERE summary.meeting_job_id = %(meeting_job_id_1)s AND summary.summary_type = %(summary_type_1)s
-meeting_api_server  | 2025-10-10 16:20:30,739 - INFO - sqlalchemy.engine.Engine - [cached since 56.67s ago] {'meeting_job_id_1': 28, 'summary_type_1': 'summary_bbh_hdqt'}
-meeting_api_server  | 2025-10-10 16:20:30,763 - ERROR - app.services.document_generator - Failed to generate document for template 'bbh_hdqt': assigned style is type LIST (4), need type PARAGRAPH (1)
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 41, in generate_templated_document
-meeting_api_server  |     render_context[key] = create_subdoc_from_structured_data(doc, value)
-meeting_api_server  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/utils.py", line 53, in create_subdoc_from_structured_data
-meeting_api_server  |     p = subdoc.add_paragraph(style='DashList')
-meeting_api_server  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/document.py", line 119, in add_paragraph
-meeting_api_server  |     return self._body.add_paragraph(text, style)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/blkcntnr.py", line 58, in add_paragraph
-meeting_api_server  |     paragraph.style = style
-meeting_api_server  |     ^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/text/paragraph.py", line 146, in style
-meeting_api_server  |     style_id = self.part.get_style_id(style_or_name, WD_STYLE_TYPE.PARAGRAPH)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/parts/document.py", line 87, in get_style_id
-meeting_api_server  |     return self.styles.get_style_id(style_or_name, style_type)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/styles/styles.py", line 98, in get_style_id
-meeting_api_server  |     return self._get_style_id_from_name(style_or_name, style_type)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/styles/styles.py", line 125, in _get_style_id_from_name
-meeting_api_server  |     return self._get_style_id_from_style(self[style_name], style_type)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/styles/styles.py", line 133, in _get_style_id_from_style
-meeting_api_server  |     raise ValueError("assigned style is type %s, need type %s" % (style.type, style_type))
-meeting_api_server  | ValueError: assigned style is type LIST (4), need type PARAGRAPH (1)
-meeting_api_server  | 2025-10-10 16:20:30,765 - ERROR - app.api.routes.meeting - Error during document generation for type 'summary_bbh_hdqt': An unexpected error occurred during document generation.
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 41, in generate_templated_document
-meeting_api_server  |     render_context[key] = create_subdoc_from_structured_data(doc, value)
-meeting_api_server  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/utils.py", line 53, in create_subdoc_from_structured_data
-meeting_api_server  |     p = subdoc.add_paragraph(style='DashList')
-meeting_api_server  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/document.py", line 119, in add_paragraph
-meeting_api_server  |     return self._body.add_paragraph(text, style)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/blkcntnr.py", line 58, in add_paragraph
-meeting_api_server  |     paragraph.style = style
-meeting_api_server  |     ^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/text/paragraph.py", line 146, in style
-meeting_api_server  |     style_id = self.part.get_style_id(style_or_name, WD_STYLE_TYPE.PARAGRAPH)
-meeting_api_server  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/parts/document.py", line 87, in get_style_id
-meeting_api_server  |     return self.styles.get_style_id(style_or_name, style_type)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/styles/styles.py", line 98, in get_style_id
-meeting_api_server  |     return self._get_style_id_from_name(style_or_name, style_type)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/styles/styles.py", line 125, in _get_style_id_from_name
-meeting_api_server  |     return self._get_style_id_from_style(self[style_name], style_type)
-meeting_api_server  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/usr/local/lib/python3.12/dist-packages/docx/styles/styles.py", line 133, in _get_style_id_from_style
-meeting_api_server  |     raise ValueError("assigned style is type %s, need type %s" % (style.type, style_type))
-meeting_api_server  | ValueError: assigned style is type LIST (4), need type PARAGRAPH (1)
-meeting_api_server  |
-meeting_api_server  | During handling of the above exception, another exception occurred:
-meeting_api_server  |
-meeting_api_server  | Traceback (most recent call last):
-meeting_api_server  |   File "/code/app/api/routes/meeting.py", line 744, in download_summary_document
-meeting_api_server  |     document_buffer = generate_templated_document(summary_type.replace("summary_", ""), summary.summary_content)
-meeting_api_server  |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-meeting_api_server  |   File "/code/app/services/document_generator.py", line 57, in generate_templated_document
-meeting_api_server  |     raise RuntimeError("An unexpected error occurred during document generation.")
-meeting_api_server  | RuntimeError: An unexpected error occurred during document generation.
-meeting_api_server  | 2025-10-10 16:20:30,766 INFO sqlalchemy.engine.Engine ROLLBACK
-meeting_api_server  | 2025-10-10 16:20:30,766 - INFO - sqlalchemy.engine.Engine - ROLLBACK
+# In app/utils.py
+
+import logging
+import re
+from docxtpl import DocxTemplate, Subdoc
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from typing import List, Dict, Any
+
+logger = logging.getLogger(__name__)
+
+# --------------------- FIX #1: ADD XML SANITIZER FUNCTION ---------------------
+def sanitize_xml_string(text: str) -> str:
+    """
+    Removes illegal XML characters from a string to prevent document corruption.
+    """
+    if not isinstance(text, str):
+        return text
+    # This regex matches any character that is not a valid XML 1.0 character.
+    # See: https://www.w3.org/TR/xml/#charsets
+    return re.sub(
+        r'[^\x09\x0A\x0D\x20-\uD7FF\uE000-\uFFFD\U00010000-\U0010FFFF]',
+        '',
+        text
+    )
+# -----------------------------------------------------------------------------
+
+def _add_runs_with_bolding(paragraph, text_content: str):
+    """
+    Parses a string containing <b>...</b> tags and adds formatted runs
+    to the given paragraph object.
+    """
+    # Sanitize the entire input string first.
+    safe_content = sanitize_xml_string(text_content)
+    parts = re.split(r'(<b>|</b>)', safe_content)
+    
+    is_bold = False
+    for part in parts:
+        if part == '<b>':
+            is_bold = True
+            continue
+        elif part == '</b>':
+            is_bold = False
+            continue
+        
+        if part: 
+            # --------------------- FIX #1 (continued): Apply sanitizer ---------------------
+            # Although the whole string is sanitized, we ensure each part is clean.
+            run = paragraph.add_run(sanitize_xml_string(part))
+            # -------------------------------------------------------------------------------
+            run.bold = is_bold
+
+def create_subdoc_from_structured_data(template: DocxTemplate, structured_data: List[Dict[str, Any]]) -> Subdoc:
+    """
+    Takes a list of structured content objects (e.g., from an LLM) and
+    builds a docxtpl Subdoc object with appropriate formatting by applying
+    named paragraph styles defined in the Word template.
+    """
+    subdoc = template.new_subdoc()
+
+    # --------------------- FIX #2: HANDLE NULL FOR LIST FIELDS ---------------------
+    # If the LLM returns `null` for a field that should be a list,
+    # treat it as an empty list to prevent errors.
+    if structured_data is None:
+        structured_data = []
+    # ---------------------------------------------------------------------------
+
+    if not isinstance(structured_data, list):
+        if isinstance(structured_data, str) and structured_data:
+             # Also sanitize here for safety.
+             p = subdoc.add_paragraph(sanitize_xml_string(str(structured_data)))
+             p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        return subdoc
+
+    for item in structured_data:
+        content_type = item.get("type", "paragraph")
+        content = item.get("content", "")
+        
+        p = None
+        if content_type == "heading":
+            p = subdoc.add_heading(level=3)
+        
+        elif content_type == "alpha_bullet":
+            p = subdoc.add_paragraph(style='AlphabetListPara')
+            
+        elif content_type == "bullet":
+            p = subdoc.add_paragraph(style='DashListPara')
+
+        else: 
+            p = subdoc.add_paragraph()
+
+        # The _add_runs_with_bolding function will now handle sanitization.
+        _add_runs_with_bolding(p, content)
+        
+        if content_type != "heading":
+            p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    return subdoc
