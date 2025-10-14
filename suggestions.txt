@@ -1,50 +1,283 @@
-# In app/core/ai_prompts.py
+Of course. Creating a Docker environment for this is an excellent idea because it ensures your code runs consistently everywhere and handles all the necessary dependencies like Python, FFmpeg, and the AWS CLI.
 
-SUMMARY_NGHI_QUYET_PROMPT = """Bạn là một Trợ lý AI chuyên trách việc biên soạn văn bản Nghị quyết của Hội đồng Quản trị VietinBank. Nhiệm vụ của bạn là phân tích sâu bản ghi thô (transcript) của cuộc họp, chỉ chắt lọc các QUYẾT NGHỊ, KẾT LUẬN, và CHỈ ĐẠO CUỐI CÙNG để tạo ra một đối tượng JSON duy nhất theo cấu trúc và hướng dẫn chi tiết dưới đây.
+Here are the Dockerfile, docker-compose.yml, and instructions on how to set them up.
 
-## YÊU CẦU BẮT BUỘC:
-1.  **Chắt lọc thông tin:** Chỉ tập trung vào các quyết định, chỉ đạo đã được chốt. Bỏ qua toàn bộ phần diễn biến, thảo luận, và các ý kiến cá nhân không dẫn đến kết luận.
-2.  **Định dạng JSON:** Phải trả về DUY NHẤT một đối tượng JSON hợp lệ. **Nhiệm vụ của bạn là điền thông tin vào cấu trúc, không phải sao chép lại hướng dẫn.**
-3.  **Cấu trúc Nội dung:** Với các trường yêu cầu cấu trúc, hãy trả về một MẢNG CÁC ĐỐI TƯỢNG. Mỗi đối tượng phải có `"type"` và `"content"`.
-    *   `"type": "paragraph"`: Dùng cho một đoạn văn diễn giải, định hướng chung.
-    *   `"type": "alpha_bullet"`: Dùng cho các nhiệm vụ, giải pháp cụ thể có thứ tự a), b), c)...
-4.  **Định dạng In đậm:** Để in đậm, hãy sử dụng thẻ `<b>` và `</b>`. TUYỆT ĐỐI KHÔNG sử dụng Markdown `**`.
-5.  **Sự chính xác:** Nếu không tìm thấy thông tin cho một trường nào, hãy trả về một mảng rỗng `[]`. TUYỆT ĐỐI KHÔNG bịa đặt thông tin.
+Project Directory Structure
 
-## HƯỚNG DẪN CHI TIẾT VÀ CẤU TRÚC JSON ĐẦU RA BẮT BUỘC:
-```json
-{
-  "ngay": "dd", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền ngày ban hành nghị quyết.",
-  "thang": "mm", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền tháng ban hành nghị quyết.",
-  "nam": "yyyy", "// Hướng dẫn viết: Từ thông tin cuộc họp, điền năm ban hành nghị quyết.",
-  "chi_dao_chung": [
-    // Hướng dẫn viết: Trình bày các chỉ đạo tổng thể, định hướng lớn. Có thể dùng "paragraph" cho các định hướng và "alpha_bullet" cho các nguyên tắc chung.
-    {"type": "paragraph", "content": "Toàn hệ thống tiếp tục kiên định với mục tiêu chuyển đổi số toàn diện, lấy hiệu quả thực tế làm thước đo cao nhất cho sự thành công của các sáng kiến."},
-    {"type": "alpha_bullet", "content": "Tăng cường minh bạch và trách nhiệm trong việc theo dõi, báo cáo tiến độ thông qua các công cụ quản trị tập trung như dashboard."},
-    {"type": "alpha_bullet", "content": "Ưu tiên nguồn lực cho việc chuẩn hóa và làm giàu dữ liệu, coi đây là tài sản cốt lõi cho các hoạt động AI và phân tích kinh doanh."}
-  ],
-  "cong_tac_tin_dung": [
-    // Hướng dẫn viết: Trích xuất tất cả các nhiệm vụ, giải pháp, chỉ tiêu cụ thể về phát triển tín dụng. Mỗi nhiệm vụ là một "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Giao <b>Khối Bán lẻ</b> chủ trì, phối hợp với <b>Khối Dữ liệu</b> đánh giá lại hiệu quả của <b>15 mô hình</b> thí điểm dự đoán khách hàng rời bỏ. Báo cáo kết quả và đề xuất kế hoạch nhân rộng trước ngày 30/10."}
-  ],
-  "cong_tac_nguon_von": [
-    // Hướng dẫn viết: Trích xuất các nhiệm vụ về quản lý nguồn vốn, tăng trưởng phí, giải pháp thanh toán. Mỗi nhiệm vụ là một "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Yêu cầu <b>Khối Nguồn vốn</b> xây dựng kế hoạch huy động vốn trung và dài hạn, trình HĐQT trong Quý 4."}
-  ],
-  "cong_tac_mo_hinh": [
-    // Hướng dẫn viết: Trích xuất các quyết nghị về cơ cấu tổ chức, phát triển nhân lực, đổi mới mô hình. Mỗi quyết nghị là một "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Giao <b>Khối Nhân sự</b> phối hợp với <b>Khối Dữ liệu và AI</b> hoàn thiện kế hoạch tuyển dụng các vị trí Data Scientist và AI Engineer cho năm tới, trình HĐQT phê duyệt trong tháng 11."}
-  ],
-  "cong_tac_quan_tri_rui_ro": [
-    // Hướng dẫn viết: Trích xuất các giải pháp kiểm soát rủi ro, phương án xử lý nợ. Mỗi giải pháp là một "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Thành lập tổ công tác chuyên trách về quản lý rủi ro mô hình AI, báo cáo trực tiếp cho <b>Ban Quản trị Rủi ro</b>."}
-  ],
-  "cong_tac_mua_sam": [], "// Hướng dẫn viết: Trích xuất các nhiệm vụ về rà soát, quản lý tài sản, mua sắm. Mỗi nhiệm vụ là một 'alpha_bullet'.",
-  "cong_tac_chuyen_doi_so": [
-    // Hướng dẫn viết: Trích xuất các nhiệm vụ về thúc đẩy chuyển đổi số, ứng dụng công nghệ, đảm bảo an toàn hệ thống. Mỗi nhiệm vụ là một "alpha_bullet".
-    {"type": "alpha_bullet", "content": "Yêu cầu tất cả các Chủ nhiệm sáng kiến chịu trách nhiệm cập nhật tiến độ lên hệ thống dashboard định kỳ vào <b>thứ Sáu hàng tuần</b>."}
-  ],
-  "hoat_dong_cty_con": [], "// Hướng dẫn viết: Trích xuất các cơ chế phối hợp, quản lý chỉ tiêu với các công ty con. Mỗi cơ chế là một 'alpha_bullet'.",
-  "cong_viec_khac": [] "// Hướng dẫn viết: Trích xuất các nhiệm vụ bổ sung, các vấn đề phát sinh khác. Mỗi nhiệm vụ là một 'alpha_bullet'."
-}
-"""
+Before you begin, organize your files into a clean structure like this. It makes managing the Docker environment much easier.
+
+code
+Code
+download
+content_copy
+expand_less
+your-project-folder/
+│
+├── audio_chunks/              # <-- Place your raw audio chunks here (e.g., meeting_01.wav)
+│   ├── Hop to 2341 thang 12_01.wav
+│   └── Hop to 2341 thang 12_02.wav
+│
+├── concatenated_audio/        # <-- The concatenated audio will be saved here
+│
+├── scripts/                   # <-- Put the Python scripts here
+│   ├── concat_audio.py
+│   └── upload_to_s3.py
+│
+├── .aws/                      # <-- Your AWS credentials folder
+│   └── credentials
+│   └── config
+│
+├── Dockerfile                 # <-- We will create this
+└── docker-compose.yml         # <-- We will create this
+
+Important: Make sure you have run aws configure on your host machine at least once, so that the .aws directory is created in your user's home folder. You will then need to copy this .aws folder into your project directory as shown above. This is a secure way to provide credentials to your container without hardcoding them.
+
+Step 1: Create the Python Scripts
+
+First, let's separate the Python code you were given into two distinct files inside the scripts/ directory.
+
+1. scripts/concat_audio.py
+
+code
+Python
+download
+content_copy
+expand_less
+import os
+from pydub import AudioSegment
+from collections import defaultdict
+
+def concatenate_audio_chunks(source_folder, output_folder):
+    """
+    Groups audio chunks by meeting name, concatenates them in order,
+    and saves them to an output folder.
+    """
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    audio_chunks = defaultdict(list)
+
+    for filename in os.listdir(source_folder):
+        if filename.endswith(".wav"):
+            try:
+                parts = filename.rsplit('_', 1)
+                meeting_name = parts[0]
+                chunk_number_with_ext = parts[1]
+                chunk_number = int(os.path.splitext(chunk_number_with_ext)[0])
+
+                audio_chunks[meeting_name].append({
+                    'number': chunk_number,
+                    'path': os.path.join(source_folder, filename)
+                })
+            except (IndexError, ValueError) as e:
+                print(f"Could not parse filename: {filename}. Skipping. Error: {e}")
+
+    for meeting_name, chunks in audio_chunks.items():
+        if not chunks:
+            continue
+        
+        sorted_chunks = sorted(chunks, key=lambda x: x['number'])
+        combined = AudioSegment.from_wav(sorted_chunks[0]['path'])
+
+        for chunk_data in sorted_chunks[1:]:
+            combined += AudioSegment.from_wav(chunk_data['path'])
+
+        output_filename = f"{meeting_name}.wav"
+        output_path = os.path.join(output_folder, output_filename)
+        print(f"Exporting {output_path}...")
+        combined.export(output_path, format="wav")
+
+    print("Concatenation complete!")
+
+# --- The paths inside the container ---
+SOURCE_AUDIO_FOLDER = "/app/audio_chunks"
+CONCATENATED_AUDIO_FOLDER = "/app/concatenated_audio"
+
+if __name__ == "__main__":
+    concatenate_audio_chunks(SOURCE_AUDIO_FOLDER, CONCATENATED_AUDIO_FOLDER)
+
+2. scripts/upload_to_s3.py
+
+code
+Python
+download
+content_copy
+expand_less
+import os
+import boto3
+
+def upload_folder_to_s3(local_folder, bucket_name, s3_prefix):
+    """
+    Uploads all files from a local folder to an S3 bucket with a specific prefix.
+    """
+    # boto3 will automatically use the credentials mounted at /root/.aws/
+    s3_client = boto3.client('s3')
+
+    print(f"Uploading files from '{local_folder}' to 's3://{bucket_name}/{s3_prefix}'...")
+
+    for filename in os.listdir(local_folder):
+        local_path = os.path.join(local_folder, filename)
+        if os.path.isfile(local_path):
+            s3_key = f"{s3_prefix}{filename}"
+            try:
+                s3_client.upload_file(local_path, bucket_name, s3_key)
+                print(f"  Successfully uploaded {filename} to {s3_key}")
+            except Exception as e:
+                print(f"  Error uploading {filename}: {e}")
+
+    print("Upload complete!")
+
+# --- Configuration ---
+# IMPORTANT: Replace these with your actual details
+CONCATENATED_AUDIO_FOLDER = "/app/concatenated_audio" # Path inside the container
+S3_BUCKET_NAME = os.environ.get("S3_BUCKET_NAME", "your-default-bucket-name")
+S3_PROJECT_PREFIX = os.environ.get("S3_PROJECT_PREFIX", "your-project-name/concatenated-audio/")
+
+if __name__ == "__main__":
+    if S3_BUCKET_NAME == "your-default-bucket-name":
+        print("Warning: S3_BUCKET_NAME is not set. Please update it in docker-compose.yml")
+    else:
+        upload_folder_to_s3(CONCATENATED_AUDIO_FOLDER, S3_BUCKET_NAME, S3_PROJECT_PREFIX)
+
+Notice I've modified the scripts slightly to read paths and S3 details from within the container and from environment variables, which is a Docker best practice.
+
+Step 2: Create the Dockerfile
+
+This file defines the environment for your application. It installs Python, FFmpeg (a crucial dependency for pydub), and the necessary Python libraries.
+
+Place this file in the root of your-project-folder/.
+
+Dockerfile
+
+code
+Dockerfile
+download
+content_copy
+expand_less
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Install system dependencies required for pydub (ffmpeg) and aws-cli
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    aws-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the requirements file into the container at /app
+COPY requirements.txt .
+
+# Install any needed packages specified in requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the scripts into the container
+COPY ./scripts/ /app/scripts/
+
+# Set the entrypoint to keep the container running (optional, but good for exec)
+CMD ["tail", "-f", "/dev/null"]
+
+You'll also need a requirements.txt file in the root of your project folder.
+
+requirements.txt
+
+code
+Code
+download
+content_copy
+expand_less
+pydub
+boto3
+Step 3: Create the docker-compose.yml File
+
+This file tells Docker how to run your container, what folders to connect (mount), and how to pass in your S3 bucket details.
+
+Place this file in the root of your-project-folder/.
+
+docker-compose.yml
+
+code
+Yaml
+download
+content_copy
+expand_less
+version: '3.8'
+
+services:
+  audio-processor:
+    # Build the image from the Dockerfile in the current directory
+    build: .
+    # Name the container for easier access
+    container_name: audio_processor
+    
+    # Pass S3 bucket details as environment variables
+    # IMPORTANT: Change these values to match your S3 setup
+    environment:
+      - S3_BUCKET_NAME=your-company-bucket-name
+      - S3_PROJECT_PREFIX=your-project-name/concatenated-audio/
+      # The AWS CLI and boto3 will use the mounted credentials file
+      - AWS_PROFILE=default 
+    
+    # Mount local directories into the container
+    # This allows the container to access your files
+    volumes:
+      # Mounts your local audio_chunks folder to /app/audio_chunks inside the container
+      - ./audio_chunks:/app/audio_chunks
+      
+      # Mounts your local concatenated_audio folder to /app/concatenated_audio
+      - ./concatenated_audio:/app/concatenated_audio
+      
+      # Mounts your Python scripts
+      - ./scripts:/app/scripts
+      
+      # Mounts your AWS credentials securely into the container's root home directory
+      # This is where boto3 and aws-cli look for them by default
+      - ./aws:/root/.aws:ro # 'ro' makes it read-only for extra security
+
+Before running, make sure to edit the environment section in the docker-compose.yml file with your actual S3 bucket name and prefix.
+
+Step 4: How to Run Everything
+
+You are now ready to run the entire workflow from your terminal.
+
+Open a terminal in your-project-folder/.
+
+Build and Start the Container: This command builds the Docker image based on your Dockerfile and starts the service defined in your docker-compose.yml in the background.
+
+code
+Bash
+download
+content_copy
+expand_less
+docker-compose up --build -d
+
+Run the Concatenation Script: This command executes the concat_audio.py script inside the running container.
+
+code
+Bash
+download
+content_copy
+expand_less
+docker-compose exec audio-processor python /app/scripts/concat_audio.py
+```    You will see the "Exporting..." messages in your terminal. When it's done, check your local `concatenated_audio` folder—the combined WAV files will be there!
+
+Run the S3 Upload Script: Now, execute the upload script inside the same container.
+
+code
+Bash
+download
+content_copy
+expand_less
+docker-compose exec audio-processor python /app/scripts/upload_to_s3.py
+
+The script will find the combined files in /app/concatenated_audio (which is your local folder) and upload them to S3 using the credentials you mounted.
+
+Stop the Container: Once you are finished, you can stop the container.
+
+code
+Bash
+download
+content_copy
+expand_less
+docker-compose down
